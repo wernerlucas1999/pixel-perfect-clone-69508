@@ -72,8 +72,8 @@ export function Header({
             <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-border" />
 
             {/* Process Selector */}
-            <div className="hidden sm:flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Proceso:</span>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline text-sm text-muted-foreground">Proceso:</span>
               <Select
                 value={selectedProcess}
                 onValueChange={(value) => onProcessChange(value as ProcessType | "all")}

@@ -339,7 +339,7 @@ function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background dark">
-      <Sidebar />
+      <Sidebar selectedProcess={selectedProcess} onProcessChange={setSelectedProcess} />
       <div className="lg:pl-64">
         <Header
           selectedProcess={selectedProcess}
