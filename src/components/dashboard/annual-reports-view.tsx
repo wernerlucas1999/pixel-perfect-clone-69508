@@ -1,28 +1,27 @@
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
-import { FileText, Clock, CheckCircle, AlertTriangle } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { FileText, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 
 interface PieData {
-  name: string
-  value: number
-  fill: string
+  name: string;
+  value: number;
+  fill: string;
 }
 
 interface AnnualReportsViewProps {
-  pieData: PieData[]
+  pieData: PieData[];
   kpis: {
-    total: number
-    pendiente: number
-    proximoAHacer: number
-    completado: number
-  }
+    total: number;
+    pendiente: number;
+    proximoAHacer: number;
+    completado: number;
+  };
 }
 
 export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
   // Calculate health check percentage (completados vs proximo a vencer)
-  const healthPercentage = kpis.total > 0 ? Math.round((kpis.completado / kpis.total) * 100) : 0
-  const atRiskPercentage = kpis.total > 0 ? Math.round((kpis.proximoAHacer / kpis.total) * 100) : 0
+  const healthPercentage = kpis.total > 0 ? Math.round((kpis.completado / kpis.total) * 100) : 0;
+  const atRiskPercentage = kpis.total > 0 ? Math.round((kpis.proximoAHacer / kpis.total) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -42,9 +41,7 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
 
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pendiente
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pendiente</CardTitle>
             <Clock className="h-4 w-4 text-chart-1" />
           </CardHeader>
           <CardContent>
@@ -66,9 +63,7 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
 
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Completado
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Completado</CardTitle>
             <CheckCircle className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
@@ -100,7 +95,9 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Completados</span>
-                    <span className="text-success font-medium">{kpis.completado} ({healthPercentage}%)</span>
+                    <span className="text-success font-medium">
+                      {kpis.completado} ({healthPercentage}%)
+                    </span>
                   </div>
                   <div className="h-3 rounded-full bg-muted overflow-hidden">
                     <div
@@ -113,7 +110,9 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Proximo a Hacer</span>
-                    <span className="text-warning font-medium">{kpis.proximoAHacer} ({atRiskPercentage}%)</span>
+                    <span className="text-warning font-medium">
+                      {kpis.proximoAHacer} ({atRiskPercentage}%)
+                    </span>
                   </div>
                   <div className="h-3 rounded-full bg-muted overflow-hidden">
                     <div
@@ -195,5 +194,5 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
         </Card>
       </div>
     </div>
-  )
+  );
 }

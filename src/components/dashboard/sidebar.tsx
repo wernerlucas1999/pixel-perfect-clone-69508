@@ -1,5 +1,4 @@
-
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Timer,
@@ -9,7 +8,7 @@ import {
   GitBranch,
   FileText,
   Bell,
-} from "lucide-react"
+} from "lucide-react";
 
 const navigation = [
   { name: "Cycle Time", icon: Timer, current: true },
@@ -17,12 +16,12 @@ const navigation = [
   { name: "Metricas", icon: TrendingUp, current: false },
   { name: "Reportes", icon: BarChart3, current: false },
   { name: "Documentos", icon: FileText, current: false },
-]
+];
 
 const secondaryNavigation = [
   { name: "Notificaciones", icon: Bell },
   { name: "Configuracion", icon: Settings },
-]
+];
 
 export function Sidebar() {
   return (
@@ -52,7 +51,7 @@ export function Sidebar() {
                         item.current
                           ? "bg-sidebar-accent text-sidebar-accent-foreground"
                           : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent",
-                        "group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-medium transition-colors"
+                        "group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-medium transition-colors",
                       )}
                     >
                       <item.icon
@@ -60,7 +59,7 @@ export function Sidebar() {
                           item.current
                             ? "text-sidebar-primary"
                             : "text-muted-foreground group-hover:text-sidebar-foreground",
-                          "h-5 w-5 shrink-0 transition-colors"
+                          "h-5 w-5 shrink-0 transition-colors",
                         )}
                       />
                       {item.name}
@@ -105,5 +104,5 @@ export function Sidebar() {
         </nav>
       </div>
     </div>
-  )
+  );
 }

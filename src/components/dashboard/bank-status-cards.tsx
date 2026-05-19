@@ -1,15 +1,14 @@
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { type BankStatus, BANK_STATUS_COLORS } from "@/lib/clickup-api"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { type BankStatus, BANK_STATUS_COLORS } from "@/lib/clickup-api";
 
 interface StatusData {
-  status: BankStatus
-  count: number
-  color: string
+  status: BankStatus;
+  count: number;
+  color: string;
 }
 
 interface BankStatusCardsProps {
-  data: StatusData[]
+  data: StatusData[];
 }
 
 // Short display names for status labels
@@ -20,7 +19,7 @@ const STATUS_SHORT_NAMES: Record<string, string> = {
   "INFO ADICIONAL BANK": "Info Adicional",
   "VERIF IDENTIDAD": "Verif. Identidad",
   INICIADA: "Iniciada",
-}
+};
 
 export function BankStatusCards({ data }: BankStatusCardsProps) {
   return (
@@ -43,15 +42,12 @@ export function BankStatusCards({ data }: BankStatusCardsProps) {
                 className="absolute top-0 left-0 w-full h-1"
                 style={{ backgroundColor: item.color }}
               />
-              
+
               {/* Count */}
-              <div
-                className="text-3xl font-bold"
-                style={{ color: item.color }}
-              >
+              <div className="text-3xl font-bold" style={{ color: item.color }}>
                 {item.count}
               </div>
-              
+
               {/* Status name */}
               <div className="text-xs text-muted-foreground mt-1 font-medium">
                 {STATUS_SHORT_NAMES[item.status] || item.status}
@@ -61,5 +57,5 @@ export function BankStatusCards({ data }: BankStatusCardsProps) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -1,5 +1,4 @@
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Bar,
   BarChart,
@@ -9,16 +8,16 @@ import {
   ResponsiveContainer,
   Tooltip,
   LabelList,
-} from "recharts"
+} from "recharts";
 
 interface FunnelData {
-  status: string
-  count: number
-  fill: string
+  status: string;
+  count: number;
+  fill: string;
 }
 
 interface FunnelChartProps {
-  data: FunnelData[]
+  data: FunnelData[];
 }
 
 export function FunnelChart({ data }: FunnelChartProps) {
@@ -33,12 +32,12 @@ export function FunnelChart({ data }: FunnelChartProps) {
     FAXEADO: "Faxeado",
     "ESPERANDO EIN": "Esp. EIN",
     "EIN LISTO": "EIN Listo",
-  }
+  };
 
   const chartData = data.map((d) => ({
     ...d,
     shortStatus: shortNames[d.status] || d.status,
-  }))
+  }));
 
   return (
     <Card className="border-border bg-card">
@@ -71,8 +70,8 @@ export function FunnelChart({ data }: FunnelChartProps) {
                 labelStyle={{ color: "hsl(var(--foreground))" }}
                 formatter={(value: number) => [`${value} tareas`, "Cantidad"]}
                 labelFormatter={(label) => {
-                  const item = chartData.find((d) => d.shortStatus === label)
-                  return item?.status || label
+                  const item = chartData.find((d) => d.shortStatus === label);
+                  return item?.status || label;
                 }}
               />
               <Bar dataKey="count" radius={[0, 4, 4, 0]}>
@@ -92,5 +91,5 @@ export function FunnelChart({ data }: FunnelChartProps) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

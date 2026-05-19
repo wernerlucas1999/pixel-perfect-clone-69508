@@ -1,5 +1,4 @@
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart,
   Bar,
@@ -10,23 +9,23 @@ import {
   Legend,
   ResponsiveContainer,
   Cell,
-} from "recharts"
-import { Users, Building2, Clock } from "lucide-react"
+} from "recharts";
+import { Users, Building2, Clock } from "lucide-react";
 
 interface ComparisonData {
-  name: string
-  clientDays: number
-  bankDays: number
-  fullName: string
-  status: string
-  blockingAlert: "client_blocked" | "bank_delay" | null
+  name: string;
+  clientDays: number;
+  bankDays: number;
+  fullName: string;
+  status: string;
+  blockingAlert: "client_blocked" | "bank_delay" | null;
 }
 
 interface BottleneckAnalysisProps {
-  comparisonData: ComparisonData[]
-  clientResponsibilityRatio: number
-  totalClientDays: number
-  totalBankDays: number
+  comparisonData: ComparisonData[];
+  clientResponsibilityRatio: number;
+  totalClientDays: number;
+  totalBankDays: number;
 }
 
 export function BottleneckAnalysis({
@@ -35,7 +34,7 @@ export function BottleneckAnalysis({
   totalClientDays,
   totalBankDays,
 }: BottleneckAnalysisProps) {
-  const bankResponsibilityRatio = 100 - clientResponsibilityRatio
+  const bankResponsibilityRatio = 100 - clientResponsibilityRatio;
 
   return (
     <div className="space-y-6">
@@ -52,9 +51,7 @@ export function BottleneckAnalysis({
             <div className="text-2xl font-bold text-warning">
               {clientResponsibilityRatio}% Cliente
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Del tiempo total de espera
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Del tiempo total de espera</p>
           </CardContent>
         </Card>
 
@@ -67,9 +64,7 @@ export function BottleneckAnalysis({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-chart-3">{totalClientDays}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Esperando input/verificacion
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Esperando input/verificacion</p>
           </CardContent>
         </Card>
 
@@ -82,9 +77,7 @@ export function BottleneckAnalysis({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-chart-1">{totalBankDays}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Procesamiento bancario
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Procesamiento bancario</p>
           </CardContent>
         </Card>
       </div>
@@ -128,12 +121,12 @@ export function BottleneckAnalysis({
                   }}
                   labelStyle={{ color: "hsl(var(--foreground))" }}
                   formatter={(value: number, name: string) => {
-                    const label = name === "clientDays" ? "Dias Cliente" : "Dias Banco"
-                    return [`${value} dias`, label]
+                    const label = name === "clientDays" ? "Dias Cliente" : "Dias Banco";
+                    return [`${value} dias`, label];
                   }}
                   labelFormatter={(label) => {
-                    const item = comparisonData.find((d) => d.name === label)
-                    return item?.fullName || label
+                    const item = comparisonData.find((d) => d.name === label);
+                    return item?.fullName || label;
                   }}
                 />
                 <Legend
@@ -143,19 +136,39 @@ export function BottleneckAnalysis({
                     </span>
                   )}
                 />
-                <Bar dataKey="clientDays" stackId="a" fill="hsl(var(--chart-3))" name="clientDays" radius={[0, 0, 0, 0]}>
+                <Bar
+                  dataKey="clientDays"
+                  stackId="a"
+                  fill="hsl(var(--chart-3))"
+                  name="clientDays"
+                  radius={[0, 0, 0, 0]}
+                >
                   {comparisonData.map((entry, index) => (
                     <Cell
                       key={`client-${index}`}
-                      fill={entry.blockingAlert === "client_blocked" ? "hsl(var(--warning))" : "hsl(var(--chart-3))"}
+                      fill={
+                        entry.blockingAlert === "client_blocked"
+                          ? "hsl(var(--warning))"
+                          : "hsl(var(--chart-3))"
+                      }
                     />
                   ))}
                 </Bar>
-                <Bar dataKey="bankDays" stackId="a" fill="hsl(var(--chart-1))" name="bankDays" radius={[0, 4, 4, 0]}>
+                <Bar
+                  dataKey="bankDays"
+                  stackId="a"
+                  fill="hsl(var(--chart-1))"
+                  name="bankDays"
+                  radius={[0, 4, 4, 0]}
+                >
                   {comparisonData.map((entry, index) => (
                     <Cell
                       key={`bank-${index}`}
-                      fill={entry.blockingAlert === "bank_delay" ? "hsl(var(--destructive))" : "hsl(var(--chart-1))"}
+                      fill={
+                        entry.blockingAlert === "bank_delay"
+                          ? "hsl(var(--destructive))"
+                          : "hsl(var(--chart-1))"
+                      }
                     />
                   ))}
                 </Bar>
@@ -213,5 +226,5 @@ export function BottleneckAnalysis({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

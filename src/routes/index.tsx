@@ -48,11 +48,41 @@ interface DateRange {
   to: Date | null;
 }
 
-const defaultLLCKPIs = { totalTasks: 0, completedTasks: 0, cancelledTasks: 0, inProgressTasks: 0, avgLeadTime: 0, avgEINWait: 0, delayedTasks: 0 };
-const defaultBankKPIs = { totalTasks: 0, pendingTasks: 0, inProgressTasks: 0, completedTasks: 0, avgLeadTime: 0 };
+const defaultLLCKPIs = {
+  totalTasks: 0,
+  completedTasks: 0,
+  cancelledTasks: 0,
+  inProgressTasks: 0,
+  avgLeadTime: 0,
+  avgEINWait: 0,
+  delayedTasks: 0,
+};
+const defaultBankKPIs = {
+  totalTasks: 0,
+  pendingTasks: 0,
+  inProgressTasks: 0,
+  completedTasks: 0,
+  avgLeadTime: 0,
+};
 const defaultAnnualReportsKPIs = { total: 0, pendiente: 0, proximoAHacer: 0, completado: 0 };
-const defaultAgentesKPIs = { total: 0, pendiente: 0, esperandoInvoice: 0, completado: 0, completionRate: 0 };
-const defaultCXTicketsKPIs = { totalTickets: 0, abiertos: 0, resueltos: 0, prioridadAlta: 0, prioridadMedia: 0, prioridadBaja: 0, avgResolutionTime: 0, avgResponseTime: 0, resolutionRate: 0 };
+const defaultAgentesKPIs = {
+  total: 0,
+  pendiente: 0,
+  esperandoInvoice: 0,
+  completado: 0,
+  completionRate: 0,
+};
+const defaultCXTicketsKPIs = {
+  totalTickets: 0,
+  abiertos: 0,
+  resueltos: 0,
+  prioridadAlta: 0,
+  prioridadMedia: 0,
+  prioridadBaja: 0,
+  avgResolutionTime: 0,
+  avgResponseTime: 0,
+  resolutionRate: 0,
+};
 
 function DashboardPage() {
   const [selectedProcess, setSelectedProcess] = useState<ProcessType | "all">("llc_formation");
@@ -66,8 +96,12 @@ function DashboardPage() {
 
   const [, setFilteredTasks] = useState<Task[]>([]);
   const [kpis, setKpis] = useState(defaultLLCKPIs);
-  const [funnelData, setFunnelData] = useState<{ status: string; count: number; fill: string }[]>([]);
-  const [avgTimeData, setAvgTimeData] = useState<{ status: string; avgDays: number; fill: string }[]>([]);
+  const [funnelData, setFunnelData] = useState<{ status: string; count: number; fill: string }[]>(
+    [],
+  );
+  const [avgTimeData, setAvgTimeData] = useState<
+    { status: string; avgDays: number; fill: string }[]
+  >([]);
 
   const [, setFilteredBankTasks] = useState<BankTask[]>([]);
   const [bankKpis, setBankKpis] = useState(defaultBankKPIs);
@@ -81,18 +115,27 @@ function DashboardPage() {
 
   const [, setFilteredAnnualReports] = useState<AnnualReportTask[]>([]);
   const [annualReportsKPIs, setAnnualReportsKPIs] = useState(defaultAnnualReportsKPIs);
-  const [annualReportsPieData, setAnnualReportsPieData] = useState<{ name: string; value: number; fill: string }[]>([]);
+  const [annualReportsPieData, setAnnualReportsPieData] = useState<
+    { name: string; value: number; fill: string }[]
+  >([]);
 
   const [, setFilteredAgentes] = useState<AgenteRegistradoTask[]>([]);
   const [agentesKPIs, setAgentesKPIs] = useState(defaultAgentesKPIs);
-  const [agentesStatusChartData, setAgentesStatusChartData] = useState<{ status: string; count: number; fill: string }[]>([]);
+  const [agentesStatusChartData, setAgentesStatusChartData] = useState<
+    { status: string; count: number; fill: string }[]
+  >([]);
 
   const [, setFilteredCXTickets] = useState<CXTicket[]>([]);
   const [cxTicketsKPIs, setCXTicketsKPIs] = useState(defaultCXTicketsKPIs);
 
   const fetchLLCData = useCallback(async () => {
     try {
-      const tasks = await getFilteredTasks(selectedProcess, dateRange, selectedState, selectedPackage);
+      const tasks = await getFilteredTasks(
+        selectedProcess,
+        dateRange,
+        selectedState,
+        selectedPackage,
+      );
       setFilteredTasks(tasks);
       setKpis(calculateCycleTimeKPIs(tasks));
       setFunnelData(getFunnelData(tasks));
@@ -105,7 +148,12 @@ function DashboardPage() {
 
   const fetchBankData = useCallback(async () => {
     try {
-      const tasks = await getFilteredBankTasks(dateRange, selectedState, selectedPackage, selectedBank);
+      const tasks = await getFilteredBankTasks(
+        dateRange,
+        selectedState,
+        selectedPackage,
+        selectedBank,
+      );
       setFilteredBankTasks(tasks);
       setBankKpis(calculateBankKPIs(tasks));
       setBottleneckData(calculateBottleneckAnalysis(tasks));
@@ -180,7 +228,14 @@ function DashboardPage() {
       }
     };
     loadData();
-  }, [selectedProcess, fetchLLCData, fetchBankData, fetchAnnualReportsData, fetchAgentesData, fetchCXTicketsData]);
+  }, [
+    selectedProcess,
+    fetchLLCData,
+    fetchBankData,
+    fetchAnnualReportsData,
+    fetchAgentesData,
+    fetchCXTicketsData,
+  ]);
 
   const renderProcessView = () => {
     if (isLoading) {
@@ -233,7 +288,9 @@ function DashboardPage() {
               </div>
               <div className="bg-card border border-border rounded-lg p-4">
                 <p className="text-sm font-medium text-muted-foreground">Lead Time Promedio</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{bankKpis.avgLeadTime} dias</p>
+                <p className="text-2xl font-bold text-foreground mt-1">
+                  {bankKpis.avgLeadTime} dias
+                </p>
               </div>
             </div>
             <BankStatusCards data={bankStatusCounts} />
@@ -250,7 +307,9 @@ function DashboardPage() {
         return <AnnualReportsView pieData={annualReportsPieData} kpis={annualReportsKPIs} />;
 
       case "agentes_registrados":
-        return <AgentesRegistradosView kpis={agentesKPIs} statusChartData={agentesStatusChartData} />;
+        return (
+          <AgentesRegistradosView kpis={agentesKPIs} statusChartData={agentesStatusChartData} />
+        );
 
       case "ticketera_cx":
         return <CXTicketsView kpis={cxTicketsKPIs} />;

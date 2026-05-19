@@ -1,23 +1,22 @@
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts"
-import { Users, Clock, FileCheck, Percent } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
+import { Users, Clock, FileCheck, Percent } from "lucide-react";
 
 interface AgentesStatusData {
-  status: string
-  count: number
-  fill: string
+  status: string;
+  count: number;
+  fill: string;
 }
 
 interface AgentesRegistradosViewProps {
   kpis: {
-    total: number
-    pendiente: number
-    esperandoInvoice: number
-    completado: number
-    completionRate: number
-  }
-  statusChartData: AgentesStatusData[]
+    total: number;
+    pendiente: number;
+    esperandoInvoice: number;
+    completado: number;
+    completionRate: number;
+  };
+  statusChartData: AgentesStatusData[];
 }
 
 export function AgentesRegistradosView({ kpis, statusChartData }: AgentesRegistradosViewProps) {
@@ -39,9 +38,7 @@ export function AgentesRegistradosView({ kpis, statusChartData }: AgentesRegistr
 
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pendiente
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pendiente</CardTitle>
             <Clock className="h-4 w-4 text-chart-1" />
           </CardHeader>
           <CardContent>
@@ -125,22 +122,28 @@ export function AgentesRegistradosView({ kpis, statusChartData }: AgentesRegistr
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded bg-[#6366f1]" />
                 <span className="text-sm text-muted-foreground">Pendiente</span>
-                <span className="ml-auto text-sm font-medium text-foreground">{kpis.pendiente}</span>
+                <span className="ml-auto text-sm font-medium text-foreground">
+                  {kpis.pendiente}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded bg-[#f59e0b]" />
                 <span className="text-sm text-muted-foreground">Esperando Invoice</span>
-                <span className="ml-auto text-sm font-medium text-foreground">{kpis.esperandoInvoice}</span>
+                <span className="ml-auto text-sm font-medium text-foreground">
+                  {kpis.esperandoInvoice}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded bg-[#22c55e]" />
                 <span className="text-sm text-muted-foreground">Completado</span>
-                <span className="ml-auto text-sm font-medium text-foreground">{kpis.completado}</span>
+                <span className="ml-auto text-sm font-medium text-foreground">
+                  {kpis.completado}
+                </span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

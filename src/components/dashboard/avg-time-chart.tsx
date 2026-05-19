@@ -1,5 +1,4 @@
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Bar,
   BarChart,
@@ -9,16 +8,16 @@ import {
   ResponsiveContainer,
   Tooltip,
   LabelList,
-} from "recharts"
+} from "recharts";
 
 interface AvgTimeData {
-  status: string
-  avgDays: number
-  fill: string
+  status: string;
+  avgDays: number;
+  fill: string;
 }
 
 interface AvgTimeChartProps {
-  data: AvgTimeData[]
+  data: AvgTimeData[];
 }
 
 export function AvgTimeChart({ data }: AvgTimeChartProps) {
@@ -32,12 +31,12 @@ export function AvgTimeChart({ data }: AvgTimeChartProps) {
     FAXEADO: "Faxeado",
     "ESPERANDO EIN": "Esp. EIN",
     "EIN LISTO": "EIN Listo",
-  }
+  };
 
   const chartData = data.map((d) => ({
     ...d,
     shortStatus: shortNames[d.status] || d.status,
-  }))
+  }));
 
   return (
     <Card className="border-border bg-card">
@@ -75,8 +74,8 @@ export function AvgTimeChart({ data }: AvgTimeChartProps) {
                 labelStyle={{ color: "hsl(var(--foreground))" }}
                 formatter={(value: number) => [`${value} dias`, "Promedio"]}
                 labelFormatter={(label) => {
-                  const item = chartData.find((d) => d.shortStatus === label)
-                  return item?.status || label
+                  const item = chartData.find((d) => d.shortStatus === label);
+                  return item?.status || label;
                 }}
               />
               <Bar dataKey="avgDays" radius={[0, 4, 4, 0]}>
@@ -97,5 +96,5 @@ export function AvgTimeChart({ data }: AvgTimeChartProps) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

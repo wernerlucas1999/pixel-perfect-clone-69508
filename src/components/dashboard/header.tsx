@@ -1,18 +1,13 @@
-
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   PROCESSES,
   STATES,
@@ -22,28 +17,28 @@ import {
   type StateType,
   type PackageType,
   type BankType,
-} from "@/lib/clickup-api"
-import { CalendarIcon, Menu } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { cn } from "@/lib/utils"
+} from "@/lib/clickup-api";
+import { CalendarIcon, Menu } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface DateRange {
-  from: Date | null
-  to: Date | null
+  from: Date | null;
+  to: Date | null;
 }
 
 interface HeaderProps {
-  selectedProcess: ProcessType | "all"
-  onProcessChange: (process: ProcessType | "all") => void
-  dateRange: DateRange
-  onDateRangeChange: (range: DateRange) => void
-  selectedState: StateType | "all"
-  onStateChange: (state: StateType | "all") => void
-  selectedPackage: PackageType | "all"
-  onPackageChange: (pkg: PackageType | "all") => void
-  selectedBank: BankType | "all"
-  onBankChange: (bank: BankType | "all") => void
+  selectedProcess: ProcessType | "all";
+  onProcessChange: (process: ProcessType | "all") => void;
+  dateRange: DateRange;
+  onDateRangeChange: (range: DateRange) => void;
+  selectedState: StateType | "all";
+  onStateChange: (state: StateType | "all") => void;
+  selectedPackage: PackageType | "all";
+  onPackageChange: (pkg: PackageType | "all") => void;
+  selectedBank: BankType | "all";
+  onBankChange: (bank: BankType | "all") => void;
 }
 
 export function Header({
@@ -58,7 +53,7 @@ export function Header({
   selectedBank,
   onBankChange,
 }: HeaderProps) {
-  const isBankApplication = selectedProcess === "bank_application"
+  const isBankApplication = selectedProcess === "bank_application";
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
@@ -123,7 +118,7 @@ export function Header({
                 variant="outline"
                 className={cn(
                   "w-[180px] sm:w-[240px] justify-start text-left font-normal border-border",
-                  !dateRange.from && "text-muted-foreground"
+                  !dateRange.from && "text-muted-foreground",
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -258,5 +253,5 @@ export function Header({
         )}
       </div>
     </header>
-  )
+  );
 }

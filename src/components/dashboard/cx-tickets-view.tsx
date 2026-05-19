@@ -1,40 +1,39 @@
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts"
-import { Ticket, Clock, AlertTriangle, Timer } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
+import { Ticket, Clock, AlertTriangle, Timer } from "lucide-react";
 
 interface CXTicketsViewProps {
   kpis: {
-    totalTickets: number
-    abiertos: number
-    resueltos: number
-    prioridadAlta: number
-    prioridadMedia: number
-    prioridadBaja: number
-    avgResolutionTime: number
-    avgResponseTime: number
-    resolutionRate: number
-  }
+    totalTickets: number;
+    abiertos: number;
+    resueltos: number;
+    prioridadAlta: number;
+    prioridadMedia: number;
+    prioridadBaja: number;
+    avgResolutionTime: number;
+    avgResponseTime: number;
+    resolutionRate: number;
+  };
 }
 
 export function CXTicketsView({ kpis }: CXTicketsViewProps) {
   // Format time from minutes
   const formatTime = (minutes: number) => {
-    if (minutes < 60) return `${minutes} min`
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    if (hours < 24) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
-    const days = Math.floor(hours / 24)
-    const remainingHours = hours % 24
-    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`
-  }
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours < 24) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+  };
 
   // Priority chart data
   const priorityData = [
     { priority: "Alta", count: kpis.prioridadAlta, fill: "#ef4444" },
     { priority: "Media", count: kpis.prioridadMedia, fill: "#f59e0b" },
     { priority: "Baja", count: kpis.prioridadBaja, fill: "#22c55e" },
-  ]
+  ];
 
   return (
     <div className="space-y-6">
@@ -49,9 +48,7 @@ export function CXTicketsView({ kpis }: CXTicketsViewProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-chart-1">{kpis.abiertos}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              de {kpis.totalTickets} total
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">de {kpis.totalTickets} total</p>
           </CardContent>
         </Card>
 
@@ -66,9 +63,7 @@ export function CXTicketsView({ kpis }: CXTicketsViewProps) {
             <div className="text-2xl font-bold text-warning">
               {formatTime(kpis.avgResolutionTime)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              creacion a cierre
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">creacion a cierre</p>
           </CardContent>
         </Card>
 
@@ -83,9 +78,7 @@ export function CXTicketsView({ kpis }: CXTicketsViewProps) {
             <div className="text-2xl font-bold text-success">
               {formatTime(kpis.avgResponseTime)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              promedio inicial
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">promedio inicial</p>
           </CardContent>
         </Card>
 
@@ -98,9 +91,7 @@ export function CXTicketsView({ kpis }: CXTicketsViewProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{kpis.prioridadAlta}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              tickets urgentes
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">tickets urgentes</p>
           </CardContent>
         </Card>
       </div>
@@ -161,7 +152,9 @@ export function CXTicketsView({ kpis }: CXTicketsViewProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded bg-[#f59e0b]" />
-                  <span className="text-sm text-muted-foreground">Media: {kpis.prioridadMedia}</span>
+                  <span className="text-sm text-muted-foreground">
+                    Media: {kpis.prioridadMedia}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded bg-[#22c55e]" />
@@ -191,7 +184,11 @@ export function CXTicketsView({ kpis }: CXTicketsViewProps) {
                 <div className="h-3 rounded-full bg-muted overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      kpis.resolutionRate >= 80 ? "bg-success" : kpis.resolutionRate >= 60 ? "bg-warning" : "bg-destructive"
+                      kpis.resolutionRate >= 80
+                        ? "bg-success"
+                        : kpis.resolutionRate >= 60
+                          ? "bg-warning"
+                          : "bg-destructive"
                     }`}
                     style={{ width: `${kpis.resolutionRate}%` }}
                   />
@@ -202,7 +199,9 @@ export function CXTicketsView({ kpis }: CXTicketsViewProps) {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Abiertos vs Cerrados</span>
-                  <span className="text-foreground font-medium">{kpis.abiertos} / {kpis.resueltos}</span>
+                  <span className="text-foreground font-medium">
+                    {kpis.abiertos} / {kpis.resueltos}
+                  </span>
                 </div>
                 <div className="flex h-4 overflow-hidden rounded-lg">
                   <div
@@ -228,14 +227,26 @@ export function CXTicketsView({ kpis }: CXTicketsViewProps) {
               <div className="pt-4 border-t border-border space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Tiempo de Respuesta</span>
-                  <span className={`text-sm font-medium ${kpis.avgResponseTime <= 15 ? "text-success" : kpis.avgResponseTime <= 30 ? "text-warning" : "text-destructive"}`}>
-                    {kpis.avgResponseTime <= 15 ? "Excelente" : kpis.avgResponseTime <= 30 ? "Bueno" : "Mejorable"}
+                  <span
+                    className={`text-sm font-medium ${kpis.avgResponseTime <= 15 ? "text-success" : kpis.avgResponseTime <= 30 ? "text-warning" : "text-destructive"}`}
+                  >
+                    {kpis.avgResponseTime <= 15
+                      ? "Excelente"
+                      : kpis.avgResponseTime <= 30
+                        ? "Bueno"
+                        : "Mejorable"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Tiempo de Resolucion</span>
-                  <span className={`text-sm font-medium ${kpis.avgResolutionTime <= 180 ? "text-success" : kpis.avgResolutionTime <= 360 ? "text-warning" : "text-destructive"}`}>
-                    {kpis.avgResolutionTime <= 180 ? "Excelente" : kpis.avgResolutionTime <= 360 ? "Bueno" : "Mejorable"}
+                  <span
+                    className={`text-sm font-medium ${kpis.avgResolutionTime <= 180 ? "text-success" : kpis.avgResolutionTime <= 360 ? "text-warning" : "text-destructive"}`}
+                  >
+                    {kpis.avgResolutionTime <= 180
+                      ? "Excelente"
+                      : kpis.avgResolutionTime <= 360
+                        ? "Bueno"
+                        : "Mejorable"}
                   </span>
                 </div>
               </div>
@@ -244,5 +255,5 @@ export function CXTicketsView({ kpis }: CXTicketsViewProps) {
         </Card>
       </div>
     </div>
-  )
+  );
 }

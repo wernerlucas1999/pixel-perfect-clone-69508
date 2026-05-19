@@ -1,15 +1,14 @@
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ListTodo, CheckCircle2, Clock, AlertTriangle, Timer, Activity } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ListTodo, CheckCircle2, Clock, AlertTriangle, Timer, Activity } from "lucide-react";
 
 interface KPICardsProps {
-  totalTasks: number
-  completedTasks: number
-  cancelledTasks?: number
-  inProgressTasks: number
-  avgLeadTime: number
-  avgEINWait: number
-  delayedTasks: number
+  totalTasks: number;
+  completedTasks: number;
+  cancelledTasks?: number;
+  inProgressTasks: number;
+  avgLeadTime: number;
+  avgEINWait: number;
+  delayedTasks: number;
 }
 
 export function KPICards({
@@ -64,7 +63,7 @@ export function KPICards({
       description: "> 5 dias en estado",
       accent: delayedTasks > 0,
     },
-  ]
+  ];
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -74,9 +73,7 @@ export function KPICards({
           className={`border-border bg-card ${kpi.accent ? "ring-1 ring-warning/50" : ""}`}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {kpi.title}
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.title}</CardTitle>
             <kpi.icon
               className={`h-4 w-4 ${kpi.accent ? "text-warning" : "text-muted-foreground"}`}
             />
@@ -92,5 +89,5 @@ export function KPICards({
         </Card>
       ))}
     </div>
-  )
+  );
 }
