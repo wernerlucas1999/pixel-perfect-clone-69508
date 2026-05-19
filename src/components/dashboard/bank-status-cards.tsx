@@ -1,4 +1,3 @@
-"use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { type BankStatus, BANK_STATUS_COLORS } from "@/lib/clickup-api"
