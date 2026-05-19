@@ -414,7 +414,7 @@ function mapToBankTask(raw: any): BankTask {
     bankWaitDays = Math.max(0, totalBankProcess - esperaVerifId)
   }
 
-  const status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES)
+  const status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES) ?? "PENDIENTE"
   
   // Alertas de bloqueo basadas en tiempo actual en estado
   const currentDays = calcCurrentStatusDays(raw)
@@ -463,7 +463,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutos
 export async function fetchLLCTasks(): Promise<Task[]> {
   if (_llcCache && Date.now() - _llcCache.ts < CACHE_TTL_MS) return _llcCache.data
   const raw = await fetchAllTasks(LIST_IDS.llc_formation)
-  const data = raw.map(mapToTask)
+  const data = raw.map(mapToTask).filter((t): t is Task => t !== null)
   _llcCache = { data, ts: Date.now() }
   return data
 }
@@ -471,7 +471,7 @@ export async function fetchLLCTasks(): Promise<Task[]> {
 export async function fetchBankTasks(): Promise<BankTask[]> {
   if (_bankCache && Date.now() - _bankCache.ts < CACHE_TTL_MS) return _bankCache.data
   const raw = await fetchAllTasks(LIST_IDS.bank_application)
-  const data = raw.map(mapToBankTask)
+  const data = raw.map(mapToBankTask).filter((t): t is BankTask => t !== null)
   _bankCache = { data, ts: Date.now() }
   return data
 }
