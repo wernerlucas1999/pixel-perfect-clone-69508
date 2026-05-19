@@ -52,7 +52,7 @@ const defaultLLCKPIs = { totalTasks: 0, completedTasks: 0, cancelledTasks: 0, in
 const defaultBankKPIs = { totalTasks: 0, pendingTasks: 0, inProgressTasks: 0, completedTasks: 0, avgLeadTime: 0 };
 const defaultAnnualReportsKPIs = { total: 0, pendiente: 0, proximoAHacer: 0, completado: 0 };
 const defaultAgentesKPIs = { total: 0, pendiente: 0, esperandoInvoice: 0, completado: 0, completionRate: 0 };
-const defaultCXTicketsKPIs = { totalTickets: 0, abiertos: 0, resueltos: 0, prioridadAlta: 0, prioridadMedia: 0, prioridadBaja: 0, avgResolutionTime: 0, avgResponseTime: 0 };
+const defaultCXTicketsKPIs = { totalTickets: 0, abiertos: 0, resueltos: 0, prioridadAlta: 0, prioridadMedia: 0, prioridadBaja: 0, avgResolutionTime: 0, avgResponseTime: 0, resolutionRate: 0 };
 
 function DashboardPage() {
   const [selectedProcess, setSelectedProcess] = useState<ProcessType | "all">("llc_formation");
@@ -77,7 +77,7 @@ function DashboardPage() {
     totalClientDays: number;
     totalBankDays: number;
   }>({ comparisonData: [], clientResponsibilityRatio: 0, totalClientDays: 0, totalBankDays: 0 });
-  const [bankStatusCounts, setBankStatusCounts] = useState<{ status: string; count: number; color: string }[]>([]);
+  const [bankStatusCounts, setBankStatusCounts] = useState<any[]>([]);
 
   const [, setFilteredAnnualReports] = useState<AnnualReportTask[]>([]);
   const [annualReportsKPIs, setAnnualReportsKPIs] = useState(defaultAnnualReportsKPIs);
