@@ -490,7 +490,9 @@ function mapToBankTask(raw: any): BankTask | null {
     bankWaitDays = Math.max(0, totalBankProcess - esperaVerifId);
   }
 
-  const status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES) ?? "PENDIENTE";
+  // FILTRO ESTRICTO: descartar tareas con estados fuera del flujo oficial de "Aplicaciones 2.0"
+  const status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES);
+  if (status === null) return null;
 
   // Alertas de bloqueo basadas en tiempo actual en estado
   const currentDays = calcCurrentStatusDays(raw);
