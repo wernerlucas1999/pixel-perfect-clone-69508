@@ -272,11 +272,13 @@ function getCustomFieldValue(fields: any[], name: string): string | null {
   return String(f.value);
 }
 
-// Devuelve null si el estado no pertenece al flujo operativo oficial
+// Devuelve null si el estado no pertenece al flujo operativo oficial.
+// Comparación flexible: case-insensitive + trim en ambos lados.
 function normalizeStatus<T extends string>(raw: string, validValues: T[]): T | null {
-  const upper = raw.trim().toUpperCase();
-  const match = validValues.find((v) => v.toUpperCase() === upper);
-  return match ?? null; // NO defaultear a PENDIENTE - descartar tareas con estados desconocidos
+  const norm = String(raw ?? "").toLowerCase().trim();
+  if (!norm) return null;
+  const match = validValues.find((v) => v.toLowerCase().trim() === norm);
+  return match ?? null; // NO defaultear - descartar tareas con estados desconocidos
 }
 
 function inferStateFromName(name: string): StateType {
@@ -585,10 +587,12 @@ export async function getFilteredTasks(
   if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
   if (dateRange?.from || dateRange?.to) {
     tasks = tasks.filter((t) => {
-      const d = t.closed_at ? new Date(t.closed_at) : null;
-      if (!d) return true;
-      if (dateRange?.from && d < dateRange.from) return false;
-      if (dateRange?.to && d > dateRange.to) return false;
+      // Considerar fecha de cierre, o (si está abierta) fecha de creación
+      // como proxy de última actividad relevante.
+      const ref = t.closed_at ? new Date(t.closed_at) : t.created_at ? new Date(t.created_at) : null;
+      if (!ref) return false;
+      if (dateRange?.from && ref < dateRange.from) return false;
+      if (dateRange?.to && ref > dateRange.to) return false;
       return true;
     });
   }
@@ -713,7 +717,9 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
       t.status !== "NO INICIAR",
   ).length;
   const avgLeadTime = calculateLeadTime(tasks);
-  const einWait = tasks.filter((t) => t.time_in_status["ESPERANDO EIN"] !== undefined);
+  // EIN: solo tareas con tiempo real > 0 en "ESPERANDO EIN" (descarta tareas que
+  // se saltaron el paso o que nunca lo transitaron, para no desvirtuar el promedio).
+  const einWait = tasks.filter((t) => (t.time_in_status["ESPERANDO EIN"] ?? 0) > 0);
   const avgEINWait = einWait.length
     ? Math.round(
         einWait.reduce((s, t) => s + (t.time_in_status["ESPERANDO EIN"] ?? 0), 0) / einWait.length,
@@ -766,22 +772,27 @@ export function calculateBankKPIs(tasks: BankTask[]) {
 
 export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   // ═══════════════════════════════════════════════════════════════
-  // SOLO TAREAS CERRADAS para la comparativa de responsabilidad
+  // Primario: tareas CERRADAS para responsabilidad real.
+  // Fallback: si no hay cerradas en el rango, usamos tareas EN PROGRESO
+  //           que ya tengan tiempos parciales acumulados, para que el
+  //           dashboard no quede vacío.
   // ═══════════════════════════════════════════════════════════════
   const closedTasks = tasks.filter((t) => t.closed_at !== null);
 
-  const comparisonData = closedTasks.map((t) => {
+  const buildRow = (t: BankTask, isPending: boolean) => {
     const cf = t.custom_fields;
-
-    // A) Dias Cliente = (Fecha correccion - Solicitud info) + (Completa verif. ID - Pedido verif. ID)
     const esperaCorreccion = daysBetween(cf.solicitud_info, cf.fecha_correccion);
     const esperaVerifId = daysBetween(cf.pedido_verif_id, cf.completa_verif_id);
     const clientDays = esperaCorreccion + esperaVerifId;
 
-    // B) Dias Banco = (Fecha aprob/rech - Fecha aplicacion) - (Completa verif. ID - Pedido verif. ID)
     let bankDays = 0;
     if (cf.fecha_aplicacion && cf.fecha_aprob_rech) {
       const totalBankProcess = daysBetween(cf.fecha_aplicacion, cf.fecha_aprob_rech);
+      bankDays = Math.max(0, totalBankProcess - esperaVerifId);
+    } else if (cf.fecha_aplicacion && isPending) {
+      // Tarea aún en banco: tiempo acumulado de ciclo hasta hoy
+      const today = new Date().toISOString().split("T")[0];
+      const totalBankProcess = daysBetween(cf.fecha_aplicacion, today);
       bankDays = Math.max(0, totalBankProcess - esperaVerifId);
     }
 
@@ -790,18 +801,34 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
       clientDays: Math.max(0, clientDays),
       bankDays: Math.max(0, bankDays),
       fullName: t.name,
-      status: "Cerrada",
-      blockingAlert: null,
-      isPending: false,
+      status: isPending ? "En curso" : "Cerrada",
+      blockingAlert: t.blocking_alert,
+      isPending,
     };
-  });
+  };
+
+  let comparisonData = closedTasks.map((t) => buildRow(t, false));
+
+  // Fallback si no hubo cerradas: usar tareas abiertas con datos parciales
+  if (comparisonData.length === 0) {
+    const openWithData = tasks.filter(
+      (t) =>
+        !t.closed_at &&
+        (t.custom_fields.fecha_aplicacion ||
+          t.custom_fields.solicitud_info ||
+          t.custom_fields.pedido_verif_id),
+    );
+    comparisonData = openWithData.map((t) => buildRow(t, true));
+  }
 
   const totalClientDays = comparisonData.reduce((s, t) => s + t.clientDays, 0);
   const totalBankDays = comparisonData.reduce((s, t) => s + t.bankDays, 0);
   const total = totalClientDays + totalBankDays;
   const n = comparisonData.length;
+  // Guardia contra división por cero: si n=0, todo queda en 0 (no NaN).
   const avgClientDays = n > 0 ? Math.round((totalClientDays / n) * 10) / 10 : 0;
   const avgBankDays = n > 0 ? Math.round((totalBankDays / n) * 10) / 10 : 0;
+  const clientResponsibilityRatio = total > 0 ? Math.round((totalClientDays / total) * 100) : 0;
 
   // Alertas de bloqueo (solo tareas abiertas)
   const openTasks = tasks.filter((t) => !t.closed_at);
@@ -810,7 +837,7 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
 
   return {
     comparisonData,
-    clientResponsibilityRatio: total > 0 ? Math.round((totalClientDays / total) * 100) : 0,
+    clientResponsibilityRatio,
     avgClientDays,
     avgBankDays,
     clientBlockedCount,
