@@ -443,9 +443,9 @@ function mapToTask(raw: any): Task | null {
   };
 }
 
-function mapToBankTask(raw: any): BankTask {
+function mapToBankTask(raw: any): BankTask | null {
   const cf = raw.custom_fields ?? [];
-  const statusRaw = raw.status?.status ?? "PENDIENTE";
+  const statusRaw = raw.status?.status ?? "";
   const closedAt = raw.date_closed ? msToDate(parseInt(raw.date_closed)) : null;
 
   // Solo los 6 estados reales de la lista "Aplicaciones 2.0"
