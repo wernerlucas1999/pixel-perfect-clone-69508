@@ -297,8 +297,8 @@ function DashboardPage() {
             <BottleneckAnalysis
               comparisonData={bottleneckData.comparisonData}
               clientResponsibilityRatio={bottleneckData.clientResponsibilityRatio}
-              totalClientDays={bottleneckData.totalClientDays}
-              totalBankDays={bottleneckData.totalBankDays}
+              totalClientDays={bottleneckData.avgClientDays}
+              totalBankDays={bottleneckData.avgBankDays}
             />
           </>
         );
