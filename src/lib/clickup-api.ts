@@ -744,7 +744,8 @@ export function calculateBankKPIs(tasks: BankTask[]) {
 
   // KPIs de distribucion (todas las tareas)
   const totalTasks = tasks.length;
-  const pendingTasks = tasks.filter((t) => t.status === "PENDIENTE").length;
+  // PENDIENTES: solo tareas ABIERTAS cuyo status actual es exactamente "PENDIENTE"
+  const pendingTasks = tasks.filter((t) => !t.closed_at && t.status === "PENDIENTE").length;
   const inProgressTasks = openTasks.filter((t) => t.status !== "PENDIENTE").length;
   const completedTasks = closedTasks.length;
 
