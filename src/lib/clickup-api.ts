@@ -542,6 +542,21 @@ export async function fetchLLCTasks(): Promise<Task[]> {
   if (_llcCache && Date.now() - _llcCache.ts < CACHE_TTL_MS) return _llcCache.data;
   const raw = await fetchAllTasks(LIST_IDS.llc_formation);
   const data = raw.map(mapToTask).filter((t): t is Task => t !== null);
+
+  // ── EIN real: tiempo transcurrido en "ESPERANDO EIN" desde el status_history
+  try {
+    const tis = await fetchBulkTimeInStatus(data.map((t) => t.id));
+    for (const t of data) {
+      const entry = tis[t.id];
+      const mins = minutesInStatus(entry, "ESPERANDO EIN");
+      if (mins > 0) {
+        t.time_in_status["ESPERANDO EIN"] = Math.round((mins / (60 * 24)) * 10) / 10;
+      }
+    }
+  } catch {
+    // si falla, mantenemos el aprox por custom fields
+  }
+
   _llcCache = { data, ts: Date.now() };
   return data;
 }
