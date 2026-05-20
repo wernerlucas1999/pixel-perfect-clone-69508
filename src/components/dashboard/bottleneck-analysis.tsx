@@ -217,11 +217,13 @@ export function BottleneckAnalysis({
             <div className="flex justify-between text-sm">
               <div className="flex items-center gap-2">
                 <span className="inline-block w-3 h-3 rounded bg-chart-3" />
-                <span className="text-muted-foreground">Cliente: {totalClientDays} dias</span>
+                <span className="text-muted-foreground">
+                  Cliente: {avgClientDays} dias prom.
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-block w-3 h-3 rounded bg-chart-1" />
-                <span className="text-muted-foreground">Banco: {totalBankDays} dias</span>
+                <span className="text-muted-foreground">Banco: {avgBankDays} dias prom.</span>
               </div>
             </div>
           </div>
