@@ -715,7 +715,9 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
       t.status !== "NO INICIAR",
   ).length;
   const avgLeadTime = calculateLeadTime(tasks);
-  const einWait = tasks.filter((t) => t.time_in_status["ESPERANDO EIN"] !== undefined);
+  // EIN: solo tareas con tiempo real > 0 en "ESPERANDO EIN" (descarta tareas que
+  // se saltaron el paso o que nunca lo transitaron, para no desvirtuar el promedio).
+  const einWait = tasks.filter((t) => (t.time_in_status["ESPERANDO EIN"] ?? 0) > 0);
   const avgEINWait = einWait.length
     ? Math.round(
         einWait.reduce((s, t) => s + (t.time_in_status["ESPERANDO EIN"] ?? 0), 0) / einWait.length,
