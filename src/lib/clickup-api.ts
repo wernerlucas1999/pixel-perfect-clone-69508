@@ -339,6 +339,46 @@ async function fetchAllTasks(listId: string): Promise<any[]> {
   return tasks.filter((t) => !t.parent);
 }
 
+// Bulk time-in-status: { taskId: { status_history: [{status, total_time:{by_minute, since}}], current_status: {...} } }
+async function fetchBulkTimeInStatus(taskIds: string[]): Promise<Record<string, any>> {
+  const out: Record<string, any> = {};
+  for (let i = 0; i < taskIds.length; i += 100) {
+    const batch = taskIds.slice(i, i + 100);
+    const qs = batch.map((id) => `task_ids=${encodeURIComponent(id)}`).join("&");
+    try {
+      const res = await fetch(`${BASE_URL}/task/bulk_time_in_status/task_ids/?${qs}`, {
+        headers: { Authorization: CLICKUP_TOKEN },
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      Object.assign(out, data ?? {});
+    } catch {
+      // batch error: continuamos con datos parciales
+    }
+  }
+  return out;
+}
+
+// Suma minutos en un status específico (case-insensitive) recorriendo todo el historial
+function minutesInStatus(entry: any, statusName: string): number {
+  if (!entry) return 0;
+  const target = statusName.trim().toUpperCase();
+  let total = 0;
+  const history = Array.isArray(entry.status_history) ? entry.status_history : [];
+  for (const h of history) {
+    if (String(h.status ?? "").trim().toUpperCase() === target) {
+      total += Number(h.total_time?.by_minute ?? 0);
+    }
+  }
+  if (
+    entry.current_status &&
+    String(entry.current_status.status ?? "").trim().toUpperCase() === target
+  ) {
+    total += Number(entry.current_status.total_time?.by_minute ?? 0);
+  }
+  return total;
+}
+
 // ─── MAPPERS ───────────────────────────────────────────────
 
 function mapToTask(raw: any): Task | null {
