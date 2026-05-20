@@ -272,11 +272,13 @@ function getCustomFieldValue(fields: any[], name: string): string | null {
   return String(f.value);
 }
 
-// Devuelve null si el estado no pertenece al flujo operativo oficial
+// Devuelve null si el estado no pertenece al flujo operativo oficial.
+// Comparación flexible: case-insensitive + trim en ambos lados.
 function normalizeStatus<T extends string>(raw: string, validValues: T[]): T | null {
-  const upper = raw.trim().toUpperCase();
-  const match = validValues.find((v) => v.toUpperCase() === upper);
-  return match ?? null; // NO defaultear a PENDIENTE - descartar tareas con estados desconocidos
+  const norm = String(raw ?? "").toLowerCase().trim();
+  if (!norm) return null;
+  const match = validValues.find((v) => v.toLowerCase().trim() === norm);
+  return match ?? null; // NO defaultear - descartar tareas con estados desconocidos
 }
 
 function inferStateFromName(name: string): StateType {
