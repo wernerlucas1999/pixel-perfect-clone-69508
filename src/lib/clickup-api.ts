@@ -587,10 +587,12 @@ export async function getFilteredTasks(
   if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
   if (dateRange?.from || dateRange?.to) {
     tasks = tasks.filter((t) => {
-      const d = t.closed_at ? new Date(t.closed_at) : null;
-      if (!d) return true;
-      if (dateRange?.from && d < dateRange.from) return false;
-      if (dateRange?.to && d > dateRange.to) return false;
+      // Considerar fecha de cierre, o (si está abierta) fecha de creación
+      // como proxy de última actividad relevante.
+      const ref = t.closed_at ? new Date(t.closed_at) : t.created_at ? new Date(t.created_at) : null;
+      if (!ref) return false;
+      if (dateRange?.from && ref < dateRange.from) return false;
+      if (dateRange?.to && ref > dateRange.to) return false;
       return true;
     });
   }
