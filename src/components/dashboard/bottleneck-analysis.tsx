@@ -24,15 +24,17 @@ interface ComparisonData {
 interface BottleneckAnalysisProps {
   comparisonData: ComparisonData[];
   clientResponsibilityRatio: number;
+  /** Demora promedio por tarea cerrada — días imputables al cliente */
   totalClientDays: number;
+  /** Demora promedio por tarea cerrada — días imputables al banco */
   totalBankDays: number;
 }
 
 export function BottleneckAnalysis({
   comparisonData,
   clientResponsibilityRatio,
-  totalClientDays,
-  totalBankDays,
+  totalClientDays: avgClientDays,
+  totalBankDays: avgBankDays,
 }: BottleneckAnalysisProps) {
   const bankResponsibilityRatio = 100 - clientResponsibilityRatio;
 
