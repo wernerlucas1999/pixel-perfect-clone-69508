@@ -339,6 +339,46 @@ async function fetchAllTasks(listId: string): Promise<any[]> {
   return tasks.filter((t) => !t.parent);
 }
 
+// Bulk time-in-status: { taskId: { status_history: [{status, total_time:{by_minute, since}}], current_status: {...} } }
+async function fetchBulkTimeInStatus(taskIds: string[]): Promise<Record<string, any>> {
+  const out: Record<string, any> = {};
+  for (let i = 0; i < taskIds.length; i += 100) {
+    const batch = taskIds.slice(i, i + 100);
+    const qs = batch.map((id) => `task_ids=${encodeURIComponent(id)}`).join("&");
+    try {
+      const res = await fetch(`${BASE_URL}/task/bulk_time_in_status/task_ids/?${qs}`, {
+        headers: { Authorization: CLICKUP_TOKEN },
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      Object.assign(out, data ?? {});
+    } catch {
+      // batch error: continuamos con datos parciales
+    }
+  }
+  return out;
+}
+
+// Suma minutos en un status específico (case-insensitive) recorriendo todo el historial
+function minutesInStatus(entry: any, statusName: string): number {
+  if (!entry) return 0;
+  const target = statusName.trim().toUpperCase();
+  let total = 0;
+  const history = Array.isArray(entry.status_history) ? entry.status_history : [];
+  for (const h of history) {
+    if (String(h.status ?? "").trim().toUpperCase() === target) {
+      total += Number(h.total_time?.by_minute ?? 0);
+    }
+  }
+  if (
+    entry.current_status &&
+    String(entry.current_status.status ?? "").trim().toUpperCase() === target
+  ) {
+    total += Number(entry.current_status.total_time?.by_minute ?? 0);
+  }
+  return total;
+}
+
 // ─── MAPPERS ───────────────────────────────────────────────
 
 function mapToTask(raw: any): Task | null {
@@ -403,9 +443,9 @@ function mapToTask(raw: any): Task | null {
   };
 }
 
-function mapToBankTask(raw: any): BankTask {
+function mapToBankTask(raw: any): BankTask | null {
   const cf = raw.custom_fields ?? [];
-  const statusRaw = raw.status?.status ?? "PENDIENTE";
+  const statusRaw = raw.status?.status ?? "";
   const closedAt = raw.date_closed ? msToDate(parseInt(raw.date_closed)) : null;
 
   // Solo los 6 estados reales de la lista "Aplicaciones 2.0"
@@ -450,7 +490,9 @@ function mapToBankTask(raw: any): BankTask {
     bankWaitDays = Math.max(0, totalBankProcess - esperaVerifId);
   }
 
-  const status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES) ?? "PENDIENTE";
+  // FILTRO ESTRICTO: descartar tareas con estados fuera del flujo oficial de "Aplicaciones 2.0"
+  const status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES);
+  if (status === null) return null;
 
   // Alertas de bloqueo basadas en tiempo actual en estado
   const currentDays = calcCurrentStatusDays(raw);
@@ -502,6 +544,21 @@ export async function fetchLLCTasks(): Promise<Task[]> {
   if (_llcCache && Date.now() - _llcCache.ts < CACHE_TTL_MS) return _llcCache.data;
   const raw = await fetchAllTasks(LIST_IDS.llc_formation);
   const data = raw.map(mapToTask).filter((t): t is Task => t !== null);
+
+  // ── EIN real: tiempo transcurrido en "ESPERANDO EIN" desde el status_history
+  try {
+    const tis = await fetchBulkTimeInStatus(data.map((t) => t.id));
+    for (const t of data) {
+      const entry = tis[t.id];
+      const mins = minutesInStatus(entry, "ESPERANDO EIN");
+      if (mins > 0) {
+        t.time_in_status["ESPERANDO EIN"] = Math.round((mins / (60 * 24)) * 10) / 10;
+      }
+    }
+  } catch {
+    // si falla, mantenemos el aprox por custom fields
+  }
+
   _llcCache = { data, ts: Date.now() };
   return data;
 }
@@ -687,7 +744,8 @@ export function calculateBankKPIs(tasks: BankTask[]) {
 
   // KPIs de distribucion (todas las tareas)
   const totalTasks = tasks.length;
-  const pendingTasks = tasks.filter((t) => t.status === "PENDIENTE").length;
+  // PENDIENTES: solo tareas ABIERTAS cuyo status actual es exactamente "PENDIENTE"
+  const pendingTasks = tasks.filter((t) => !t.closed_at && t.status === "PENDIENTE").length;
   const inProgressTasks = openTasks.filter((t) => t.status !== "PENDIENTE").length;
   const completedTasks = closedTasks.length;
 
@@ -741,6 +799,9 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const totalClientDays = comparisonData.reduce((s, t) => s + t.clientDays, 0);
   const totalBankDays = comparisonData.reduce((s, t) => s + t.bankDays, 0);
   const total = totalClientDays + totalBankDays;
+  const n = comparisonData.length;
+  const avgClientDays = n > 0 ? Math.round((totalClientDays / n) * 10) / 10 : 0;
+  const avgBankDays = n > 0 ? Math.round((totalBankDays / n) * 10) / 10 : 0;
 
   // Alertas de bloqueo (solo tareas abiertas)
   const openTasks = tasks.filter((t) => !t.closed_at);
@@ -750,8 +811,8 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   return {
     comparisonData,
     clientResponsibilityRatio: total > 0 ? Math.round((totalClientDays / total) * 100) : 0,
-    totalClientDays,
-    totalBankDays,
+    avgClientDays,
+    avgBankDays,
     clientBlockedCount,
     bankDelayCount,
     closedTasksCount: closedTasks.length,

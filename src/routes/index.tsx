@@ -108,9 +108,9 @@ function DashboardPage() {
   const [bottleneckData, setBottleneckData] = useState<{
     comparisonData: any[];
     clientResponsibilityRatio: number;
-    totalClientDays: number;
-    totalBankDays: number;
-  }>({ comparisonData: [], clientResponsibilityRatio: 0, totalClientDays: 0, totalBankDays: 0 });
+    avgClientDays: number;
+    avgBankDays: number;
+  }>({ comparisonData: [], clientResponsibilityRatio: 0, avgClientDays: 0, avgBankDays: 0 });
   const [bankStatusCounts, setBankStatusCounts] = useState<any[]>([]);
 
   const [, setFilteredAnnualReports] = useState<AnnualReportTask[]>([]);
@@ -297,8 +297,8 @@ function DashboardPage() {
             <BottleneckAnalysis
               comparisonData={bottleneckData.comparisonData}
               clientResponsibilityRatio={bottleneckData.clientResponsibilityRatio}
-              totalClientDays={bottleneckData.totalClientDays}
-              totalBankDays={bottleneckData.totalBankDays}
+              totalClientDays={bottleneckData.avgClientDays}
+              totalBankDays={bottleneckData.avgBankDays}
             />
           </>
         );
