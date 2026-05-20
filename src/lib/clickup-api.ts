@@ -799,6 +799,9 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const totalClientDays = comparisonData.reduce((s, t) => s + t.clientDays, 0);
   const totalBankDays = comparisonData.reduce((s, t) => s + t.bankDays, 0);
   const total = totalClientDays + totalBankDays;
+  const n = comparisonData.length;
+  const avgClientDays = n > 0 ? Math.round((totalClientDays / n) * 10) / 10 : 0;
+  const avgBankDays = n > 0 ? Math.round((totalBankDays / n) * 10) / 10 : 0;
 
   // Alertas de bloqueo (solo tareas abiertas)
   const openTasks = tasks.filter((t) => !t.closed_at);
@@ -808,8 +811,8 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   return {
     comparisonData,
     clientResponsibilityRatio: total > 0 ? Math.round((totalClientDays / total) * 100) : 0,
-    totalClientDays,
-    totalBankDays,
+    avgClientDays,
+    avgBankDays,
     clientBlockedCount,
     bankDelayCount,
     closedTasksCount: closedTasks.length,
