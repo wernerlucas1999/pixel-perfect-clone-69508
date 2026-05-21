@@ -607,13 +607,16 @@ export async function getFilteredTasks(
   if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
   if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
   if (dateRange?.from || dateRange?.to) {
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
     tasks = tasks.filter((t) => {
-      // Considerar fecha de cierre, o (si está abierta) fecha de creación
-      // como proxy de última actividad relevante.
-      const ref = t.closed_at ? new Date(t.closed_at) : t.created_at ? new Date(t.created_at) : null;
-      if (!ref) return false;
-      if (dateRange?.from && ref < dateRange.from) return false;
-      if (dateRange?.to && ref > dateRange.to) return false;
+      // Cerrada → usar date_closed; Abierta → usar date_created (proxy de actividad).
+      const refStr = t.closed_at ?? t.created_at;
+      if (!refStr) return false;
+      const refMs = new Date(refStr).getTime();
+      if (isNaN(refMs)) return false;
+      if (fromMs !== null && refMs < fromMs) return false;
+      if (toMs !== null && refMs > toMs) return false;
       return true;
     });
   }
@@ -631,16 +634,22 @@ export async function getFilteredBankTasks(
   if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
   if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
   if (dateRange?.from || dateRange?.to) {
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
     tasks = tasks.filter((t) => {
-      const d = t.closed_at ? new Date(t.closed_at) : null;
-      if (!d) return true;
-      if (dateRange?.from && d < dateRange.from) return false;
-      if (dateRange?.to && d > dateRange.to) return false;
+      // Cerrada → date_closed (obligatorio en rango). Abierta → date_created.
+      const refStr = t.closed_at ?? t.created_at;
+      if (!refStr) return false;
+      const refMs = new Date(refStr).getTime();
+      if (isNaN(refMs)) return false;
+      if (fromMs !== null && refMs < fromMs) return false;
+      if (toMs !== null && refMs > toMs) return false;
       return true;
     });
   }
   return tasks;
 }
+
 
 // Stubs para las listas aún no conectadas
 export async function getFilteredAnnualReports(
