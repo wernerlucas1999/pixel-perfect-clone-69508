@@ -652,11 +652,41 @@ export async function getFilteredBankTasks(
 
 
 // Stubs para las listas aún no conectadas
+const ANNUAL_REPORTS_LIST_ID = "901406624812";
+let annualReportsCache: AnnualReportTask[] | null = null;
+
+function mapAnnualStatus(raw: string): AnnualReportStatus {
+  const s = (raw || "").toLowerCase().trim();
+  if (s === "complete" || s === "completed" || s === "done" || s === "completado" || s === "closed")
+    return "completado";
+  if (s === "proximo a hacer" || s === "próximo a hacer" || s === "proximo_a_hacer")
+    return "proximo_a_hacer";
+  // 'pendiente' y cualquier otro estado intermedio caen en pendiente
+  return "pendiente";
+}
+
+export async function fetchAnnualReportsTasks(): Promise<AnnualReportTask[]> {
+  if (annualReportsCache) return annualReportsCache;
+  const raw = await fetchAllTasks(ANNUAL_REPORTS_LIST_ID);
+  annualReportsCache = raw.map((t: any) => ({
+    id: String(t.id),
+    name: t.name ?? "",
+    entity_name: t.name ?? "",
+    due_date: t.due_date ?? "",
+    filed_date: t.date_closed ?? null,
+    status: mapAnnualStatus(t?.status?.status ?? ""),
+    state: "new_mexico" as StateType,
+    package: "solo_llc" as PackageType,
+    assignee: t?.assignees?.[0]?.username ?? "",
+  }));
+  return annualReportsCache;
+}
+
 export async function getFilteredAnnualReports(
   _state?: StateType | "all",
   _pkg?: PackageType | "all",
 ): Promise<AnnualReportTask[]> {
-  return [];
+  return await fetchAnnualReportsTasks();
 }
 
 export async function getFilteredAgentesRegistrados(
