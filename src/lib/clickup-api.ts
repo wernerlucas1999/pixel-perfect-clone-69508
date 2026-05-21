@@ -458,7 +458,10 @@ function mapToTask(raw: any): Task | null {
 function mapToBankTask(raw: any): BankTask | null {
   const cf = raw.custom_fields ?? [];
   const statusRaw = raw.status?.status ?? "";
-  const closedAt = raw.date_closed ? msToDate(parseInt(raw.date_closed)) : null;
+  const statusType = String(raw.status?.type ?? "").toLowerCase();
+  const isClosed = statusType === "closed" || raw.date_closed != null;
+  const closedAt = raw.date_closed ? msToDate(Number(raw.date_closed)) : null;
+
 
   // Solo los 6 estados reales de la lista "Aplicaciones 2.0"
   const BANK_STATUSES: BankStatus[] = [
