@@ -386,11 +386,21 @@ function minutesInStatus(entry: any, statusName: string): number {
 function mapToTask(raw: any): Task | null {
   const cf = raw.custom_fields ?? [];
   const statusRaw = raw.status?.status ?? "";
-  const closedAt = raw.date_closed ? msToDate(parseInt(raw.date_closed)) : null;
+  const statusType = String(raw.status?.type ?? "").toLowerCase();
+  const isClosed = statusType === "closed" || raw.date_closed != null;
+  const closedAt = raw.date_closed ? msToDate(Number(raw.date_closed)) : null;
 
-  // FILTRO ESTRICTO: descartar tareas con estados no reconocidos
-  const status = normalizeStatus<LLCStatus>(statusRaw, [...LLC_STATUS_FLOW_FULL]);
-  if (status === null) return null; // DESCARTAR - no ensuciar KPIs
+  // FILTRO ESTRICTO: descartar tareas con estados no reconocidos…
+  let status = normalizeStatus<LLCStatus>(statusRaw, [...LLC_STATUS_FLOW_FULL]);
+  // …PERO si la tarea está cerrada (date_closed presente o status.type=closed),
+  // la aceptamos siempre. ClickUp puede devolver nombres de estado de cierre
+  // que no están en nuestro flujo (p.ej. "complete", "done", "approved").
+  // Estas tareas SÍ deben contar para los KPIs y promedios.
+  if (status === null) {
+    if (isClosed) status = "ENTREGA COMPLETADA";
+    else return null;
+  }
+
 
   // time_in_status: ClickUp v2 no lo expone directamente en la lista básica.
   // Usamos las fechas de custom fields para aproximarlo.
@@ -448,7 +458,10 @@ function mapToTask(raw: any): Task | null {
 function mapToBankTask(raw: any): BankTask | null {
   const cf = raw.custom_fields ?? [];
   const statusRaw = raw.status?.status ?? "";
-  const closedAt = raw.date_closed ? msToDate(parseInt(raw.date_closed)) : null;
+  const statusType = String(raw.status?.type ?? "").toLowerCase();
+  const isClosed = statusType === "closed" || raw.date_closed != null;
+  const closedAt = raw.date_closed ? msToDate(Number(raw.date_closed)) : null;
+
 
   // Solo los 6 estados reales de la lista "Aplicaciones 2.0"
   const BANK_STATUSES: BankStatus[] = [
@@ -492,9 +505,17 @@ function mapToBankTask(raw: any): BankTask | null {
     bankWaitDays = Math.max(0, totalBankProcess - esperaVerifId);
   }
 
-  // FILTRO ESTRICTO: descartar tareas con estados fuera del flujo oficial de "Aplicaciones 2.0"
-  const status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES);
-  if (status === null) return null;
+  // FILTRO de estado: en tareas ABIERTAS exigimos uno de los 6 oficiales.
+  // Las CERRADAS se aceptan siempre (ClickUp puede devolverlas con estados
+  // de cierre como "complete", "approved", "rejected" que no están en el
+  // flujo abierto). Las contamos como "INICIADA" a efectos de tipado, pero
+  // jamás aparecen en getBankStatusCounts (que filtra openTasks).
+  let status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES);
+  if (status === null) {
+    if (isClosed) status = "INICIADA";
+    else return null;
+  }
+
 
   // Alertas de bloqueo basadas en tiempo actual en estado
   const currentDays = calcCurrentStatusDays(raw);
@@ -586,13 +607,16 @@ export async function getFilteredTasks(
   if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
   if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
   if (dateRange?.from || dateRange?.to) {
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
     tasks = tasks.filter((t) => {
-      // Considerar fecha de cierre, o (si está abierta) fecha de creación
-      // como proxy de última actividad relevante.
-      const ref = t.closed_at ? new Date(t.closed_at) : t.created_at ? new Date(t.created_at) : null;
-      if (!ref) return false;
-      if (dateRange?.from && ref < dateRange.from) return false;
-      if (dateRange?.to && ref > dateRange.to) return false;
+      // Cerrada → usar date_closed; Abierta → usar date_created (proxy de actividad).
+      const refStr = t.closed_at ?? t.created_at;
+      if (!refStr) return false;
+      const refMs = new Date(refStr).getTime();
+      if (isNaN(refMs)) return false;
+      if (fromMs !== null && refMs < fromMs) return false;
+      if (toMs !== null && refMs > toMs) return false;
       return true;
     });
   }
@@ -610,16 +634,22 @@ export async function getFilteredBankTasks(
   if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
   if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
   if (dateRange?.from || dateRange?.to) {
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
     tasks = tasks.filter((t) => {
-      const d = t.closed_at ? new Date(t.closed_at) : null;
-      if (!d) return true;
-      if (dateRange?.from && d < dateRange.from) return false;
-      if (dateRange?.to && d > dateRange.to) return false;
+      // Cerrada → date_closed (obligatorio en rango). Abierta → date_created.
+      const refStr = t.closed_at ?? t.created_at;
+      if (!refStr) return false;
+      const refMs = new Date(refStr).getTime();
+      if (isNaN(refMs)) return false;
+      if (fromMs !== null && refMs < fromMs) return false;
+      if (toMs !== null && refMs > toMs) return false;
       return true;
     });
   }
   return tasks;
 }
+
 
 // Stubs para las listas aún no conectadas
 export async function getFilteredAnnualReports(
