@@ -386,11 +386,21 @@ function minutesInStatus(entry: any, statusName: string): number {
 function mapToTask(raw: any): Task | null {
   const cf = raw.custom_fields ?? [];
   const statusRaw = raw.status?.status ?? "";
-  const closedAt = raw.date_closed ? msToDate(parseInt(raw.date_closed)) : null;
+  const statusType = String(raw.status?.type ?? "").toLowerCase();
+  const isClosed = statusType === "closed" || raw.date_closed != null;
+  const closedAt = raw.date_closed ? msToDate(Number(raw.date_closed)) : null;
 
-  // FILTRO ESTRICTO: descartar tareas con estados no reconocidos
-  const status = normalizeStatus<LLCStatus>(statusRaw, [...LLC_STATUS_FLOW_FULL]);
-  if (status === null) return null; // DESCARTAR - no ensuciar KPIs
+  // FILTRO ESTRICTO: descartar tareas con estados no reconocidos…
+  let status = normalizeStatus<LLCStatus>(statusRaw, [...LLC_STATUS_FLOW_FULL]);
+  // …PERO si la tarea está cerrada (date_closed presente o status.type=closed),
+  // la aceptamos siempre. ClickUp puede devolver nombres de estado de cierre
+  // que no están en nuestro flujo (p.ej. "complete", "done", "approved").
+  // Estas tareas SÍ deben contar para los KPIs y promedios.
+  if (status === null) {
+    if (isClosed) status = "ENTREGA COMPLETADA";
+    else return null;
+  }
+
 
   // time_in_status: ClickUp v2 no lo expone directamente en la lista básica.
   // Usamos las fechas de custom fields para aproximarlo.
