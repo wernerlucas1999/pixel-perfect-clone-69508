@@ -918,14 +918,21 @@ export function getBankStatusCounts(tasks: BankTask[]) {
 }
 
 // Stubs KPI para listas no conectadas aún
-export function calculateAnnualReportsKPIs(_tasks: AnnualReportTask[]) {
-  return { total: 0, pendiente: 0, proximoAHacer: 0, completado: 0 };
+export function calculateAnnualReportsKPIs(tasks: AnnualReportTask[]) {
+  const kpis = { total: tasks.length, pendiente: 0, proximoAHacer: 0, completado: 0 };
+  tasks.forEach((t) => {
+    if (t.status === "completado") kpis.completado++;
+    else if (t.status === "proximo_a_hacer") kpis.proximoAHacer++;
+    else kpis.pendiente++;
+  });
+  return kpis;
 }
-export function getAnnualReportsPieData(_tasks: AnnualReportTask[]) {
+export function getAnnualReportsPieData(tasks: AnnualReportTask[]) {
+  const k = calculateAnnualReportsKPIs(tasks);
   return [
-    { name: "Completado", value: 0, fill: "#22c55e" },
-    { name: "Proximo a Hacer", value: 0, fill: "#f59e0b" },
-    { name: "Pendiente", value: 0, fill: "#6366f1" },
+    { name: "Completado", value: k.completado, fill: "#22c55e" },
+    { name: "Proximo a Hacer", value: k.proximoAHacer, fill: "#f59e0b" },
+    { name: "Pendiente", value: k.pendiente, fill: "#6366f1" },
   ];
 }
 export function calculateAgentesKPIs(_tasks: AgenteRegistradoTask[]) {
