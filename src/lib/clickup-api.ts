@@ -772,14 +772,13 @@ export function calculateBankKPIs(tasks: BankTask[]) {
 
 export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   // ═══════════════════════════════════════════════════════════════
-  // Primario: tareas CERRADAS para responsabilidad real.
-  // Fallback: si no hay cerradas en el rango, usamos tareas EN PROGRESO
-  //           que ya tengan tiempos parciales acumulados, para que el
-  //           dashboard no quede vacío.
+  // REGLA ESTRICTA: los promedios SOLO se calculan sobre tareas
+  // CERRADAS dentro del rango. Nunca se usan tareas abiertas/en
+  // progreso para sumar días a los promedios o a la gráfica temporal.
   // ═══════════════════════════════════════════════════════════════
   const closedTasks = tasks.filter((t) => t.closed_at !== null);
 
-  const buildRow = (t: BankTask, isPending: boolean) => {
+  const buildRow = (t: BankTask) => {
     const cf = t.custom_fields;
     const esperaCorreccion = daysBetween(cf.solicitud_info, cf.fecha_correccion);
     const esperaVerifId = daysBetween(cf.pedido_verif_id, cf.completa_verif_id);
@@ -789,11 +788,6 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
     if (cf.fecha_aplicacion && cf.fecha_aprob_rech) {
       const totalBankProcess = daysBetween(cf.fecha_aplicacion, cf.fecha_aprob_rech);
       bankDays = Math.max(0, totalBankProcess - esperaVerifId);
-    } else if (cf.fecha_aplicacion && isPending) {
-      // Tarea aún en banco: tiempo acumulado de ciclo hasta hoy
-      const today = new Date().toISOString().split("T")[0];
-      const totalBankProcess = daysBetween(cf.fecha_aplicacion, today);
-      bankDays = Math.max(0, totalBankProcess - esperaVerifId);
     }
 
     return {
@@ -801,36 +795,24 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
       clientDays: Math.max(0, clientDays),
       bankDays: Math.max(0, bankDays),
       fullName: t.name,
-      status: isPending ? "En curso" : "Cerrada",
+      status: "Cerrada",
       blockingAlert: t.blocking_alert,
-      isPending,
     };
   };
 
-  let comparisonData = closedTasks.map((t) => buildRow(t, false));
-
-  // Fallback si no hubo cerradas: usar tareas abiertas con datos parciales
-  if (comparisonData.length === 0) {
-    const openWithData = tasks.filter(
-      (t) =>
-        !t.closed_at &&
-        (t.custom_fields.fecha_aplicacion ||
-          t.custom_fields.solicitud_info ||
-          t.custom_fields.pedido_verif_id),
-    );
-    comparisonData = openWithData.map((t) => buildRow(t, true));
-  }
+  const comparisonData = closedTasks.map(buildRow);
 
   const totalClientDays = comparisonData.reduce((s, t) => s + t.clientDays, 0);
   const totalBankDays = comparisonData.reduce((s, t) => s + t.bankDays, 0);
   const total = totalClientDays + totalBankDays;
   const n = comparisonData.length;
-  // Guardia contra división por cero: si n=0, todo queda en 0 (no NaN).
+  // Sin tareas cerradas en el rango => 0 (la UI muestra "0 días"). NO se usa
+  // tiempo de tareas en curso para no distorsionar el promedio.
   const avgClientDays = n > 0 ? Math.round((totalClientDays / n) * 10) / 10 : 0;
   const avgBankDays = n > 0 ? Math.round((totalBankDays / n) * 10) / 10 : 0;
   const clientResponsibilityRatio = total > 0 ? Math.round((totalClientDays / total) * 100) : 0;
 
-  // Alertas de bloqueo (solo tareas abiertas)
+  // Alertas de bloqueo (solo tareas abiertas — para volumen, no para promedios)
   const openTasks = tasks.filter((t) => !t.closed_at);
   const clientBlockedCount = openTasks.filter((t) => t.blocking_alert === "client_blocked").length;
   const bankDelayCount = openTasks.filter((t) => t.blocking_alert === "bank_delay").length;
