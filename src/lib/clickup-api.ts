@@ -652,11 +652,41 @@ export async function getFilteredBankTasks(
 
 
 // Stubs para las listas aún no conectadas
+const ANNUAL_REPORTS_LIST_ID = "901406624812";
+let annualReportsCache: AnnualReportTask[] | null = null;
+
+function mapAnnualStatus(raw: string): AnnualReportStatus {
+  const s = (raw || "").toLowerCase().trim();
+  if (s === "complete" || s === "completed" || s === "done" || s === "completado" || s === "closed")
+    return "completado";
+  if (s === "proximo a hacer" || s === "próximo a hacer" || s === "proximo_a_hacer")
+    return "proximo_a_hacer";
+  // 'pendiente' y cualquier otro estado intermedio caen en pendiente
+  return "pendiente";
+}
+
+export async function fetchAnnualReportsTasks(): Promise<AnnualReportTask[]> {
+  if (annualReportsCache) return annualReportsCache;
+  const raw = await fetchAllTasks(ANNUAL_REPORTS_LIST_ID);
+  annualReportsCache = raw.map((t: any) => ({
+    id: String(t.id),
+    name: t.name ?? "",
+    entity_name: t.name ?? "",
+    due_date: t.due_date ?? "",
+    filed_date: t.date_closed ?? null,
+    status: mapAnnualStatus(t?.status?.status ?? ""),
+    state: "new_mexico" as StateType,
+    package: "solo_llc" as PackageType,
+    assignee: t?.assignees?.[0]?.username ?? "",
+  }));
+  return annualReportsCache;
+}
+
 export async function getFilteredAnnualReports(
   _state?: StateType | "all",
   _pkg?: PackageType | "all",
 ): Promise<AnnualReportTask[]> {
-  return [];
+  return await fetchAnnualReportsTasks();
 }
 
 export async function getFilteredAgentesRegistrados(
@@ -888,14 +918,21 @@ export function getBankStatusCounts(tasks: BankTask[]) {
 }
 
 // Stubs KPI para listas no conectadas aún
-export function calculateAnnualReportsKPIs(_tasks: AnnualReportTask[]) {
-  return { total: 0, pendiente: 0, proximoAHacer: 0, completado: 0 };
+export function calculateAnnualReportsKPIs(tasks: AnnualReportTask[]) {
+  const kpis = { total: tasks.length, pendiente: 0, proximoAHacer: 0, completado: 0 };
+  tasks.forEach((t) => {
+    if (t.status === "completado") kpis.completado++;
+    else if (t.status === "proximo_a_hacer") kpis.proximoAHacer++;
+    else kpis.pendiente++;
+  });
+  return kpis;
 }
-export function getAnnualReportsPieData(_tasks: AnnualReportTask[]) {
+export function getAnnualReportsPieData(tasks: AnnualReportTask[]) {
+  const k = calculateAnnualReportsKPIs(tasks);
   return [
-    { name: "Completado", value: 0, fill: "#22c55e" },
-    { name: "Proximo a Hacer", value: 0, fill: "#f59e0b" },
-    { name: "Pendiente", value: 0, fill: "#6366f1" },
+    { name: "Completado", value: k.completado, fill: "#22c55e" },
+    { name: "Proximo a Hacer", value: k.proximoAHacer, fill: "#f59e0b" },
+    { name: "Pendiente", value: k.pendiente, fill: "#6366f1" },
   ];
 }
 export function calculateAgentesKPIs(_tasks: AgenteRegistradoTask[]) {
