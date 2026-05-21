@@ -505,9 +505,17 @@ function mapToBankTask(raw: any): BankTask | null {
     bankWaitDays = Math.max(0, totalBankProcess - esperaVerifId);
   }
 
-  // FILTRO ESTRICTO: descartar tareas con estados fuera del flujo oficial de "Aplicaciones 2.0"
-  const status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES);
-  if (status === null) return null;
+  // FILTRO de estado: en tareas ABIERTAS exigimos uno de los 6 oficiales.
+  // Las CERRADAS se aceptan siempre (ClickUp puede devolverlas con estados
+  // de cierre como "complete", "approved", "rejected" que no están en el
+  // flujo abierto). Las contamos como "INICIADA" a efectos de tipado, pero
+  // jamás aparecen en getBankStatusCounts (que filtra openTasks).
+  let status = normalizeStatus<BankStatus>(statusRaw, BANK_STATUSES);
+  if (status === null) {
+    if (isClosed) status = "INICIADA";
+    else return null;
+  }
+
 
   // Alertas de bloqueo basadas en tiempo actual en estado
   const currentDays = calcCurrentStatusDays(raw);
