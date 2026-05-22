@@ -1014,26 +1014,40 @@ export function getAnnualReportsPieData(tasks: AnnualReportTask[]) {
     { name: "Pendiente", value: k.pendiente, fill: "#6366f1" },
   ];
 }
-export function calculateAgentesKPIs(_tasks: AgenteRegistradoTask[]) {
-  return { total: 0, pendiente: 0, esperandoInvoice: 0, completado: 0, completionRate: 0 };
+export function calculateAgentesKPIs(tasks: AgenteRegistradoTask[]) {
+  const kpis = { total: tasks.length, pendiente: 0, esperandoInvoice: 0, completado: 0, completionRate: 0 };
+  tasks.forEach((t) => {
+    if (t.status === "completado") kpis.completado++;
+    else if (t.status === "esperando_invoice") kpis.esperandoInvoice++;
+    else kpis.pendiente++;
+  });
+  kpis.completionRate = kpis.total > 0 ? Math.round((kpis.completado / kpis.total) * 100) : 0;
+  return kpis;
 }
-export function getAgentesStatusChartData(_tasks: AgenteRegistradoTask[]) {
+export function getAgentesStatusChartData(tasks: AgenteRegistradoTask[]) {
+  const k = calculateAgentesKPIs(tasks);
   return [
-    { status: "Pendiente", count: 0, fill: "#6366f1" },
-    { status: "Esperando Invoice", count: 0, fill: "#f59e0b" },
-    { status: "Completado", count: 0, fill: "#22c55e" },
+    { status: "Pendiente", count: k.pendiente, fill: "#6366f1" },
+    { status: "En Progreso", count: k.esperandoInvoice, fill: "#f59e0b" },
+    { status: "Completado", count: k.completado, fill: "#22c55e" },
   ];
 }
-export function calculateCXTicketsKPIs(_tickets: CXTicket[]) {
+export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
+  const pendientes = tickets.filter((t) => t.status === "abierto").length;
+  const enProgreso = tickets.filter((t) => t.status === "en_progreso").length;
+  const resueltos = tickets.filter((t) => t.status === "resuelto").length;
+  const totalTickets = pendientes + enProgreso + resueltos;
+  const abiertos = pendientes + enProgreso;
+  const resolutionRate = totalTickets > 0 ? Math.round((resueltos / totalTickets) * 100) : 0;
   return {
-    totalTickets: 0,
-    abiertos: 0,
-    resueltos: 0,
-    prioridadAlta: 0,
-    prioridadMedia: 0,
-    prioridadBaja: 0,
+    totalTickets,
+    abiertos,
+    resueltos,
+    prioridadAlta: pendientes,
+    prioridadMedia: enProgreso,
+    prioridadBaja: resueltos,
     avgResolutionTime: 0,
     avgResponseTime: 0,
-    resolutionRate: 0,
+    resolutionRate,
   };
 }
