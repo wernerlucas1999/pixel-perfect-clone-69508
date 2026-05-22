@@ -689,18 +689,97 @@ export async function getFilteredAnnualReports(
   return await fetchAnnualReportsTasks();
 }
 
+// ─── AGENTES REGISTRADOS (ClickUp list real) ───────────────
+const REGISTERED_AGENTS_LIST_ID = "901406624813";
+let registeredAgentsCache: AgenteRegistradoTask[] | null = null;
+
+function mapAgenteStatus(raw: string): AgenteStatus {
+  const s = (raw || "").toLowerCase().trim();
+  if (s === "complete" || s === "completed" || s === "done" || s === "closed" || s === "completado")
+    return "completado";
+  if (s === "pendiente") return "pendiente";
+  // Cualquier otro estado intermedio → en progreso (bucket "esperando_invoice")
+  return "esperando_invoice";
+}
+
+export async function fetchRegisteredAgentsTasks(): Promise<AgenteRegistradoTask[]> {
+  if (registeredAgentsCache) return registeredAgentsCache;
+  const raw = await fetchAllTasks(REGISTERED_AGENTS_LIST_ID);
+  registeredAgentsCache = raw.map((t: any) => ({
+    id: String(t.id),
+    name: t.name ?? "",
+    entity_name: t.name ?? "",
+    state: "new_mexico" as StateType,
+    package: "solo_llc" as PackageType,
+    renewal_date: t.due_date ?? "",
+    status: mapAgenteStatus(t?.status?.status ?? ""),
+    assignee: t?.assignees?.[0]?.username ?? "",
+  }));
+  return registeredAgentsCache;
+}
+
 export async function getFilteredAgentesRegistrados(
   _state?: StateType | "all",
   _pkg?: PackageType | "all",
 ): Promise<AgenteRegistradoTask[]> {
-  return [];
+  return await fetchRegisteredAgentsTasks();
+}
+
+// ─── TICKETERA / CX (ClickUp list real) ────────────────────
+const TICKETERA_LIST_ID = "901409992423";
+let ticketeraCache: CXTicket[] | null = null;
+
+const TICKETERA_IN_PROGRESS = new Set([
+  "filings working",
+  "cx working",
+  "client imput",
+  "client input",
+  "accounting working",
+]);
+const TICKETERA_COMPLETED = new Set(["ticket solucionado", "ticket cerrado"]);
+
+function mapTicketeraStatus(raw: string): CXTicket["status"] {
+  const s = (raw || "").toLowerCase().trim();
+  if (s === "pendiente") return "abierto";
+  if (TICKETERA_IN_PROGRESS.has(s)) return "en_progreso";
+  if (TICKETERA_COMPLETED.has(s)) return "resuelto";
+  // Tareas fuera del flujo definido se ignoran del total
+  return "cerrado";
+}
+
+export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
+  if (ticketeraCache) return ticketeraCache;
+  const raw = await fetchAllTasks(TICKETERA_LIST_ID);
+  ticketeraCache = raw
+    .map((t: any): CXTicket | null => {
+      const rawStatus = (t?.status?.status ?? "").toLowerCase().trim();
+      const isPendiente = rawStatus === "pendiente";
+      const isInProgress = TICKETERA_IN_PROGRESS.has(rawStatus);
+      const isCompleted = TICKETERA_COMPLETED.has(rawStatus);
+      if (!isPendiente && !isInProgress && !isCompleted) return null;
+      return {
+        id: String(t.id),
+        subject: t.name ?? "",
+        client_name: t?.assignees?.[0]?.username ?? "",
+        created_at: msToDate(t.date_created) ?? "",
+        first_response_at: null,
+        resolved_at: msToDate(t.date_closed),
+        status: mapTicketeraStatus(rawStatus),
+        priority: "media",
+        state: "new_mexico" as StateType,
+        package: "solo_llc" as PackageType,
+        assignee: t?.assignees?.[0]?.username ?? "",
+      };
+    })
+    .filter((t): t is CXTicket => t !== null);
+  return ticketeraCache;
 }
 
 export async function getFilteredCXTickets(
   _state?: StateType | "all",
   _pkg?: PackageType | "all",
 ): Promise<CXTicket[]> {
-  return [];
+  return await fetchTicketeraTasks();
 }
 
 // ─── KPI CALCULATORS (idénticos a mock-data.ts) ────────────
@@ -935,26 +1014,40 @@ export function getAnnualReportsPieData(tasks: AnnualReportTask[]) {
     { name: "Pendiente", value: k.pendiente, fill: "#6366f1" },
   ];
 }
-export function calculateAgentesKPIs(_tasks: AgenteRegistradoTask[]) {
-  return { total: 0, pendiente: 0, esperandoInvoice: 0, completado: 0, completionRate: 0 };
+export function calculateAgentesKPIs(tasks: AgenteRegistradoTask[]) {
+  const kpis = { total: tasks.length, pendiente: 0, esperandoInvoice: 0, completado: 0, completionRate: 0 };
+  tasks.forEach((t) => {
+    if (t.status === "completado") kpis.completado++;
+    else if (t.status === "esperando_invoice") kpis.esperandoInvoice++;
+    else kpis.pendiente++;
+  });
+  kpis.completionRate = kpis.total > 0 ? Math.round((kpis.completado / kpis.total) * 100) : 0;
+  return kpis;
 }
-export function getAgentesStatusChartData(_tasks: AgenteRegistradoTask[]) {
+export function getAgentesStatusChartData(tasks: AgenteRegistradoTask[]) {
+  const k = calculateAgentesKPIs(tasks);
   return [
-    { status: "Pendiente", count: 0, fill: "#6366f1" },
-    { status: "Esperando Invoice", count: 0, fill: "#f59e0b" },
-    { status: "Completado", count: 0, fill: "#22c55e" },
+    { status: "Pendiente", count: k.pendiente, fill: "#6366f1" },
+    { status: "En Progreso", count: k.esperandoInvoice, fill: "#f59e0b" },
+    { status: "Completado", count: k.completado, fill: "#22c55e" },
   ];
 }
-export function calculateCXTicketsKPIs(_tickets: CXTicket[]) {
+export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
+  const pendientes = tickets.filter((t) => t.status === "abierto").length;
+  const enProgreso = tickets.filter((t) => t.status === "en_progreso").length;
+  const resueltos = tickets.filter((t) => t.status === "resuelto").length;
+  const totalTickets = pendientes + enProgreso + resueltos;
+  const abiertos = pendientes + enProgreso;
+  const resolutionRate = totalTickets > 0 ? Math.round((resueltos / totalTickets) * 100) : 0;
   return {
-    totalTickets: 0,
-    abiertos: 0,
-    resueltos: 0,
-    prioridadAlta: 0,
-    prioridadMedia: 0,
-    prioridadBaja: 0,
+    totalTickets,
+    abiertos,
+    resueltos,
+    prioridadAlta: pendientes,
+    prioridadMedia: enProgreso,
+    prioridadBaja: resueltos,
     avgResolutionTime: 0,
     avgResponseTime: 0,
-    resolutionRate: 0,
+    resolutionRate,
   };
 }
