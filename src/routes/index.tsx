@@ -75,13 +75,14 @@ const defaultAgentesKPIs = {
 };
 const defaultCXTicketsKPIs = {
   totalTickets: 0,
+  pendientes: 0,
+  enProgreso: 0,
+  completadas: 0,
   abiertos: 0,
   resueltos: 0,
-  prioridadAlta: 0,
-  prioridadMedia: 0,
-  prioridadBaja: 0,
-  avgResolutionTime: 0,
-  avgResponseTime: 0,
+  respondedTickets: 0,
+  avgResponseHours: 0,
+  sameDayPercent: 0,
   resolutionRate: 0,
 };
 
