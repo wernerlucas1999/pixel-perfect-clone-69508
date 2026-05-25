@@ -129,6 +129,7 @@ function DashboardPage() {
 
   const [, setFilteredCXTickets] = useState<CXTicket[]>([]);
   const [cxTicketsKPIs, setCXTicketsKPIs] = useState(defaultCXTicketsKPIs);
+  const [cxByAssignee, setCXByAssignee] = useState<{ assignee: string; count: number }[]>([]);
 
   const fetchLLCData = useCallback(async () => {
     try {
