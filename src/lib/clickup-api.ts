@@ -244,13 +244,16 @@ export interface CXTicket {
   subject: string;
   client_name: string;
   created_at: string;
+  created_at_ms: number | null;
   first_response_at: string | null;
+  first_response_at_ms: number | null;
   resolved_at: string | null;
   status: "abierto" | "en_progreso" | "resuelto" | "cerrado";
   priority: "alta" | "media" | "baja";
   state: StateType;
   package: PackageType;
   assignee: string;
+  assignees: string[];
 }
 
 // ─── HELPERS ───────────────────────────────────────────────
