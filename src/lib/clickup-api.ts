@@ -1064,19 +1064,73 @@ export function getAgentesStatusChartData(tasks: AgenteRegistradoTask[]) {
 export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
   const pendientes = tickets.filter((t) => t.status === "abierto").length;
   const enProgreso = tickets.filter((t) => t.status === "en_progreso").length;
-  const resueltos = tickets.filter((t) => t.status === "resuelto").length;
-  const totalTickets = pendientes + enProgreso + resueltos;
-  const abiertos = pendientes + enProgreso;
-  const resolutionRate = totalTickets > 0 ? Math.round((resueltos / totalTickets) * 100) : 0;
+  const completadas = tickets.filter((t) => t.status === "resuelto").length;
+  const totalTickets = pendientes + enProgreso + completadas;
+
+  // Tiempos de primera respuesta: solo tickets con first_response_at_ms y created_at_ms válidos
+  const respondedTickets = tickets.filter(
+    (t) =>
+      typeof t.first_response_at_ms === "number" &&
+      t.first_response_at_ms > 0 &&
+      typeof t.created_at_ms === "number" &&
+      t.created_at_ms > 0 &&
+      t.first_response_at_ms >= t.created_at_ms,
+  );
+
+  const totalResponded = respondedTickets.length;
+  let avgResponseHours = 0;
+  let sameDayPercent = 0;
+  if (totalResponded > 0) {
+    const totalMs = respondedTickets.reduce(
+      (sum, t) => sum + ((t.first_response_at_ms as number) - (t.created_at_ms as number)),
+      0,
+    );
+    avgResponseHours = totalMs / totalResponded / (1000 * 60 * 60);
+    const sameDay = respondedTickets.filter((t) => {
+      const c = new Date(t.created_at_ms as number);
+      const r = new Date(t.first_response_at_ms as number);
+      return (
+        c.getFullYear() === r.getFullYear() &&
+        c.getMonth() === r.getMonth() &&
+        c.getDate() === r.getDate()
+      );
+    }).length;
+    sameDayPercent = Math.round((sameDay / totalResponded) * 100);
+  }
+
+  const resolutionRate = totalTickets > 0 ? Math.round((completadas / totalTickets) * 100) : 0;
+
   return {
     totalTickets,
-    abiertos,
-    resueltos,
-    prioridadAlta: pendientes,
-    prioridadMedia: enProgreso,
-    prioridadBaja: resueltos,
+    pendientes,
+    enProgreso,
+    completadas,
+    abiertos: pendientes + enProgreso,
+    resueltos: completadas,
+    respondedTickets: totalResponded,
+    avgResponseHours: Math.round(avgResponseHours * 10) / 10,
+    avgResponseTime: Math.round(avgResponseHours * 60), // minutos (compat con view existente)
+    sameDayPercent,
     avgResolutionTime: 0,
-    avgResponseTime: 0,
     resolutionRate,
+    // Compat antiguo (prioridad ya no se usa):
+    prioridadAlta: 0,
+    prioridadMedia: 0,
+    prioridadBaja: 0,
   };
+}
+
+export function getCXTicketsByAssignee(
+  tickets: CXTicket[],
+): { assignee: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const t of tickets) {
+    const list = t.assignees && t.assignees.length > 0 ? t.assignees : ["Sin asignar"];
+    for (const a of list) {
+      counts.set(a, (counts.get(a) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([assignee, count]) => ({ assignee, count }))
+    .sort((a, b) => b.count - a.count);
 }
