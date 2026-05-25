@@ -27,6 +27,7 @@ import {
   calculateAgentesKPIs,
   getAgentesStatusChartData,
   calculateCXTicketsKPIs,
+  getCXTicketsByAssignee,
   type ProcessType,
   type StateType,
   type PackageType,
