@@ -316,7 +316,7 @@ function DashboardPage() {
         );
 
       case "ticketera_cx":
-        return <CXTicketsView kpis={cxTicketsKPIs} />;
+        return <CXTicketsView kpis={cxTicketsKPIs} byAssignee={cxByAssignee} />;
 
       case "llc_formation":
       case "other":
