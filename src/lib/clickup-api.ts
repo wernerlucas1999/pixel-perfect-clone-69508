@@ -750,6 +750,24 @@ function mapTicketeraStatus(raw: string): CXTicket["status"] {
   return "cerrado";
 }
 
+const FIRST_RESPONSE_FIELD_NAMES = [
+  "fecha de primera respuesta",
+  "primera respuesta",
+  "first response",
+  "first response date",
+  "fecha primera respuesta",
+];
+
+function getCustomFieldMs(fields: any[], names: string[]): number | null {
+  if (!Array.isArray(fields)) return null;
+  const lowered = names.map((n) => n.toLowerCase().trim());
+  const f = fields.find((f: any) => lowered.includes(String(f?.name ?? "").toLowerCase().trim()));
+  if (!f || f.value === undefined || f.value === null || f.value === "") return null;
+  const n = typeof f.value === "number" ? f.value : Number(f.value);
+  if (!isFinite(n) || n <= 0) return null;
+  return n;
+}
+
 export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
   if (ticketeraCache) return ticketeraCache;
   const raw = await fetchAllTasks(TICKETERA_LIST_ID);
@@ -760,18 +778,26 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
       const isInProgress = TICKETERA_IN_PROGRESS.has(rawStatus);
       const isCompleted = TICKETERA_COMPLETED.has(rawStatus);
       if (!isPendiente && !isInProgress && !isCompleted) return null;
+      const createdMs = t?.date_created ? Number(t.date_created) : null;
+      const firstRespMs = getCustomFieldMs(t?.custom_fields ?? [], FIRST_RESPONSE_FIELD_NAMES);
+      const assignees: string[] = Array.isArray(t?.assignees)
+        ? t.assignees.map((a: any) => a?.username ?? a?.email ?? "Sin asignar").filter(Boolean)
+        : [];
       return {
         id: String(t.id),
         subject: t.name ?? "",
-        client_name: t?.assignees?.[0]?.username ?? "",
-        created_at: msToDate(t.date_created) ?? "",
-        first_response_at: null,
+        client_name: assignees[0] ?? "",
+        created_at: msToDate(createdMs) ?? "",
+        created_at_ms: createdMs && isFinite(createdMs) ? createdMs : null,
+        first_response_at: msToDate(firstRespMs),
+        first_response_at_ms: firstRespMs,
         resolved_at: msToDate(t.date_closed),
         status: mapTicketeraStatus(rawStatus),
         priority: "media",
         state: "new_mexico" as StateType,
         package: "solo_llc" as PackageType,
-        assignee: t?.assignees?.[0]?.username ?? "",
+        assignee: assignees[0] ?? "Sin asignar",
+        assignees: assignees.length > 0 ? assignees : ["Sin asignar"],
       };
     })
     .filter((t): t is CXTicket => t !== null);
