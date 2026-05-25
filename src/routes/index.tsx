@@ -27,6 +27,7 @@ import {
   calculateAgentesKPIs,
   getAgentesStatusChartData,
   calculateCXTicketsKPIs,
+  getCXTicketsByAssignee,
   type ProcessType,
   type StateType,
   type PackageType,
@@ -74,13 +75,14 @@ const defaultAgentesKPIs = {
 };
 const defaultCXTicketsKPIs = {
   totalTickets: 0,
+  pendientes: 0,
+  enProgreso: 0,
+  completadas: 0,
   abiertos: 0,
   resueltos: 0,
-  prioridadAlta: 0,
-  prioridadMedia: 0,
-  prioridadBaja: 0,
-  avgResolutionTime: 0,
-  avgResponseTime: 0,
+  respondedTickets: 0,
+  avgResponseHours: 0,
+  sameDayPercent: 0,
   resolutionRate: 0,
 };
 
@@ -127,6 +129,7 @@ function DashboardPage() {
 
   const [, setFilteredCXTickets] = useState<CXTicket[]>([]);
   const [cxTicketsKPIs, setCXTicketsKPIs] = useState(defaultCXTicketsKPIs);
+  const [cxByAssignee, setCXByAssignee] = useState<{ assignee: string; count: number }[]>([]);
 
   const fetchLLCData = useCallback(async () => {
     try {
@@ -191,6 +194,7 @@ function DashboardPage() {
       const tickets = await getFilteredCXTickets(selectedState, selectedPackage);
       setFilteredCXTickets(tickets);
       setCXTicketsKPIs(calculateCXTicketsKPIs(tickets));
+      setCXByAssignee(getCXTicketsByAssignee(tickets));
     } catch (err) {
       console.error("Error fetching CX Tickets:", err);
     }
@@ -312,7 +316,7 @@ function DashboardPage() {
         );
 
       case "ticketera_cx":
-        return <CXTicketsView kpis={cxTicketsKPIs} />;
+        return <CXTicketsView kpis={cxTicketsKPIs} byAssignee={cxByAssignee} />;
 
       case "llc_formation":
       case "other":

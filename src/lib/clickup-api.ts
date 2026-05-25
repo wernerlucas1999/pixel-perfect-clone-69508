@@ -244,13 +244,16 @@ export interface CXTicket {
   subject: string;
   client_name: string;
   created_at: string;
+  created_at_ms: number | null;
   first_response_at: string | null;
+  first_response_at_ms: number | null;
   resolved_at: string | null;
   status: "abierto" | "en_progreso" | "resuelto" | "cerrado";
   priority: "alta" | "media" | "baja";
   state: StateType;
   package: PackageType;
   assignee: string;
+  assignees: string[];
 }
 
 // ─── HELPERS ───────────────────────────────────────────────
@@ -747,6 +750,24 @@ function mapTicketeraStatus(raw: string): CXTicket["status"] {
   return "cerrado";
 }
 
+const FIRST_RESPONSE_FIELD_NAMES = [
+  "fecha de primera respuesta",
+  "primera respuesta",
+  "first response",
+  "first response date",
+  "fecha primera respuesta",
+];
+
+function getCustomFieldMs(fields: any[], names: string[]): number | null {
+  if (!Array.isArray(fields)) return null;
+  const lowered = names.map((n) => n.toLowerCase().trim());
+  const f = fields.find((f: any) => lowered.includes(String(f?.name ?? "").toLowerCase().trim()));
+  if (!f || f.value === undefined || f.value === null || f.value === "") return null;
+  const n = typeof f.value === "number" ? f.value : Number(f.value);
+  if (!isFinite(n) || n <= 0) return null;
+  return n;
+}
+
 export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
   if (ticketeraCache) return ticketeraCache;
   const raw = await fetchAllTasks(TICKETERA_LIST_ID);
@@ -757,18 +778,26 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
       const isInProgress = TICKETERA_IN_PROGRESS.has(rawStatus);
       const isCompleted = TICKETERA_COMPLETED.has(rawStatus);
       if (!isPendiente && !isInProgress && !isCompleted) return null;
+      const createdMs = t?.date_created ? Number(t.date_created) : null;
+      const firstRespMs = getCustomFieldMs(t?.custom_fields ?? [], FIRST_RESPONSE_FIELD_NAMES);
+      const assignees: string[] = Array.isArray(t?.assignees)
+        ? t.assignees.map((a: any) => a?.username ?? a?.email ?? "Sin asignar").filter(Boolean)
+        : [];
       return {
         id: String(t.id),
         subject: t.name ?? "",
-        client_name: t?.assignees?.[0]?.username ?? "",
-        created_at: msToDate(t.date_created) ?? "",
-        first_response_at: null,
+        client_name: assignees[0] ?? "",
+        created_at: msToDate(createdMs) ?? "",
+        created_at_ms: createdMs && isFinite(createdMs) ? createdMs : null,
+        first_response_at: msToDate(firstRespMs),
+        first_response_at_ms: firstRespMs,
         resolved_at: msToDate(t.date_closed),
         status: mapTicketeraStatus(rawStatus),
         priority: "media",
         state: "new_mexico" as StateType,
         package: "solo_llc" as PackageType,
-        assignee: t?.assignees?.[0]?.username ?? "",
+        assignee: assignees[0] ?? "Sin asignar",
+        assignees: assignees.length > 0 ? assignees : ["Sin asignar"],
       };
     })
     .filter((t): t is CXTicket => t !== null);
@@ -1035,19 +1064,73 @@ export function getAgentesStatusChartData(tasks: AgenteRegistradoTask[]) {
 export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
   const pendientes = tickets.filter((t) => t.status === "abierto").length;
   const enProgreso = tickets.filter((t) => t.status === "en_progreso").length;
-  const resueltos = tickets.filter((t) => t.status === "resuelto").length;
-  const totalTickets = pendientes + enProgreso + resueltos;
-  const abiertos = pendientes + enProgreso;
-  const resolutionRate = totalTickets > 0 ? Math.round((resueltos / totalTickets) * 100) : 0;
+  const completadas = tickets.filter((t) => t.status === "resuelto").length;
+  const totalTickets = pendientes + enProgreso + completadas;
+
+  // Tiempos de primera respuesta: solo tickets con first_response_at_ms y created_at_ms válidos
+  const respondedTickets = tickets.filter(
+    (t) =>
+      typeof t.first_response_at_ms === "number" &&
+      t.first_response_at_ms > 0 &&
+      typeof t.created_at_ms === "number" &&
+      t.created_at_ms > 0 &&
+      t.first_response_at_ms >= t.created_at_ms,
+  );
+
+  const totalResponded = respondedTickets.length;
+  let avgResponseHours = 0;
+  let sameDayPercent = 0;
+  if (totalResponded > 0) {
+    const totalMs = respondedTickets.reduce(
+      (sum, t) => sum + ((t.first_response_at_ms as number) - (t.created_at_ms as number)),
+      0,
+    );
+    avgResponseHours = totalMs / totalResponded / (1000 * 60 * 60);
+    const sameDay = respondedTickets.filter((t) => {
+      const c = new Date(t.created_at_ms as number);
+      const r = new Date(t.first_response_at_ms as number);
+      return (
+        c.getFullYear() === r.getFullYear() &&
+        c.getMonth() === r.getMonth() &&
+        c.getDate() === r.getDate()
+      );
+    }).length;
+    sameDayPercent = Math.round((sameDay / totalResponded) * 100);
+  }
+
+  const resolutionRate = totalTickets > 0 ? Math.round((completadas / totalTickets) * 100) : 0;
+
   return {
     totalTickets,
-    abiertos,
-    resueltos,
-    prioridadAlta: pendientes,
-    prioridadMedia: enProgreso,
-    prioridadBaja: resueltos,
+    pendientes,
+    enProgreso,
+    completadas,
+    abiertos: pendientes + enProgreso,
+    resueltos: completadas,
+    respondedTickets: totalResponded,
+    avgResponseHours: Math.round(avgResponseHours * 10) / 10,
+    avgResponseTime: Math.round(avgResponseHours * 60), // minutos (compat con view existente)
+    sameDayPercent,
     avgResolutionTime: 0,
-    avgResponseTime: 0,
     resolutionRate,
+    // Compat antiguo (prioridad ya no se usa):
+    prioridadAlta: 0,
+    prioridadMedia: 0,
+    prioridadBaja: 0,
   };
+}
+
+export function getCXTicketsByAssignee(
+  tickets: CXTicket[],
+): { assignee: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const t of tickets) {
+    const list = t.assignees && t.assignees.length > 0 ? t.assignees : ["Sin asignar"];
+    for (const a of list) {
+      counts.set(a, (counts.get(a) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([assignee, count]) => ({ assignee, count }))
+    .sort((a, b) => b.count - a.count);
 }
