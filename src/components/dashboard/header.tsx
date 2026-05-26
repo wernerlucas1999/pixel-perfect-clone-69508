@@ -54,6 +54,7 @@ export function Header({
   onBankChange,
 }: HeaderProps) {
   const isBankApplication = selectedProcess === "bank_application";
+  const isTicketera = selectedProcess === "ticketera_cx";
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
