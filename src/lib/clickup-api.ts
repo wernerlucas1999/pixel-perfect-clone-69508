@@ -815,7 +815,10 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
       const isInProgress = TICKETERA_IN_PROGRESS.has(rawStatus);
       const isCompleted = TICKETERA_COMPLETED.has(rawStatus);
       if (!isPendiente && !isInProgress && !isCompleted) return null;
-      const createdMs = t?.date_created ? Number(t.date_created) : null;
+      const customCreatedMs = getCustomFieldMs(t?.custom_fields ?? [], CREATION_FIELD_NAMES);
+      const dateCreatedMs = t?.date_created ? Number(t.date_created) : null;
+      const createdMs =
+        customCreatedMs ?? (dateCreatedMs && isFinite(dateCreatedMs) ? dateCreatedMs : null);
       const firstRespMs = getCustomFieldMs(t?.custom_fields ?? [], FIRST_RESPONSE_FIELD_NAMES);
       const assignees: string[] = Array.isArray(t?.assignees)
         ? t.assignees.map((a: any) => a?.username ?? a?.email ?? "Sin asignar").filter(Boolean)
