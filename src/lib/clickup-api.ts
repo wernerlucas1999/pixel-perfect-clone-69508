@@ -758,14 +758,51 @@ const FIRST_RESPONSE_FIELD_NAMES = [
   "fecha primera respuesta",
 ];
 
+const CREATION_FIELD_NAMES = [
+  "fecha de creación",
+  "fecha de creacion",
+  "creation date",
+  "fecha creación",
+  "fecha creacion",
+];
+
+function parseFlexibleDateMs(value: any): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number" && isFinite(value) && value > 0) return value;
+  const str = String(value).trim();
+  if (!str) return null;
+  if (/^\d+$/.test(str)) {
+    const n = Number(str);
+    return isFinite(n) && n > 0 ? n : null;
+  }
+  const dmy = str.match(
+    /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
+  );
+  if (dmy) {
+    let y = parseInt(dmy[3]);
+    if (y < 100) y += 2000;
+    const m = parseInt(dmy[2]) - 1;
+    const d = parseInt(dmy[1]);
+    const hh = dmy[4] ? parseInt(dmy[4]) : 0;
+    const mm = dmy[5] ? parseInt(dmy[5]) : 0;
+    const ss = dmy[6] ? parseInt(dmy[6]) : 0;
+    const ts = Date.UTC(y, m, d, hh, mm, ss);
+    return isFinite(ts) ? ts : null;
+  }
+  const parsed = Date.parse(str);
+  return isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 function getCustomFieldMs(fields: any[], names: string[]): number | null {
   if (!Array.isArray(fields)) return null;
   const lowered = names.map((n) => n.toLowerCase().trim());
-  const f = fields.find((f: any) => lowered.includes(String(f?.name ?? "").toLowerCase().trim()));
-  if (!f || f.value === undefined || f.value === null || f.value === "") return null;
-  const n = typeof f.value === "number" ? f.value : Number(f.value);
-  if (!isFinite(n) || n <= 0) return null;
-  return n;
+  const f = fields.find((f: any) =>
+    lowered.includes(String(f?.name ?? "").toLowerCase().trim()),
+  );
+  if (!f) return null;
+  const raw =
+    f.value && typeof f.value === "object" && "date" in f.value ? f.value.date : f.value;
+  return parseFlexibleDateMs(raw);
 }
 
 export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
@@ -778,7 +815,10 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
       const isInProgress = TICKETERA_IN_PROGRESS.has(rawStatus);
       const isCompleted = TICKETERA_COMPLETED.has(rawStatus);
       if (!isPendiente && !isInProgress && !isCompleted) return null;
-      const createdMs = t?.date_created ? Number(t.date_created) : null;
+      const customCreatedMs = getCustomFieldMs(t?.custom_fields ?? [], CREATION_FIELD_NAMES);
+      const dateCreatedMs = t?.date_created ? Number(t.date_created) : null;
+      const createdMs =
+        customCreatedMs ?? (dateCreatedMs && isFinite(dateCreatedMs) ? dateCreatedMs : null);
       const firstRespMs = getCustomFieldMs(t?.custom_fields ?? [], FIRST_RESPONSE_FIELD_NAMES);
       const assignees: string[] = Array.isArray(t?.assignees)
         ? t.assignees.map((a: any) => a?.username ?? a?.email ?? "Sin asignar").filter(Boolean)
@@ -1125,6 +1165,7 @@ export function getCXTicketsByAssignee(
 ): { assignee: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const t of tickets) {
+    if (t.status !== "resuelto") continue;
     const list = t.assignees && t.assignees.length > 0 ? t.assignees : ["Sin asignar"];
     for (const a of list) {
       counts.set(a, (counts.get(a) ?? 0) + 1);
