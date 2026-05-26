@@ -742,8 +742,10 @@ const TICKETERA_IN_PROGRESS = new Set([
 const TICKETERA_COMPLETED = new Set(["ticket solucionado", "ticket cerrado"]);
 
 function mapTicketeraStatus(raw: string): CXTicket["status"] {
-  const s = (raw || "").toLowerCase().trim();
-  if (s === "pendiente") return "abierto";
+  const raw0 = (raw || "").trim();
+  // Validación exacta para PENDIENTE en mayúsculas
+  if (raw0.toUpperCase() === "PENDIENTE") return "abierto";
+  const s = raw0.toLowerCase();
   if (TICKETERA_IN_PROGRESS.has(s)) return "en_progreso";
   if (TICKETERA_COMPLETED.has(s)) return "resuelto";
   // Tareas fuera del flujo definido se ignoran del total
