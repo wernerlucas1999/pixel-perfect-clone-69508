@@ -1165,6 +1165,7 @@ export function getCXTicketsByAssignee(
 ): { assignee: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const t of tickets) {
+    if (t.status !== "resuelto") continue;
     const list = t.assignees && t.assignees.length > 0 ? t.assignees : ["Sin asignar"];
     for (const a of list) {
       counts.set(a, (counts.get(a) ?? 0) + 1);
