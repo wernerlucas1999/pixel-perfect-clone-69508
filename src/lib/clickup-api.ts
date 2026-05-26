@@ -742,8 +742,10 @@ const TICKETERA_IN_PROGRESS = new Set([
 const TICKETERA_COMPLETED = new Set(["ticket solucionado", "ticket cerrado"]);
 
 function mapTicketeraStatus(raw: string): CXTicket["status"] {
-  const s = (raw || "").toLowerCase().trim();
-  if (s === "pendiente") return "abierto";
+  const raw0 = (raw || "").trim();
+  // Validación exacta para PENDIENTE en mayúsculas
+  if (raw0.toUpperCase() === "PENDIENTE") return "abierto";
+  const s = raw0.toLowerCase();
   if (TICKETERA_IN_PROGRESS.has(s)) return "en_progreso";
   if (TICKETERA_COMPLETED.has(s)) return "resuelto";
   // Tareas fuera del flujo definido se ignoran del total
@@ -1157,18 +1159,38 @@ export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
   };
 }
 
+const CX_ALLOWED_ASSIGNEES = ["Tomas Susevich", "Camila Aguirre", "Lucas Werner"];
+
+function matchAllowedAssignee(name: string): string | null {
+  const n = (name || "").toLowerCase().trim();
+  for (const allowed of CX_ALLOWED_ASSIGNEES) {
+    const a = allowed.toLowerCase();
+    if (n === a || n.includes(a) || a.includes(n)) return allowed;
+    // Coincidencia por primer nombre
+    const first = a.split(" ")[0];
+    if (first && n.includes(first)) return allowed;
+  }
+  return null;
+}
+
 export function getCXTicketsByAssignee(
   tickets: CXTicket[],
 ): { assignee: string; count: number }[] {
   const counts = new Map<string, number>();
+  // Inicializar siempre los 3 colaboradores fijos (para que aparezcan aunque sea con 0)
+  for (const a of CX_ALLOWED_ASSIGNEES) counts.set(a, 0);
+
   for (const t of tickets) {
     if (t.status !== "resuelto") continue;
-    const list = t.assignees && t.assignees.length > 0 ? t.assignees : ["Sin asignar"];
+    const list = t.assignees && t.assignees.length > 0 ? t.assignees : [];
     for (const a of list) {
-      counts.set(a, (counts.get(a) ?? 0) + 1);
+      const allowed = matchAllowedAssignee(a);
+      if (!allowed) continue; // Excluye Atl, María José Manco y cualquier otro
+      counts.set(allowed, (counts.get(allowed) ?? 0) + 1);
     }
   }
-  return Array.from(counts.entries())
-    .map(([assignee, count]) => ({ assignee, count }))
-    .sort((a, b) => b.count - a.count);
+  return CX_ALLOWED_ASSIGNEES.map((assignee) => ({
+    assignee,
+    count: counts.get(assignee) ?? 0,
+  }));
 }

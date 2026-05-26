@@ -115,12 +115,13 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
               Aún no hay tickets resueltos asignados.
             </p>
           ) : (
-            <div style={{ height: Math.max(320, byAssignee.length * 38) }}>
+            <div style={{ height: Math.max(280, byAssignee.length * 70) }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={byAssignee}
                   layout="vertical"
-                  margin={{ top: 10, right: 60, left: 20, bottom: 5 }}
+                  margin={{ top: 10, right: 80, left: 10, bottom: 5 }}
+                  barCategoryGap="25%"
                 >
                   <XAxis
                     type="number"
@@ -132,10 +133,11 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
                   <YAxis
                     type="category"
                     dataKey="assignee"
-                    width={160}
-                    tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
+                    width={180}
+                    interval={0}
+                    tick={{ fill: "hsl(var(--foreground))", fontSize: 13, fontWeight: 600 }}
                     axisLine={{ stroke: "hsl(var(--border))" }}
-                    tickLine={{ stroke: "hsl(var(--border))" }}
+                    tickLine={false}
                   />
                   <Tooltip
                     cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
@@ -149,17 +151,23 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
                   />
                   <Bar
                     dataKey="count"
-                    radius={[0, 4, 4, 0]}
+                    radius={[0, 6, 6, 0]}
                     label={{
                       position: "right",
                       fill: "hsl(var(--foreground))",
-                      fontSize: 12,
+                      fontSize: 13,
+                      fontWeight: 600,
                       formatter: (v: number) => `${v} tickets`,
                     }}
                   >
-                    {byAssignee.map((_, i) => (
-                      <Cell key={i} fill="#22c55e" />
-                    ))}
+                    {byAssignee.map((entry, i) => {
+                      const palette: Record<string, string> = {
+                        "Tomas Susevich": "#22c55e",
+                        "Camila Aguirre": "#ec4899",
+                        "Lucas Werner": "#3b82f6",
+                      };
+                      return <Cell key={i} fill={palette[entry.assignee] ?? "#a855f7"} />;
+                    })}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
