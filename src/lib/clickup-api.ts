@@ -751,11 +751,8 @@ function mapTicketeraStatus(raw: string): CXTicket["status"] {
 }
 
 const FIRST_RESPONSE_FIELD_NAMES = [
-  "fecha de primera respuesta",
-  "primera respuesta",
-  "first response",
-  "first response date",
-  "fecha primera respuesta",
+  "fecha de respuesta",
+  "fecha respuesta",
 ];
 
 const CREATION_FIELD_NAMES = [
