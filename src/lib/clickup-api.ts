@@ -1122,7 +1122,9 @@ export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
   let sameDayPercent = 0;
   if (totalResponded > 0) {
     const totalMs = respondedTickets.reduce(
-      (sum, t) => sum + ((t.first_response_at_ms as number) - (t.created_at_ms as number)),
+      (sum, t) =>
+        sum +
+        businessMsBetween(t.created_at_ms as number, t.first_response_at_ms as number),
       0,
     );
     avgResponseHours = totalMs / totalResponded / (1000 * 60 * 60);
