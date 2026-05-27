@@ -820,6 +820,8 @@ function businessMsBetween(startMs: number, endMs: number): number {
     if (segmentEnd - cursor === 0 && cursor < endMs) cursor += 1; // safety
   }
   return total;
+}
+
 
 export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
   if (ticketeraCache) return ticketeraCache;
