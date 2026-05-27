@@ -804,6 +804,23 @@ function getCustomFieldMs(fields: any[], names: string[]): number | null {
   return parseFlexibleDateMs(raw);
 }
 
+// Calcula milisegundos entre dos timestamps excluyendo sábados y domingos.
+function businessMsBetween(startMs: number, endMs: number): number {
+  if (!isFinite(startMs) || !isFinite(endMs) || endMs <= startMs) return 0;
+  const DAY = 24 * 60 * 60 * 1000;
+  let total = 0;
+  let cursor = startMs;
+  while (cursor < endMs) {
+    const d = new Date(cursor).getDay(); // 0=dom, 6=sáb
+    const endOfDay =
+      new Date(new Date(cursor).setHours(24, 0, 0, 0)).getTime();
+    const segmentEnd = Math.min(endOfDay, endMs);
+    if (d !== 0 && d !== 6) total += segmentEnd - cursor;
+    cursor = segmentEnd;
+    if (segmentEnd - cursor === 0 && cursor < endMs) cursor += 1; // safety
+  }
+  return total;
+
 export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
   if (ticketeraCache) return ticketeraCache;
   const raw = await fetchAllTasks(TICKETERA_LIST_ID);
