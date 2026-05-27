@@ -809,8 +809,9 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
   const raw = await fetchAllTasks(TICKETERA_LIST_ID);
   ticketeraCache = raw
     .map((t: any): CXTicket | null => {
-      const rawStatus = (t?.status?.status ?? "").toLowerCase().trim();
-      const isPendiente = rawStatus === "pendiente";
+      const rawUpper = (t?.status?.status ?? "").toUpperCase().trim();
+      const rawStatus = rawUpper.toLowerCase();
+      const isPendiente = rawUpper === "PENDIENTE";
       const isInProgress = TICKETERA_IN_PROGRESS.has(rawStatus);
       const isCompleted = TICKETERA_COMPLETED.has(rawStatus);
       if (!isPendiente && !isInProgress && !isCompleted) return null;
