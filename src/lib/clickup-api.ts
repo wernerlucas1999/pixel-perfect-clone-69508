@@ -1130,34 +1130,17 @@ export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
   const completadas = tickets.filter((t) => t.status === "resuelto").length;
   const totalTickets = pendientes + enProgreso + completadas;
 
-  // Tiempos de primera respuesta: solo tickets con first_response_at_ms y created_at_ms válidos
-  const respondedTickets = tickets.filter(
-    (t) =>
-      typeof t.first_response_at_ms === "number" &&
-      t.first_response_at_ms > 0 &&
-      typeof t.created_at_ms === "number" &&
-      t.created_at_ms > 0 &&
-      t.first_response_at_ms >= t.created_at_ms,
+  // Usar directamente el Custom Field "Demora primera respuesta" calculado por ClickUp
+  const withDelay = tickets.filter(
+    (t) => typeof t.response_delay_ms === "number" && isFinite(t.response_delay_ms as number),
   );
-
-  const totalResponded = respondedTickets.length;
+  const totalResponded = withDelay.length;
   let avgResponseHours = 0;
   let sameDayPercent = 0;
   if (totalResponded > 0) {
-    const totalMs = respondedTickets.reduce(
-      (sum, t) => sum + ((t.first_response_at_ms as number) - (t.created_at_ms as number)),
-      0,
-    );
+    const totalMs = withDelay.reduce((sum, t) => sum + (t.response_delay_ms as number), 0);
     avgResponseHours = totalMs / totalResponded / (1000 * 60 * 60);
-    const sameDay = respondedTickets.filter((t) => {
-      const c = new Date(t.created_at_ms as number);
-      const r = new Date(t.first_response_at_ms as number);
-      return (
-        c.getFullYear() === r.getFullYear() &&
-        c.getMonth() === r.getMonth() &&
-        c.getDate() === r.getDate()
-      );
-    }).length;
+    const sameDay = withDelay.filter((t) => (t.response_delay_ms as number) === 0).length;
     sameDayPercent = Math.round((sameDay / totalResponded) * 100);
   }
 
