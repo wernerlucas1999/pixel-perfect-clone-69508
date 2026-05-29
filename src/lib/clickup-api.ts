@@ -247,6 +247,7 @@ export interface CXTicket {
   created_at_ms: number | null;
   first_response_at: string | null;
   first_response_at_ms: number | null;
+  response_delay_ms: number | null;
   resolved_at: string | null;
   status: "abierto" | "en_progreso" | "resuelto" | "cerrado";
   priority: "alta" | "media" | "baja";
@@ -757,6 +758,24 @@ const FIRST_RESPONSE_FIELD_NAMES = [
   "fecha respuesta",
 ];
 
+const RESPONSE_DELAY_FIELD_NAMES = [
+  "demora primera respuesta",
+  "demora primer respuesta",
+  "demora de primera respuesta",
+];
+
+function getCustomFieldNumber(fields: any[], names: string[]): number | null {
+  if (!Array.isArray(fields)) return null;
+  const lowered = names.map((n) => n.toLowerCase().trim());
+  const f = fields.find((f: any) =>
+    lowered.includes(String(f?.name ?? "").toLowerCase().trim()),
+  );
+  if (!f || f.value === undefined || f.value === null || f.value === "") return null;
+  const raw = typeof f.value === "object" ? (f.value.value ?? f.value) : f.value;
+  const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+  return isFinite(n) ? n : null;
+}
+
 const CREATION_FIELD_NAMES = [
   "fecha de creación",
   "fecha de creacion",
@@ -819,6 +838,10 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
       const createdMs =
         customCreatedMs ?? (dateCreatedMs && isFinite(dateCreatedMs) ? dateCreatedMs : null);
       const firstRespMs = getCustomFieldMs(t?.custom_fields ?? [], FIRST_RESPONSE_FIELD_NAMES);
+      const responseDelayMs = getCustomFieldNumber(
+        t?.custom_fields ?? [],
+        RESPONSE_DELAY_FIELD_NAMES,
+      );
       const assignees: string[] = Array.isArray(t?.assignees)
         ? t.assignees.map((a: any) => a?.username ?? a?.email ?? "Sin asignar").filter(Boolean)
         : [];
@@ -830,6 +853,7 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
         created_at_ms: createdMs && isFinite(createdMs) ? createdMs : null,
         first_response_at: msToDate(firstRespMs),
         first_response_at_ms: firstRespMs,
+        response_delay_ms: responseDelayMs,
         resolved_at: msToDate(t.date_closed),
         status: mapTicketeraStatus(rawStatus),
         priority: "media",
@@ -1106,34 +1130,17 @@ export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
   const completadas = tickets.filter((t) => t.status === "resuelto").length;
   const totalTickets = pendientes + enProgreso + completadas;
 
-  // Tiempos de primera respuesta: solo tickets con first_response_at_ms y created_at_ms válidos
-  const respondedTickets = tickets.filter(
-    (t) =>
-      typeof t.first_response_at_ms === "number" &&
-      t.first_response_at_ms > 0 &&
-      typeof t.created_at_ms === "number" &&
-      t.created_at_ms > 0 &&
-      t.first_response_at_ms >= t.created_at_ms,
+  // Usar directamente el Custom Field "Demora primera respuesta" calculado por ClickUp
+  const withDelay = tickets.filter(
+    (t) => typeof t.response_delay_ms === "number" && isFinite(t.response_delay_ms as number),
   );
-
-  const totalResponded = respondedTickets.length;
+  const totalResponded = withDelay.length;
   let avgResponseHours = 0;
   let sameDayPercent = 0;
   if (totalResponded > 0) {
-    const totalMs = respondedTickets.reduce(
-      (sum, t) => sum + ((t.first_response_at_ms as number) - (t.created_at_ms as number)),
-      0,
-    );
+    const totalMs = withDelay.reduce((sum, t) => sum + (t.response_delay_ms as number), 0);
     avgResponseHours = totalMs / totalResponded / (1000 * 60 * 60);
-    const sameDay = respondedTickets.filter((t) => {
-      const c = new Date(t.created_at_ms as number);
-      const r = new Date(t.first_response_at_ms as number);
-      return (
-        c.getFullYear() === r.getFullYear() &&
-        c.getMonth() === r.getMonth() &&
-        c.getDate() === r.getDate()
-      );
-    }).length;
+    const sameDay = withDelay.filter((t) => (t.response_delay_ms as number) === 0).length;
     sameDayPercent = Math.round((sameDay / totalResponded) * 100);
   }
 

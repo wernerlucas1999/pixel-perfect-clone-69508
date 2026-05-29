@@ -75,7 +75,7 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
               {formatResponse(kpis.avgResponseHours)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {kpis.respondedTickets} con primera respuesta
+              {kpis.respondedTickets} con respuesta
             </p>
           </CardContent>
         </Card>
@@ -135,7 +135,7 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
                     dataKey="assignee"
                     width={180}
                     interval={0}
-                    tick={{ fill: "hsl(var(--foreground))", fontSize: 13, fontWeight: 600 }}
+                    tick={{ fill: "#e5e7eb", fontSize: 13, fontWeight: 600 }}
                     axisLine={{ stroke: "hsl(var(--border))" }}
                     tickLine={false}
                   />
