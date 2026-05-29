@@ -75,7 +75,7 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
               {formatResponse(kpis.avgResponseHours)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {kpis.respondedTickets} con primera respuesta
+              {kpis.respondedTickets} con respuesta
             </p>
           </CardContent>
         </Card>
