@@ -247,6 +247,7 @@ export interface CXTicket {
   created_at_ms: number | null;
   first_response_at: string | null;
   first_response_at_ms: number | null;
+  response_delay_ms: number | null;
   resolved_at: string | null;
   status: "abierto" | "en_progreso" | "resuelto" | "cerrado";
   priority: "alta" | "media" | "baja";
