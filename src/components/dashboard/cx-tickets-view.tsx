@@ -135,7 +135,7 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
                     dataKey="assignee"
                     width={180}
                     interval={0}
-                    tick={{ fill: "hsl(var(--foreground))", fontSize: 13, fontWeight: 600 }}
+                    tick={{ fill: "#e5e7eb", fontSize: 13, fontWeight: 600 }}
                     axisLine={{ stroke: "hsl(var(--border))" }}
                     tickLine={false}
                   />
