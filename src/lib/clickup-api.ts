@@ -758,6 +758,24 @@ const FIRST_RESPONSE_FIELD_NAMES = [
   "fecha respuesta",
 ];
 
+const RESPONSE_DELAY_FIELD_NAMES = [
+  "demora primera respuesta",
+  "demora primer respuesta",
+  "demora de primera respuesta",
+];
+
+function getCustomFieldNumber(fields: any[], names: string[]): number | null {
+  if (!Array.isArray(fields)) return null;
+  const lowered = names.map((n) => n.toLowerCase().trim());
+  const f = fields.find((f: any) =>
+    lowered.includes(String(f?.name ?? "").toLowerCase().trim()),
+  );
+  if (!f || f.value === undefined || f.value === null || f.value === "") return null;
+  const raw = typeof f.value === "object" ? (f.value.value ?? f.value) : f.value;
+  const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+  return isFinite(n) ? n : null;
+}
+
 const CREATION_FIELD_NAMES = [
   "fecha de creación",
   "fecha de creacion",
