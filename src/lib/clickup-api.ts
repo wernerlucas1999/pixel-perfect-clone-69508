@@ -804,33 +804,13 @@ function getCustomFieldMs(fields: any[], names: string[]): number | null {
   return parseFlexibleDateMs(raw);
 }
 
-// Calcula milisegundos entre dos timestamps excluyendo sábados y domingos.
-function businessMsBetween(startMs: number, endMs: number): number {
-  if (!isFinite(startMs) || !isFinite(endMs) || endMs <= startMs) return 0;
-  const DAY = 24 * 60 * 60 * 1000;
-  let total = 0;
-  let cursor = startMs;
-  while (cursor < endMs) {
-    const d = new Date(cursor).getDay(); // 0=dom, 6=sáb
-    const endOfDay =
-      new Date(new Date(cursor).setHours(24, 0, 0, 0)).getTime();
-    const segmentEnd = Math.min(endOfDay, endMs);
-    if (d !== 0 && d !== 6) total += segmentEnd - cursor;
-    cursor = segmentEnd;
-    if (segmentEnd - cursor === 0 && cursor < endMs) cursor += 1; // safety
-  }
-  return total;
-}
-
-
 export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
   if (ticketeraCache) return ticketeraCache;
   const raw = await fetchAllTasks(TICKETERA_LIST_ID);
   ticketeraCache = raw
     .map((t: any): CXTicket | null => {
-      const rawUpper = (t?.status?.status ?? "").toUpperCase().trim();
-      const rawStatus = rawUpper.toLowerCase();
-      const isPendiente = rawUpper === "PENDIENTE";
+      const rawStatus = (t?.status?.status ?? "").toLowerCase().trim();
+      const isPendiente = rawStatus === "pendiente";
       const isInProgress = TICKETERA_IN_PROGRESS.has(rawStatus);
       const isCompleted = TICKETERA_COMPLETED.has(rawStatus);
       if (!isPendiente && !isInProgress && !isCompleted) return null;
@@ -1141,9 +1121,7 @@ export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
   let sameDayPercent = 0;
   if (totalResponded > 0) {
     const totalMs = respondedTickets.reduce(
-      (sum, t) =>
-        sum +
-        businessMsBetween(t.created_at_ms as number, t.first_response_at_ms as number),
+      (sum, t) => sum + ((t.first_response_at_ms as number) - (t.created_at_ms as number)),
       0,
     );
     avgResponseHours = totalMs / totalResponded / (1000 * 60 * 60);

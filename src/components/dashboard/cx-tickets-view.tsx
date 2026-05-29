@@ -135,9 +135,9 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
                     dataKey="assignee"
                     width={180}
                     interval={0}
-                    tickLine={false}
+                    tick={{ fill: "hsl(var(--foreground))", fontSize: 13, fontWeight: 600 }}
                     axisLine={{ stroke: "hsl(var(--border))" }}
-                    tick={{ fill: "#f8fafc", fontSize: 14, fontWeight: 700 }}
+                    tickLine={false}
                   />
                   <Tooltip
                     cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
