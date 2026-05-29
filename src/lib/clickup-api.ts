@@ -838,6 +838,10 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
       const createdMs =
         customCreatedMs ?? (dateCreatedMs && isFinite(dateCreatedMs) ? dateCreatedMs : null);
       const firstRespMs = getCustomFieldMs(t?.custom_fields ?? [], FIRST_RESPONSE_FIELD_NAMES);
+      const responseDelayMs = getCustomFieldNumber(
+        t?.custom_fields ?? [],
+        RESPONSE_DELAY_FIELD_NAMES,
+      );
       const assignees: string[] = Array.isArray(t?.assignees)
         ? t.assignees.map((a: any) => a?.username ?? a?.email ?? "Sin asignar").filter(Boolean)
         : [];
@@ -849,6 +853,7 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
         created_at_ms: createdMs && isFinite(createdMs) ? createdMs : null,
         first_response_at: msToDate(firstRespMs),
         first_response_at_ms: firstRespMs,
+        response_delay_ms: responseDelayMs,
         resolved_at: msToDate(t.date_closed),
         status: mapTicketeraStatus(rawStatus),
         priority: "media",
