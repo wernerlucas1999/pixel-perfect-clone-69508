@@ -191,14 +191,14 @@ function DashboardPage() {
 
   const fetchCXTicketsData = useCallback(async () => {
     try {
-      const tickets = await getFilteredCXTickets(selectedState, selectedPackage);
+      const tickets = await getFilteredCXTickets(selectedState, selectedPackage, dateRange);
       setFilteredCXTickets(tickets);
       setCXTicketsKPIs(calculateCXTicketsKPIs(tickets));
       setCXByAssignee(getCXTicketsByAssignee(tickets));
     } catch (err) {
       console.error("Error fetching CX Tickets:", err);
     }
-  }, [selectedState, selectedPackage]);
+  }, [selectedState, selectedPackage, dateRange]);
 
   useEffect(() => {
     const loadData = async () => {

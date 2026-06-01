@@ -767,12 +767,18 @@ const RESPONSE_DELAY_FIELD_NAMES = [
 function getCustomFieldNumber(fields: any[], names: string[]): number | null {
   if (!Array.isArray(fields)) return null;
   const lowered = names.map((n) => n.toLowerCase().trim());
-  const f = fields.find((f: any) =>
-    lowered.includes(String(f?.name ?? "").toLowerCase().trim()),
-  );
+  // Match exacto o por palabras clave ("demora" + "respuesta")
+  const f = fields.find((f: any) => {
+    const nm = String(f?.name ?? "").toLowerCase().trim();
+    if (!nm) return false;
+    if (lowered.includes(nm)) return true;
+    if (nm.includes("demora") && nm.includes("respuesta")) return true;
+    return false;
+  });
   if (!f || f.value === undefined || f.value === null || f.value === "") return null;
-  const raw = typeof f.value === "object" ? (f.value.value ?? f.value) : f.value;
-  const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+  let raw: any = f.value;
+  if (typeof raw === "object") raw = raw.value ?? raw.number ?? raw;
+  const n = typeof raw === "number" ? raw : parseFloat(String(raw).trim());
   return isFinite(n) ? n : null;
 }
 
@@ -835,8 +841,9 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
       if (!isPendiente && !isInProgress && !isCompleted) return null;
       const customCreatedMs = getCustomFieldMs(t?.custom_fields ?? [], CREATION_FIELD_NAMES);
       const dateCreatedMs = t?.date_created ? Number(t.date_created) : null;
+      // Filtro estricto por task.date_created (lo usa el filtro de rango del header)
       const createdMs =
-        customCreatedMs ?? (dateCreatedMs && isFinite(dateCreatedMs) ? dateCreatedMs : null);
+        dateCreatedMs && isFinite(dateCreatedMs) ? dateCreatedMs : customCreatedMs;
       const firstRespMs = getCustomFieldMs(t?.custom_fields ?? [], FIRST_RESPONSE_FIELD_NAMES);
       const responseDelayMs = getCustomFieldNumber(
         t?.custom_fields ?? [],
@@ -870,8 +877,22 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
 export async function getFilteredCXTickets(
   _state?: StateType | "all",
   _pkg?: PackageType | "all",
+  dateRange?: { from: Date | null; to: Date | null },
 ): Promise<CXTicket[]> {
-  return await fetchTicketeraTasks();
+  const all = await fetchTicketeraTasks();
+  const from = dateRange?.from ? dateRange.from.getTime() : null;
+  // Incluir el día "to" completo (hasta 23:59:59.999)
+  const to = dateRange?.to
+    ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+    : null;
+  if (from === null && to === null) return all;
+  return all.filter((t) => {
+    const ms = t.created_at_ms;
+    if (typeof ms !== "number" || !isFinite(ms)) return false;
+    if (from !== null && ms < from) return false;
+    if (to !== null && ms > to) return false;
+    return true;
+  });
 }
 
 // ─── KPI CALCULATORS (idénticos a mock-data.ts) ────────────
