@@ -877,8 +877,22 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
 export async function getFilteredCXTickets(
   _state?: StateType | "all",
   _pkg?: PackageType | "all",
+  dateRange?: { from: Date | null; to: Date | null },
 ): Promise<CXTicket[]> {
-  return await fetchTicketeraTasks();
+  const all = await fetchTicketeraTasks();
+  const from = dateRange?.from ? dateRange.from.getTime() : null;
+  // Incluir el día "to" completo (hasta 23:59:59.999)
+  const to = dateRange?.to
+    ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+    : null;
+  if (from === null && to === null) return all;
+  return all.filter((t) => {
+    const ms = t.created_at_ms;
+    if (typeof ms !== "number" || !isFinite(ms)) return false;
+    if (from !== null && ms < from) return false;
+    if (to !== null && ms > to) return false;
+    return true;
+  });
 }
 
 // ─── KPI CALCULATORS (idénticos a mock-data.ts) ────────────
