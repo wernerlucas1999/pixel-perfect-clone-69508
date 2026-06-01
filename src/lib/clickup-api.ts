@@ -841,8 +841,9 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
       if (!isPendiente && !isInProgress && !isCompleted) return null;
       const customCreatedMs = getCustomFieldMs(t?.custom_fields ?? [], CREATION_FIELD_NAMES);
       const dateCreatedMs = t?.date_created ? Number(t.date_created) : null;
+      // Filtro estricto por task.date_created (lo usa el filtro de rango del header)
       const createdMs =
-        customCreatedMs ?? (dateCreatedMs && isFinite(dateCreatedMs) ? dateCreatedMs : null);
+        dateCreatedMs && isFinite(dateCreatedMs) ? dateCreatedMs : customCreatedMs;
       const firstRespMs = getCustomFieldMs(t?.custom_fields ?? [], FIRST_RESPONSE_FIELD_NAMES);
       const responseDelayMs = getCustomFieldNumber(
         t?.custom_fields ?? [],
