@@ -767,12 +767,18 @@ const RESPONSE_DELAY_FIELD_NAMES = [
 function getCustomFieldNumber(fields: any[], names: string[]): number | null {
   if (!Array.isArray(fields)) return null;
   const lowered = names.map((n) => n.toLowerCase().trim());
-  const f = fields.find((f: any) =>
-    lowered.includes(String(f?.name ?? "").toLowerCase().trim()),
-  );
+  // Match exacto o por palabras clave ("demora" + "respuesta")
+  const f = fields.find((f: any) => {
+    const nm = String(f?.name ?? "").toLowerCase().trim();
+    if (!nm) return false;
+    if (lowered.includes(nm)) return true;
+    if (nm.includes("demora") && nm.includes("respuesta")) return true;
+    return false;
+  });
   if (!f || f.value === undefined || f.value === null || f.value === "") return null;
-  const raw = typeof f.value === "object" ? (f.value.value ?? f.value) : f.value;
-  const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+  let raw: any = f.value;
+  if (typeof raw === "object") raw = raw.value ?? raw.number ?? raw;
+  const n = typeof raw === "number" ? raw : parseFloat(String(raw).trim());
   return isFinite(n) ? n : null;
 }
 
