@@ -142,7 +142,7 @@ function DashboardPage() {
       setFilteredTasks(tasks);
       setKpis(calculateCycleTimeKPIs(tasks));
       setFunnelData(getFunnelData(tasks));
-      setAvgTimeData(getAverageTimeByStatus(tasks));
+      setLlcExtremes(getLLCTaskExtremes(tasks));
     } catch (err) {
       console.error("Error fetching LLC tasks:", err);
       setError("Error al cargar datos de LLC");
