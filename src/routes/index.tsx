@@ -170,25 +170,25 @@ function DashboardPage() {
 
   const fetchAnnualReportsData = useCallback(async () => {
     try {
-      const reports = await getFilteredAnnualReports(selectedState, selectedPackage);
+      const reports = await getFilteredAnnualReports(selectedState, selectedPackage, dateRange);
       setFilteredAnnualReports(reports);
       setAnnualReportsKPIs(calculateAnnualReportsKPIs(reports));
       setAnnualReportsPieData(getAnnualReportsPieData(reports));
     } catch (err) {
       console.error("Error fetching Annual Reports:", err);
     }
-  }, [selectedState, selectedPackage]);
+  }, [selectedState, selectedPackage, dateRange]);
 
   const fetchAgentesData = useCallback(async () => {
     try {
-      const agentes = await getFilteredAgentesRegistrados(selectedState, selectedPackage);
+      const agentes = await getFilteredAgentesRegistrados(selectedState, selectedPackage, dateRange);
       setFilteredAgentes(agentes);
       setAgentesKPIs(calculateAgentesKPIs(agentes));
       setAgentesStatusChartData(getAgentesStatusChartData(agentes));
     } catch (err) {
       console.error("Error fetching Agentes:", err);
     }
-  }, [selectedState, selectedPackage]);
+  }, [selectedState, selectedPackage, dateRange]);
 
   const fetchCXTicketsData = useCallback(async () => {
     try {
