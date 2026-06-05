@@ -299,6 +299,12 @@ function DashboardPage() {
               </div>
             </div>
             <BankStatusCards data={bankStatusCounts} />
+            <TaskRecordsCard
+              fastest={bankExtremes.fastest}
+              slowest={bankExtremes.slowest}
+              title="Récords de Ciclo — Aplicación Bancaria"
+              description="Aplicaciones cerradas con menor y mayor tiempo total de proceso"
+            />
             <BottleneckAnalysis
               comparisonData={bottleneckData.comparisonData}
               clientResponsibilityRatio={bottleneckData.clientResponsibilityRatio}
