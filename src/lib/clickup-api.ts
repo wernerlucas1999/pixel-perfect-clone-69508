@@ -1185,17 +1185,23 @@ export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
   const completadas = tickets.filter((t) => t.status === "resuelto").length;
   const totalTickets = pendientes + enProgreso + completadas;
 
-  // Usar directamente el Custom Field "Demora primera respuesta" calculado por ClickUp
-  const withDelay = tickets.filter(
-    (t) => typeof t.response_delay_ms === "number" && isFinite(t.response_delay_ms as number),
-  );
-  const totalResponded = withDelay.length;
+  // Usar directamente el Custom Field "Demora primera respuesta" calculado por ClickUp.
+  // parseFloat estricto: ignorar tareas con valor nulo o NaN.
+  const delayValues: number[] = [];
+  for (const t of tickets) {
+    const raw = t.response_delay_ms;
+    if (raw === null || raw === undefined) continue;
+    const n = typeof raw === "number" ? raw : parseFloat(String(raw));
+    if (isNaN(n) || !isFinite(n)) continue;
+    delayValues.push(n);
+  }
+  const totalResponded = delayValues.length;
   let avgResponseHours = 0;
   let sameDayPercent = 0;
   if (totalResponded > 0) {
-    const totalMs = withDelay.reduce((sum, t) => sum + (t.response_delay_ms as number), 0);
+    const totalMs = delayValues.reduce((sum, v) => sum + v, 0);
     avgResponseHours = totalMs / totalResponded / (1000 * 60 * 60);
-    const sameDay = withDelay.filter((t) => (t.response_delay_ms as number) === 0).length;
+    const sameDay = delayValues.filter((v) => v === 0).length;
     sameDayPercent = Math.round((sameDay / totalResponded) * 100);
   }
 
