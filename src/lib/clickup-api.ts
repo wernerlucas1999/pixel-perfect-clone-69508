@@ -676,25 +676,32 @@ function mapAnnualStatus(raw: string): AnnualReportStatus {
 export async function fetchAnnualReportsTasks(): Promise<AnnualReportTask[]> {
   if (annualReportsCache) return annualReportsCache;
   const raw = await fetchAllTasks(ANNUAL_REPORTS_LIST_ID);
-  annualReportsCache = raw.map((t: any) => ({
-    id: String(t.id),
-    name: t.name ?? "",
-    entity_name: t.name ?? "",
-    due_date: t.due_date ?? "",
-    filed_date: t.date_closed ?? null,
-    status: mapAnnualStatus(t?.status?.status ?? ""),
-    state: "new_mexico" as StateType,
-    package: "solo_llc" as PackageType,
-    assignee: t?.assignees?.[0]?.username ?? "",
-  }));
-  return annualReportsCache;
+  annualReportsCache = raw.map((t: any) => {
+    const ms = t.date_created ? Number(t.date_created) : null;
+    return {
+      id: String(t.id),
+      name: t.name ?? "",
+      entity_name: t.name ?? "",
+      due_date: t.due_date ?? "",
+      filed_date: t.date_closed ?? null,
+      date_created: msToDate(ms),
+      date_created_ms: ms && isFinite(ms) ? ms : null,
+      status: mapAnnualStatus(t?.status?.status ?? ""),
+      state: "new_mexico" as StateType,
+      package: "solo_llc" as PackageType,
+      assignee: t?.assignees?.[0]?.username ?? "",
+    };
+  });
+  return annualReportsCache!;
 }
 
 export async function getFilteredAnnualReports(
   _state?: StateType | "all",
   _pkg?: PackageType | "all",
+  dateRange?: { from: Date | null; to: Date | null },
 ): Promise<AnnualReportTask[]> {
-  return await fetchAnnualReportsTasks();
+  const all = await fetchAnnualReportsTasks();
+  return filterByDateRange(all, dateRange);
 }
 
 // ─── AGENTES REGISTRADOS (ClickUp list real) ───────────────
