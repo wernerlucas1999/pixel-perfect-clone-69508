@@ -1256,3 +1256,36 @@ export function getCXTicketsByAssignee(
     count: counts.get(assignee) ?? 0,
   }));
 }
+
+// ─── EXTREMOS DE CICLO (más rápida / más lenta) ────────────
+export interface TaskExtreme {
+  name: string;
+  days: number;
+}
+
+function computeExtremes(
+  items: { name: string; created_at: string; closed_at: string | null }[],
+): { fastest: TaskExtreme | null; slowest: TaskExtreme | null } {
+  const closed = items
+    .filter((t) => t.closed_at)
+    .map((t) => {
+      const start = new Date(t.created_at).getTime();
+      const end = new Date(t.closed_at!).getTime();
+      if (!isFinite(start) || !isFinite(end) || end < start) return null;
+      const days = Math.max(0, Math.ceil((end - start) / 86400000));
+      return { name: t.name, days };
+    })
+    .filter((x): x is TaskExtreme => x !== null);
+  if (closed.length === 0) return { fastest: null, slowest: null };
+  const fastest = closed.reduce((a, b) => (b.days < a.days ? b : a));
+  const slowest = closed.reduce((a, b) => (b.days > a.days ? b : a));
+  return { fastest, slowest };
+}
+
+export function getLLCTaskExtremes(tasks: Task[]) {
+  return computeExtremes(tasks);
+}
+
+export function getBankTaskExtremes(tasks: BankTask[]) {
+  return computeExtremes(tasks);
+}
