@@ -153,10 +153,11 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
                     dataKey="count"
                     radius={[0, 6, 6, 0]}
                     label={{
-                      position: "right",
-                      fill: "hsl(var(--foreground))",
-                      fontSize: 13,
-                      fontWeight: 600,
+                      position: "insideRight",
+                      fill: "#ffffff",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      offset: 12,
                       formatter: (v: number) => `${v} tickets`,
                     }}
                   >
