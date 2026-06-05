@@ -720,24 +720,47 @@ function mapAgenteStatus(raw: string): AgenteStatus {
 export async function fetchRegisteredAgentsTasks(): Promise<AgenteRegistradoTask[]> {
   if (registeredAgentsCache) return registeredAgentsCache;
   const raw = await fetchAllTasks(REGISTERED_AGENTS_LIST_ID);
-  registeredAgentsCache = raw.map((t: any) => ({
-    id: String(t.id),
-    name: t.name ?? "",
-    entity_name: t.name ?? "",
-    state: "new_mexico" as StateType,
-    package: "solo_llc" as PackageType,
-    renewal_date: t.due_date ?? "",
-    status: mapAgenteStatus(t?.status?.status ?? ""),
-    assignee: t?.assignees?.[0]?.username ?? "",
-  }));
-  return registeredAgentsCache;
+  registeredAgentsCache = raw.map((t: any) => {
+    const ms = t.date_created ? Number(t.date_created) : null;
+    return {
+      id: String(t.id),
+      name: t.name ?? "",
+      entity_name: t.name ?? "",
+      state: "new_mexico" as StateType,
+      package: "solo_llc" as PackageType,
+      renewal_date: t.due_date ?? "",
+      date_created: msToDate(ms),
+      date_created_ms: ms && isFinite(ms) ? ms : null,
+      status: mapAgenteStatus(t?.status?.status ?? ""),
+      assignee: t?.assignees?.[0]?.username ?? "",
+    };
+  });
+  return registeredAgentsCache!;
 }
 
 export async function getFilteredAgentesRegistrados(
   _state?: StateType | "all",
   _pkg?: PackageType | "all",
+  dateRange?: { from: Date | null; to: Date | null },
 ): Promise<AgenteRegistradoTask[]> {
-  return await fetchRegisteredAgentsTasks();
+  const all = await fetchRegisteredAgentsTasks();
+  return filterByDateRange(all, dateRange);
+}
+
+function filterByDateRange<T extends { date_created_ms: number | null }>(
+  items: T[],
+  dateRange?: { from: Date | null; to: Date | null },
+): T[] {
+  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+  if (from === null && to === null) return items;
+  return items.filter((t) => {
+    const ms = t.date_created_ms;
+    if (typeof ms !== "number" || !isFinite(ms)) return false;
+    if (from !== null && ms < from) return false;
+    if (to !== null && ms > to) return false;
+    return true;
+  });
 }
 
 // ─── TICKETERA / CX (ClickUp list real) ────────────────────
