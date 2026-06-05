@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { KPICards } from "@/components/dashboard/kpi-cards";
 import { FunnelChart } from "@/components/dashboard/funnel-chart";
-import { AvgTimeChart } from "@/components/dashboard/avg-time-chart";
+import { TaskRecordsCard, type TaskRecord } from "@/components/dashboard/task-records-card";
 import { BottleneckAnalysis } from "@/components/dashboard/bottleneck-analysis";
 import { BankStatusCards } from "@/components/dashboard/bank-status-cards";
 import { AnnualReportsView } from "@/components/dashboard/annual-reports-view";
