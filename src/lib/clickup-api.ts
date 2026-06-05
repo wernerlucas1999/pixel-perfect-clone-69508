@@ -223,6 +223,8 @@ export interface AnnualReportTask {
   entity_name: string;
   due_date: string;
   filed_date: string | null;
+  date_created: string | null;
+  date_created_ms: number | null;
   status: AnnualReportStatus;
   state: StateType;
   package: PackageType;
@@ -236,6 +238,8 @@ export interface AgenteRegistradoTask {
   state: StateType;
   package: PackageType;
   renewal_date: string;
+  date_created: string | null;
+  date_created_ms: number | null;
   status: AgenteStatus;
   assignee: string;
 }
