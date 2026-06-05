@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { KPICards } from "@/components/dashboard/kpi-cards";
 import { FunnelChart } from "@/components/dashboard/funnel-chart";
-import { AvgTimeChart } from "@/components/dashboard/avg-time-chart";
+import { TaskRecordsCard, type TaskRecord } from "@/components/dashboard/task-records-card";
 import { BottleneckAnalysis } from "@/components/dashboard/bottleneck-analysis";
 import { BankStatusCards } from "@/components/dashboard/bank-status-cards";
 import { AnnualReportsView } from "@/components/dashboard/annual-reports-view";
@@ -17,7 +17,8 @@ import {
   getFilteredAgentesRegistrados,
   getFilteredCXTickets,
   getFunnelData,
-  getAverageTimeByStatus,
+  getLLCTaskExtremes,
+  getBankTaskExtremes,
   calculateCycleTimeKPIs,
   calculateBankKPIs,
   calculateBottleneckAnalysis,
@@ -101,9 +102,8 @@ function DashboardPage() {
   const [funnelData, setFunnelData] = useState<{ status: string; count: number; fill: string }[]>(
     [],
   );
-  const [avgTimeData, setAvgTimeData] = useState<
-    { status: string; avgDays: number; fill: string }[]
-  >([]);
+  const [llcExtremes, setLlcExtremes] = useState<{ fastest: TaskRecord | null; slowest: TaskRecord | null }>({ fastest: null, slowest: null });
+  const [bankExtremes, setBankExtremes] = useState<{ fastest: TaskRecord | null; slowest: TaskRecord | null }>({ fastest: null, slowest: null });
 
   const [, setFilteredBankTasks] = useState<BankTask[]>([]);
   const [bankKpis, setBankKpis] = useState(defaultBankKPIs);
@@ -142,7 +142,7 @@ function DashboardPage() {
       setFilteredTasks(tasks);
       setKpis(calculateCycleTimeKPIs(tasks));
       setFunnelData(getFunnelData(tasks));
-      setAvgTimeData(getAverageTimeByStatus(tasks));
+      setLlcExtremes(getLLCTaskExtremes(tasks));
     } catch (err) {
       console.error("Error fetching LLC tasks:", err);
       setError("Error al cargar datos de LLC");
@@ -160,6 +160,7 @@ function DashboardPage() {
       setFilteredBankTasks(tasks);
       setBankKpis(calculateBankKPIs(tasks));
       setBottleneckData(calculateBottleneckAnalysis(tasks));
+      setBankExtremes(getBankTaskExtremes(tasks));
       setBankStatusCounts(getBankStatusCounts(tasks));
     } catch (err) {
       console.error("Error fetching Bank tasks:", err);
@@ -169,25 +170,25 @@ function DashboardPage() {
 
   const fetchAnnualReportsData = useCallback(async () => {
     try {
-      const reports = await getFilteredAnnualReports(selectedState, selectedPackage);
+      const reports = await getFilteredAnnualReports(selectedState, selectedPackage, dateRange);
       setFilteredAnnualReports(reports);
       setAnnualReportsKPIs(calculateAnnualReportsKPIs(reports));
       setAnnualReportsPieData(getAnnualReportsPieData(reports));
     } catch (err) {
       console.error("Error fetching Annual Reports:", err);
     }
-  }, [selectedState, selectedPackage]);
+  }, [selectedState, selectedPackage, dateRange]);
 
   const fetchAgentesData = useCallback(async () => {
     try {
-      const agentes = await getFilteredAgentesRegistrados(selectedState, selectedPackage);
+      const agentes = await getFilteredAgentesRegistrados(selectedState, selectedPackage, dateRange);
       setFilteredAgentes(agentes);
       setAgentesKPIs(calculateAgentesKPIs(agentes));
       setAgentesStatusChartData(getAgentesStatusChartData(agentes));
     } catch (err) {
       console.error("Error fetching Agentes:", err);
     }
-  }, [selectedState, selectedPackage]);
+  }, [selectedState, selectedPackage, dateRange]);
 
   const fetchCXTicketsData = useCallback(async () => {
     try {
@@ -298,6 +299,12 @@ function DashboardPage() {
               </div>
             </div>
             <BankStatusCards data={bankStatusCounts} />
+            <TaskRecordsCard
+              fastest={bankExtremes.fastest}
+              slowest={bankExtremes.slowest}
+              title="Récords de Ciclo — Aplicación Bancaria"
+              description="Aplicaciones cerradas con menor y mayor tiempo total de proceso"
+            />
             <BottleneckAnalysis
               comparisonData={bottleneckData.comparisonData}
               clientResponsibilityRatio={bottleneckData.clientResponsibilityRatio}
@@ -334,7 +341,12 @@ function DashboardPage() {
             />
             <div className="grid gap-6 lg:grid-cols-2">
               <FunnelChart data={funnelData} />
-              <AvgTimeChart data={avgTimeData} />
+              <TaskRecordsCard
+                fastest={llcExtremes.fastest}
+                slowest={llcExtremes.slowest}
+                title="Récords de Ciclo — Formación LLC"
+                description="Tareas cerradas con menor y mayor tiempo total de proceso"
+              />
             </div>
           </>
         );
