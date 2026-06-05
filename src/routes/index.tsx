@@ -341,7 +341,12 @@ function DashboardPage() {
             />
             <div className="grid gap-6 lg:grid-cols-2">
               <FunnelChart data={funnelData} />
-              <AvgTimeChart data={avgTimeData} />
+              <TaskRecordsCard
+                fastest={llcExtremes.fastest}
+                slowest={llcExtremes.slowest}
+                title="Récords de Ciclo — Formación LLC"
+                description="Tareas cerradas con menor y mayor tiempo total de proceso"
+              />
             </div>
           </>
         );
