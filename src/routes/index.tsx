@@ -102,9 +102,8 @@ function DashboardPage() {
   const [funnelData, setFunnelData] = useState<{ status: string; count: number; fill: string }[]>(
     [],
   );
-  const [avgTimeData, setAvgTimeData] = useState<
-    { status: string; avgDays: number; fill: string }[]
-  >([]);
+  const [llcExtremes, setLlcExtremes] = useState<{ fastest: TaskRecord | null; slowest: TaskRecord | null }>({ fastest: null, slowest: null });
+  const [bankExtremes, setBankExtremes] = useState<{ fastest: TaskRecord | null; slowest: TaskRecord | null }>({ fastest: null, slowest: null });
 
   const [, setFilteredBankTasks] = useState<BankTask[]>([]);
   const [bankKpis, setBankKpis] = useState(defaultBankKPIs);
