@@ -160,6 +160,7 @@ function DashboardPage() {
       setFilteredBankTasks(tasks);
       setBankKpis(calculateBankKPIs(tasks));
       setBottleneckData(calculateBottleneckAnalysis(tasks));
+      setBankExtremes(getBankTaskExtremes(tasks));
       setBankStatusCounts(getBankStatusCounts(tasks));
     } catch (err) {
       console.error("Error fetching Bank tasks:", err);
