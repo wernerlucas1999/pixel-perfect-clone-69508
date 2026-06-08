@@ -22,8 +22,7 @@ export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
   const formatResponse = (hours: number) => {
     if (!isFinite(hours) || hours < 0) return "—";
     const days = hours / 24;
-    if (days === 0) return "0 d";
-    return `${days.toFixed(1)} d`;
+    return `${days.toFixed(2)} d`;
   };
 
   return (
