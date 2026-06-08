@@ -1185,25 +1185,26 @@ export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
   const completadas = tickets.filter((t) => t.status === "resuelto").length;
   const totalTickets = pendientes + enProgreso + completadas;
 
-  // Usar directamente el Custom Field "Demora primera respuesta" calculado por ClickUp.
-  // parseFloat estricto: ignorar tareas con valor nulo o NaN.
-  const delayValues: number[] = [];
+  // Usar directamente el Custom Field "Demora primera respuesta" (en días) calculado por ClickUp.
+  // parseFloat puro, sin redondeos intermedios.
+  let totalDemora = 0;
+  let cantidadTicketsValidos = 0;
+  let sameDayCount = 0;
   for (const t of tickets) {
     const raw = t.response_delay_ms;
     if (raw === null || raw === undefined) continue;
     const n = typeof raw === "number" ? raw : parseFloat(String(raw));
     if (isNaN(n) || !isFinite(n)) continue;
-    delayValues.push(n);
+    totalDemora += n;
+    cantidadTicketsValidos += 1;
+    if (n < 1) sameDayCount += 1;
   }
-  const totalResponded = delayValues.length;
-  let avgResponseHours = 0;
-  let sameDayPercent = 0;
-  if (totalResponded > 0) {
-    const totalMs = delayValues.reduce((sum, v) => sum + v, 0);
-    avgResponseHours = totalMs / totalResponded / (1000 * 60 * 60);
-    const sameDay = delayValues.filter((v) => v === 0).length;
-    sameDayPercent = Math.round((sameDay / totalResponded) * 100);
-  }
+  const avgResponseDays =
+    cantidadTicketsValidos > 0 ? totalDemora / cantidadTicketsValidos : 0;
+  const sameDayPercent =
+    cantidadTicketsValidos > 0
+      ? Math.round((sameDayCount / cantidadTicketsValidos) * 100)
+      : 0;
 
   const resolutionRate = totalTickets > 0 ? Math.round((completadas / totalTickets) * 100) : 0;
 
@@ -1214,13 +1215,13 @@ export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
     completadas,
     abiertos: pendientes + enProgreso,
     resueltos: completadas,
-    respondedTickets: totalResponded,
-    avgResponseHours: Math.round(avgResponseHours * 10) / 10,
-    avgResponseTime: Math.round(avgResponseHours * 60), // minutos (compat con view existente)
+    respondedTickets: cantidadTicketsValidos,
+    // Mantengo el nombre del campo por compat; el valor es el promedio en DÍAS sin redondear.
+    avgResponseHours: avgResponseDays,
+    avgResponseTime: avgResponseDays * 24 * 60,
     sameDayPercent,
     avgResolutionTime: 0,
     resolutionRate,
-    // Compat antiguo (prioridad ya no se usa):
     prioridadAlta: 0,
     prioridadMedia: 0,
     prioridadBaja: 0,

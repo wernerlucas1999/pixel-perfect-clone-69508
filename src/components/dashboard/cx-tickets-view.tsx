@@ -19,9 +19,8 @@ interface CXTicketsViewProps {
 }
 
 export function CXTicketsView({ kpis, byAssignee }: CXTicketsViewProps) {
-  const formatResponse = (hours: number) => {
-    if (!isFinite(hours) || hours < 0) return "—";
-    const days = hours / 24;
+  const formatResponse = (days: number) => {
+    if (days === null || days === undefined || !isFinite(days) || isNaN(days)) return "—";
     return `${days.toFixed(2)} d`;
   };
 
