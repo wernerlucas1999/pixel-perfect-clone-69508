@@ -10,12 +10,14 @@ import { BankStatusCards } from "@/components/dashboard/bank-status-cards";
 import { AnnualReportsView } from "@/components/dashboard/annual-reports-view";
 import { AgentesRegistradosView } from "@/components/dashboard/agentes-registrados-view";
 import { CXTicketsView } from "@/components/dashboard/cx-tickets-view";
+import { TaxReturnView } from "@/components/dashboard/tax-return-view";
 import {
   getFilteredTasks,
   getFilteredBankTasks,
   getFilteredAnnualReports,
   getFilteredAgentesRegistrados,
   getFilteredCXTickets,
+  getFilteredTaxReturns,
   getFunnelData,
   getLLCTaskExtremes,
   getBankTaskExtremes,
@@ -29,15 +31,19 @@ import {
   getAgentesStatusChartData,
   calculateCXTicketsKPIs,
   getCXTicketsByAssignee,
+  calculateTaxReturnKPIs,
+  getTaxReturnByAssignee,
   type ProcessType,
   type StateType,
   type PackageType,
   type BankType,
+  type TipoLLC,
   type Task,
   type BankTask,
   type AnnualReportTask,
   type AgenteRegistradoTask,
   type CXTicket,
+  type TaxReturnTask,
 } from "@/lib/clickup-api";
 import { Spinner } from "@/components/ui/spinner";
 
