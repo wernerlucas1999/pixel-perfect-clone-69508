@@ -29,6 +29,7 @@ export type ProcessType =
   | "annual_reports"
   | "agentes_registrados"
   | "ticketera_cx"
+  | "tax_return"
   | "other";
 
 export type StateType = "new_mexico" | "wyoming" | "delaware" | "florida" | "texas";
