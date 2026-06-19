@@ -146,6 +146,12 @@ function DashboardPage() {
   const [cxTicketsKPIs, setCXTicketsKPIs] = useState(defaultCXTicketsKPIs);
   const [cxByAssignee, setCXByAssignee] = useState<{ assignee: string; count: number }[]>([]);
 
+  const [, setFilteredTaxReturns] = useState<TaxReturnTask[]>([]);
+  const [taxReturnKPIs, setTaxReturnKPIs] = useState(defaultTaxReturnKPIs);
+  const [taxReturnByAssignee, setTaxReturnByAssignee] = useState<
+    { assignee: string; count: number }[]
+  >([]);
+
   const fetchLLCData = useCallback(async () => {
     try {
       const tasks = await getFilteredTasks(
