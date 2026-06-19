@@ -175,7 +175,7 @@ export function Header({
       </div>
 
       {/* Bottom Row - State, Package, and Bank Filters */}
-      {!isTicketera && (
+      {!hideStatePackage && (
       <div className="flex h-12 items-center gap-x-3 px-4 sm:px-6 lg:px-8 border-t border-border/50 bg-muted/30">
         {/* State Filter */}
         <div className="flex items-center gap-2">
