@@ -171,6 +171,7 @@ export const PROCESSES: Process[] = [
   { id: "annual_reports", name: "Annual Reports", color: "#8b5cf6" },
   { id: "agentes_registrados", name: "Agentes Registrados", color: "#f97316" },
   { id: "ticketera_cx", name: "Ticketera CX-Filings", color: "#ec4899" },
+  { id: "tax_return", name: "Tax Return", color: "#14b8a6" },
   { id: "other", name: "Otros", color: "#f59e0b" },
 ];
 
