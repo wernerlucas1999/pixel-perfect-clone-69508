@@ -29,6 +29,7 @@ export type ProcessType =
   | "annual_reports"
   | "agentes_registrados"
   | "ticketera_cx"
+  | "tax_return"
   | "other";
 
 export type StateType = "new_mexico" | "wyoming" | "delaware" | "florida" | "texas";
@@ -170,6 +171,7 @@ export const PROCESSES: Process[] = [
   { id: "annual_reports", name: "Annual Reports", color: "#8b5cf6" },
   { id: "agentes_registrados", name: "Agentes Registrados", color: "#f97316" },
   { id: "ticketera_cx", name: "Ticketera CX-Filings", color: "#ec4899" },
+  { id: "tax_return", name: "Tax Return", color: "#14b8a6" },
   { id: "other", name: "Otros", color: "#f59e0b" },
 ];
 
@@ -1296,3 +1298,202 @@ export function getLLCTaskExtremes(tasks: Task[]) {
 export function getBankTaskExtremes(tasks: BankTask[]) {
   return computeExtremes(tasks);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// TAX RETURN (ClickUp View: 901407106445)
+// ═══════════════════════════════════════════════════════════════
+const TAX_RETURN_VIEW_ID = "901407106445";
+
+export type TipoLLC = "Single-member" | "Multi-member" | "Priority-MM" | "Priority-SM";
+export const TIPOS_LLC: { id: TipoLLC | "all"; name: string }[] = [
+  { id: "all", name: "Todos" },
+  { id: "Single-member", name: "Single-member" },
+  { id: "Multi-member", name: "Multi-member" },
+  { id: "Priority-MM", name: "Priority-MM" },
+  { id: "Priority-SM", name: "Priority-SM" },
+];
+
+export interface TaxReturnTask {
+  id: string;
+  name: string;
+  status: string;
+  isClosed: boolean;
+  assignees: string[];
+  tipoLLC: string | null;
+  tiempoCompletado: number | null;
+  created_at_ms: number | null;
+  closed_at_ms: number | null;
+}
+
+let _taxReturnCache: { data: TaxReturnTask[]; ts: number } | null = null;
+
+async function fetchAllTasksByView(viewId: string): Promise<any[]> {
+  const tasks: any[] = [];
+  let page = 0;
+  while (true) {
+    const res = await fetch(`${BASE_URL}/view/${viewId}/task?page=${page}`, {
+      headers: { Authorization: CLICKUP_TOKEN },
+    });
+    if (!res.ok) throw new Error(`ClickUp View API error ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    const batch: any[] = data?.tasks ?? [];
+    tasks.push(...batch);
+    if (data?.last_page === true || batch.length === 0) break;
+    page++;
+    if (page > 50) break;
+  }
+  return tasks.filter((t) => !t.parent);
+}
+
+function getCustomFieldDropdownLabel(fields: any[], name: string): string | null {
+  if (!Array.isArray(fields)) return null;
+  const target = name.toLowerCase().trim();
+  const f = fields.find((f: any) => String(f?.name ?? "").toLowerCase().trim() === target);
+  if (!f) return null;
+  const v = f.value;
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "string") {
+    if (Array.isArray(f.type_config?.options)) {
+      const opt = f.type_config.options.find(
+        (o: any) => String(o?.id) === v || String(o?.orderindex) === v,
+      );
+      if (opt?.name) return String(opt.name);
+    }
+    return v;
+  }
+  if (typeof v === "number") {
+    const opt = f.type_config?.options?.[v];
+    if (opt?.name) return String(opt.name);
+    return String(v);
+  }
+  if (typeof v === "object") {
+    if ("name" in v && v.name) return String(v.name);
+    if ("label" in v && v.label) return String(v.label);
+  }
+  return null;
+}
+
+const TIEMPO_FIELD_NAMES = [
+  "tiempo en completar tax - desde compra obl",
+  "tiempo en completar tax desde compra obl",
+  "tiempo en completar tax",
+];
+
+const TIPO_LLC_FIELD_NAMES = ["tipo llc", "tipo de llc"];
+
+function mapTaxReturnTask(raw: any): TaxReturnTask | null {
+  const cf = raw?.custom_fields ?? [];
+  const statusRaw = String(raw?.status?.status ?? "");
+  const statusType = String(raw?.status?.type ?? "").toLowerCase();
+  const isClosed = statusType === "closed" || raw?.date_closed != null;
+
+  const tiempo = getCustomFieldNumber(cf, TIEMPO_FIELD_NAMES);
+  let tipoLLC: string | null = null;
+  for (const n of TIPO_LLC_FIELD_NAMES) {
+    tipoLLC = getCustomFieldDropdownLabel(cf, n);
+    if (tipoLLC) break;
+  }
+
+  const assignees: string[] = Array.isArray(raw?.assignees)
+    ? raw.assignees.map((a: any) => a?.username ?? a?.email ?? "Sin asignar").filter(Boolean)
+    : [];
+
+  const createdMs = raw?.date_created ? Number(raw.date_created) : null;
+  const closedMs = raw?.date_closed ? Number(raw.date_closed) : null;
+
+  return {
+    id: String(raw.id),
+    name: raw?.name ?? "",
+    status: statusRaw,
+    isClosed,
+    assignees: assignees.length > 0 ? assignees : ["Sin asignar"],
+    tipoLLC,
+    tiempoCompletado: tiempo,
+    created_at_ms: createdMs && isFinite(createdMs) ? createdMs : null,
+    closed_at_ms: closedMs && isFinite(closedMs) ? closedMs : null,
+  };
+}
+
+export async function fetchTaxReturnTasks(): Promise<TaxReturnTask[]> {
+  if (_taxReturnCache && Date.now() - _taxReturnCache.ts < CACHE_TTL_MS) return _taxReturnCache.data;
+  const raw = await fetchAllTasksByView(TAX_RETURN_VIEW_ID);
+  const data = raw.map(mapTaxReturnTask).filter((t): t is TaxReturnTask => t !== null);
+  _taxReturnCache = { data, ts: Date.now() };
+  return data;
+}
+
+export async function getFilteredTaxReturns(
+  dateRange?: { from: Date | null; to: Date | null },
+  tipoLLC?: TipoLLC | "all",
+): Promise<TaxReturnTask[]> {
+  const all = await fetchTaxReturnTasks();
+  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+
+  return all.filter((t) => {
+    if (tipoLLC && tipoLLC !== "all") {
+      const tl = (t.tipoLLC ?? "").toLowerCase().trim();
+      if (tl !== tipoLLC.toLowerCase().trim()) return false;
+    }
+    if (from === null && to === null) return true;
+    // Cerrada → date_closed; Abierta → date_created
+    const ref = t.isClosed ? t.closed_at_ms : t.created_at_ms;
+    if (typeof ref !== "number" || !isFinite(ref)) return false;
+    if (from !== null && ref < from) return false;
+    if (to !== null && ref > to) return false;
+    return true;
+  });
+}
+
+export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
+  const closed = tasks.filter((t) => t.isClosed);
+  const open = tasks.filter((t) => !t.isClosed);
+
+  // Promedio de tiempo en completar (sólo cerradas con valor numérico válido)
+  let sum = 0;
+  let count = 0;
+  for (const t of closed) {
+    const n = t.tiempoCompletado;
+    if (n === null || n === undefined) continue;
+    const v = typeof n === "number" ? n : parseFloat(String(n));
+    if (!isFinite(v) || isNaN(v)) continue;
+    sum += v;
+    count += 1;
+  }
+  const avgCompletionDays = count > 0 ? sum / count : 0;
+
+  // Conteo por estado de las abiertas
+  const byStatus: Record<string, number> = {};
+  for (const t of open) {
+    const s = (t.status || "Sin estado").trim() || "Sin estado";
+    byStatus[s] = (byStatus[s] ?? 0) + 1;
+  }
+  const inProgressByStatus = Object.entries(byStatus)
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    totalCompleted: closed.length,
+    avgCompletionDays,
+    completedWithTime: count,
+    inProgressTotal: open.length,
+    inProgressByStatus,
+  };
+}
+
+export function getTaxReturnByAssignee(
+  tasks: TaxReturnTask[],
+): { assignee: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const t of tasks) {
+    if (!t.isClosed) continue;
+    for (const a of t.assignees) {
+      if (!a || a === "Sin asignar") continue;
+      counts.set(a, (counts.get(a) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([assignee, count]) => ({ assignee, count }))
+    .sort((a, b) => b.count - a.count);
+}
+

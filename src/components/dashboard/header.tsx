@@ -55,6 +55,8 @@ export function Header({
 }: HeaderProps) {
   const isBankApplication = selectedProcess === "bank_application";
   const isTicketera = selectedProcess === "ticketera_cx";
+  const isTaxReturn = selectedProcess === "tax_return";
+  const hideStatePackage = isTicketera || isTaxReturn;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
@@ -173,7 +175,7 @@ export function Header({
       </div>
 
       {/* Bottom Row - State, Package, and Bank Filters */}
-      {!isTicketera && (
+      {!hideStatePackage && (
       <div className="flex h-12 items-center gap-x-3 px-4 sm:px-6 lg:px-8 border-t border-border/50 bg-muted/30">
         {/* State Filter */}
         <div className="flex items-center gap-2">

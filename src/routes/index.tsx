@@ -10,12 +10,14 @@ import { BankStatusCards } from "@/components/dashboard/bank-status-cards";
 import { AnnualReportsView } from "@/components/dashboard/annual-reports-view";
 import { AgentesRegistradosView } from "@/components/dashboard/agentes-registrados-view";
 import { CXTicketsView } from "@/components/dashboard/cx-tickets-view";
+import { TaxReturnView } from "@/components/dashboard/tax-return-view";
 import {
   getFilteredTasks,
   getFilteredBankTasks,
   getFilteredAnnualReports,
   getFilteredAgentesRegistrados,
   getFilteredCXTickets,
+  getFilteredTaxReturns,
   getFunnelData,
   getLLCTaskExtremes,
   getBankTaskExtremes,
@@ -29,15 +31,19 @@ import {
   getAgentesStatusChartData,
   calculateCXTicketsKPIs,
   getCXTicketsByAssignee,
+  calculateTaxReturnKPIs,
+  getTaxReturnByAssignee,
   type ProcessType,
   type StateType,
   type PackageType,
   type BankType,
+  type TipoLLC,
   type Task,
   type BankTask,
   type AnnualReportTask,
   type AgenteRegistradoTask,
   type CXTicket,
+  type TaxReturnTask,
 } from "@/lib/clickup-api";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -87,12 +93,21 @@ const defaultCXTicketsKPIs = {
   resolutionRate: 0,
 };
 
+const defaultTaxReturnKPIs = {
+  totalCompleted: 0,
+  avgCompletionDays: 0,
+  completedWithTime: 0,
+  inProgressTotal: 0,
+  inProgressByStatus: [] as { status: string; count: number }[],
+};
+
 function DashboardPage() {
   const [selectedProcess, setSelectedProcess] = useState<ProcessType | "all">("llc_formation");
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const [selectedState, setSelectedState] = useState<StateType | "all">("all");
   const [selectedPackage, setSelectedPackage] = useState<PackageType | "all">("all");
   const [selectedBank, setSelectedBank] = useState<BankType | "all">("all");
+  const [selectedTipoLLC, setSelectedTipoLLC] = useState<TipoLLC | "all">("all");
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,6 +145,12 @@ function DashboardPage() {
   const [, setFilteredCXTickets] = useState<CXTicket[]>([]);
   const [cxTicketsKPIs, setCXTicketsKPIs] = useState(defaultCXTicketsKPIs);
   const [cxByAssignee, setCXByAssignee] = useState<{ assignee: string; count: number }[]>([]);
+
+  const [, setFilteredTaxReturns] = useState<TaxReturnTask[]>([]);
+  const [taxReturnKPIs, setTaxReturnKPIs] = useState(defaultTaxReturnKPIs);
+  const [taxReturnByAssignee, setTaxReturnByAssignee] = useState<
+    { assignee: string; count: number }[]
+  >([]);
 
   const fetchLLCData = useCallback(async () => {
     try {
@@ -201,6 +222,18 @@ function DashboardPage() {
     }
   }, [selectedState, selectedPackage, dateRange]);
 
+  const fetchTaxReturnData = useCallback(async () => {
+    try {
+      const items = await getFilteredTaxReturns(dateRange, selectedTipoLLC);
+      setFilteredTaxReturns(items);
+      setTaxReturnKPIs(calculateTaxReturnKPIs(items));
+      setTaxReturnByAssignee(getTaxReturnByAssignee(items));
+    } catch (err) {
+      console.error("Error fetching Tax Return:", err);
+      setError("Error al cargar datos de Tax Return");
+    }
+  }, [dateRange, selectedTipoLLC]);
+
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -218,6 +251,9 @@ function DashboardPage() {
             break;
           case "ticketera_cx":
             await fetchCXTicketsData();
+            break;
+          case "tax_return":
+            await fetchTaxReturnData();
             break;
           case "llc_formation":
           case "other":
@@ -240,6 +276,7 @@ function DashboardPage() {
     fetchAnnualReportsData,
     fetchAgentesData,
     fetchCXTicketsData,
+    fetchTaxReturnData,
   ]);
 
   const renderProcessView = () => {
@@ -324,6 +361,16 @@ function DashboardPage() {
 
       case "ticketera_cx":
         return <CXTicketsView kpis={cxTicketsKPIs} byAssignee={cxByAssignee} />;
+
+      case "tax_return":
+        return (
+          <TaxReturnView
+            kpis={taxReturnKPIs}
+            byAssignee={taxReturnByAssignee}
+            tipoLLC={selectedTipoLLC}
+            onTipoLLCChange={setSelectedTipoLLC}
+          />
+        );
 
       case "llc_formation":
       case "other":
