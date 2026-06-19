@@ -222,6 +222,18 @@ function DashboardPage() {
     }
   }, [selectedState, selectedPackage, dateRange]);
 
+  const fetchTaxReturnData = useCallback(async () => {
+    try {
+      const items = await getFilteredTaxReturns(dateRange, selectedTipoLLC);
+      setFilteredTaxReturns(items);
+      setTaxReturnKPIs(calculateTaxReturnKPIs(items));
+      setTaxReturnByAssignee(getTaxReturnByAssignee(items));
+    } catch (err) {
+      console.error("Error fetching Tax Return:", err);
+      setError("Error al cargar datos de Tax Return");
+    }
+  }, [dateRange, selectedTipoLLC]);
+
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -239,6 +251,9 @@ function DashboardPage() {
             break;
           case "ticketera_cx":
             await fetchCXTicketsData();
+            break;
+          case "tax_return":
+            await fetchTaxReturnData();
             break;
           case "llc_formation":
           case "other":
@@ -261,6 +276,7 @@ function DashboardPage() {
     fetchAnnualReportsData,
     fetchAgentesData,
     fetchCXTicketsData,
+    fetchTaxReturnData,
   ]);
 
   const renderProcessView = () => {
