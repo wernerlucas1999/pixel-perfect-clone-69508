@@ -93,12 +93,21 @@ const defaultCXTicketsKPIs = {
   resolutionRate: 0,
 };
 
+const defaultTaxReturnKPIs = {
+  totalCompleted: 0,
+  avgCompletionDays: 0,
+  completedWithTime: 0,
+  inProgressTotal: 0,
+  inProgressByStatus: [] as { status: string; count: number }[],
+};
+
 function DashboardPage() {
   const [selectedProcess, setSelectedProcess] = useState<ProcessType | "all">("llc_formation");
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const [selectedState, setSelectedState] = useState<StateType | "all">("all");
   const [selectedPackage, setSelectedPackage] = useState<PackageType | "all">("all");
   const [selectedBank, setSelectedBank] = useState<BankType | "all">("all");
+  const [selectedTipoLLC, setSelectedTipoLLC] = useState<TipoLLC | "all">("all");
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
