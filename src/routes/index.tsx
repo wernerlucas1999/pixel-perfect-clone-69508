@@ -362,6 +362,16 @@ function DashboardPage() {
       case "ticketera_cx":
         return <CXTicketsView kpis={cxTicketsKPIs} byAssignee={cxByAssignee} />;
 
+      case "tax_return":
+        return (
+          <TaxReturnView
+            kpis={taxReturnKPIs}
+            byAssignee={taxReturnByAssignee}
+            tipoLLC={selectedTipoLLC}
+            onTipoLLCChange={setSelectedTipoLLC}
+          />
+        );
+
       case "llc_formation":
       case "other":
       default:
