@@ -1443,7 +1443,7 @@ function mapTaxReturnTask(raw: any): TaxReturnTask | null {
 
 export async function fetchTaxReturnTasks(): Promise<TaxReturnTask[]> {
   if (_taxReturnCache && Date.now() - _taxReturnCache.ts < CACHE_TTL_MS) return _taxReturnCache.data;
-  const raw = await fetchAllTasksByView(TAX_RETURN_VIEW_ID);
+  const raw = await fetchTaxReturnRaw(TAX_RETURN_VIEW_ID);
   const data = raw.map(mapTaxReturnTask).filter((t): t is TaxReturnTask => t !== null);
   _taxReturnCache = { data, ts: Date.now() };
   return data;
