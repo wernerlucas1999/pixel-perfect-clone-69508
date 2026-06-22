@@ -230,7 +230,13 @@ function DashboardPage() {
       setTaxReturnByAssignee(getTaxReturnByAssignee(items));
     } catch (err) {
       console.error("Error fetching Tax Return:", err);
-      setError("Error al cargar datos de Tax Return");
+      // No bloquear el dashboard: dejar KPIs en cero y mostrar aviso.
+      setFilteredTaxReturns([]);
+      setTaxReturnKPIs(defaultTaxReturnKPIs);
+      setTaxReturnByAssignee([]);
+      setError(
+        "No se pudo cargar Tax Return (verifica que el ID de lista/vista de ClickUp sea correcto y tenga acceso).",
+      );
     }
   }, [dateRange, selectedTipoLLC]);
 
