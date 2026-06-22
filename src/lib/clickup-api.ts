@@ -1345,6 +1345,33 @@ async function fetchAllTasksByView(viewId: string): Promise<any[]> {
   return tasks.filter((t) => !t.parent);
 }
 
+async function fetchAllTasksByList(listId: string): Promise<any[]> {
+  const tasks: any[] = [];
+  let page = 0;
+  while (true) {
+    const url = `${BASE_URL}/list/${listId}/task?page=${page}&subtasks=false&include_closed=true`;
+    const res = await fetch(url, { headers: { Authorization: CLICKUP_TOKEN } });
+    if (!res.ok) throw new Error(`ClickUp List API error ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    const batch: any[] = data?.tasks ?? [];
+    tasks.push(...batch);
+    if (data?.last_page === true || batch.length === 0 || batch.length < 100) break;
+    page++;
+    if (page > 50) break;
+  }
+  return tasks.filter((t) => !t.parent);
+}
+
+async function fetchTaxReturnRaw(id: string): Promise<any[]> {
+  // Try as view first, then fall back to list endpoint (the ID might be a list ID).
+  try {
+    return await fetchAllTasksByView(id);
+  } catch (err) {
+    console.warn("[TaxReturn] view endpoint failed, trying list endpoint:", err);
+    return await fetchAllTasksByList(id);
+  }
+}
+
 function getCustomFieldDropdownLabel(fields: any[], name: string): string | null {
   if (!Array.isArray(fields)) return null;
   const target = name.toLowerCase().trim();
@@ -1416,7 +1443,7 @@ function mapTaxReturnTask(raw: any): TaxReturnTask | null {
 
 export async function fetchTaxReturnTasks(): Promise<TaxReturnTask[]> {
   if (_taxReturnCache && Date.now() - _taxReturnCache.ts < CACHE_TTL_MS) return _taxReturnCache.data;
-  const raw = await fetchAllTasksByView(TAX_RETURN_VIEW_ID);
+  const raw = await fetchTaxReturnRaw(TAX_RETURN_VIEW_ID);
   const data = raw.map(mapTaxReturnTask).filter((t): t is TaxReturnTask => t !== null);
   _taxReturnCache = { data, ts: Date.now() };
   return data;
