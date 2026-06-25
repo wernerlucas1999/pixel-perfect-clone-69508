@@ -597,9 +597,9 @@ function mapToBankTask(raw: any): BankTask | null {
         ? "bank_delay"
         : null;
 
-  const stateField = getCustomFieldValue(cf, "state") ?? getCustomFieldValue(cf, "estado");
-  const packageField = getCustomFieldValue(cf, "package") ?? getCustomFieldValue(cf, "paquete");
-  const bankField = getCustomFieldValue(cf, "bank") ?? getCustomFieldValue(cf, "banco");
+  const stateLabel = getDropdownLabel(cf, ["State", "Estado"]);
+  const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
+  const bankLabel = getDropdownLabel(cf, ["Banco", "Bank"]);
 
   return {
     id: raw.id,
@@ -623,9 +623,9 @@ function mapToBankTask(raw: any): BankTask | null {
     client_wait_days: clientWaitDays,
     bank_wait_days: bankWaitDays,
     blocking_alert: blockingAlert,
-    state: (stateField as StateType) ?? inferStateFromName(raw.name),
-    package: (packageField as PackageType) ?? inferPackageFromName(raw.name),
-    bank: (bankField as BankType) ?? inferBankFromName(raw.name),
+    state: normalizeState(stateLabel) ?? inferStateFromName(raw.name),
+    package: normalizePackage(packageLabel) ?? inferPackageFromName(raw.name),
+    bank: normalizeBank(bankLabel) ?? inferBankFromName(raw.name),
   };
 }
 
