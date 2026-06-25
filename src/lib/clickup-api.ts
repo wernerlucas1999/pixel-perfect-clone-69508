@@ -501,8 +501,8 @@ function mapToTask(raw: any): Task | null {
   if (fechaSolicitudEin && fechaRecepcionEin)
     time_in_status["ESPERANDO EIN"] = daysBetween(fechaSolicitudEin, fechaRecepcionEin);
 
-  const stateField = getCustomFieldValue(cf, "state") ?? getCustomFieldValue(cf, "estado");
-  const packageField = getCustomFieldValue(cf, "package") ?? getCustomFieldValue(cf, "paquete");
+  const stateLabel = getDropdownLabel(cf, ["State", "Estado"]);
+  const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
 
   return {
     id: raw.id,
@@ -521,8 +521,8 @@ function mapToTask(raw: any): Task | null {
     time_in_status,
     ein_status: einStatus,
     current_status_days: calcCurrentStatusDays(raw),
-    state: (stateField as StateType) ?? inferStateFromName(raw.name),
-    package: (packageField as PackageType) ?? inferPackageFromName(raw.name),
+    state: normalizeState(stateLabel) ?? inferStateFromName(raw.name),
+    package: normalizePackage(packageLabel) ?? inferPackageFromName(raw.name),
   };
 }
 
