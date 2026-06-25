@@ -272,14 +272,44 @@ function msToDate(ms: number | string | null): string | null {
   return new Date(n).toISOString().split("T")[0];
 }
 
+function findField(fields: any[], names: string[]): any | null {
+  const norm = (s: any) => String(s ?? "").toLowerCase().trim();
+  for (const name of names) {
+    const target = norm(name);
+    const f = fields.find((f: any) => norm(f.name) === target);
+    if (f) return f;
+  }
+  return null;
+}
+
 function getCustomFieldValue(fields: any[], name: string): string | null {
-  const f = fields.find((f: any) => f.name?.toLowerCase() === name.toLowerCase());
+  const f = findField(fields, [name]);
   if (!f || f.value === undefined || f.value === null || f.value === "") return null;
   // Fechas vienen en ms (Unix timestamp en ms)
   if (typeof f.value === "number" || /^\d{12,}$/.test(String(f.value))) {
     return msToDate(f.value);
   }
   return String(f.value);
+}
+
+// Resuelve un campo drop_down de ClickUp a su label visible.
+// El value puede ser: number (índice/orderindex) o string (option id / label).
+function getDropdownLabel(fields: any[], names: string[]): string | null {
+  const f = findField(fields, names);
+  if (!f || f.value === undefined || f.value === null || f.value === "") return null;
+  const opts: any[] = f.type_config?.options ?? [];
+  if (typeof f.value === "number") {
+    const opt =
+      opts.find((o: any) => o.orderindex === f.value) ??
+      opts[f.value] ??
+      null;
+    return opt?.name ?? opt?.label ?? null;
+  }
+  if (typeof f.value === "string") {
+    const opt = opts.find((o: any) => o.id === f.value || o.name === f.value);
+    return opt?.name ?? opt?.label ?? f.value;
+  }
+  return null;
 }
 
 // Devuelve null si el estado no pertenece al flujo operativo oficial.
@@ -289,6 +319,37 @@ function normalizeStatus<T extends string>(raw: string, validValues: T[]): T | n
   if (!norm) return null;
   const match = validValues.find((v) => v.toLowerCase().trim() === norm);
   return match ?? null; // NO defaultear - descartar tareas con estados desconocidos
+}
+
+function normalizeState(label: string | null): StateType | null {
+  if (!label) return null;
+  const n = label.toLowerCase();
+  if (n.includes("new mexico") || /\bnm\b/.test(n)) return "new_mexico";
+  if (n.includes("wyoming") || /\bwy\b/.test(n)) return "wyoming";
+  if (n.includes("delaware") || /\bde\b/.test(n)) return "delaware";
+  if (n.includes("florida") || /\bfl\b/.test(n)) return "florida";
+  if (n.includes("texas") || /\btx\b/.test(n)) return "texas";
+  return null;
+}
+
+function normalizePackage(label: string | null): PackageType | null {
+  if (!label) return null;
+  const n = label.toLowerCase().trim();
+  if (n.includes("all in") || n.includes("all_in") || n === "allin") return "all_in";
+  if (n.includes("pro")) return "pro"; // "Pro (LLC + Bank)"
+  if (n.includes("starter")) return "starter";
+  if (n.includes("solo llc")) return "solo_llc";
+  if (n === "bank" || n.includes("solo bank") || n === "solo_bank") return "solo_bank";
+  return null;
+}
+
+function normalizeBank(label: string | null): BankType | null {
+  if (!label) return null;
+  const n = label.toLowerCase();
+  if (n.includes("relay")) return "relay";
+  if (n.includes("lili")) return "lili";
+  if (n.includes("mercury")) return "mercury";
+  return null;
 }
 
 function inferStateFromName(name: string): StateType {
@@ -440,8 +501,8 @@ function mapToTask(raw: any): Task | null {
   if (fechaSolicitudEin && fechaRecepcionEin)
     time_in_status["ESPERANDO EIN"] = daysBetween(fechaSolicitudEin, fechaRecepcionEin);
 
-  const stateField = getCustomFieldValue(cf, "state") ?? getCustomFieldValue(cf, "estado");
-  const packageField = getCustomFieldValue(cf, "package") ?? getCustomFieldValue(cf, "paquete");
+  const stateLabel = getDropdownLabel(cf, ["State", "Estado"]);
+  const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
 
   return {
     id: raw.id,
@@ -460,8 +521,8 @@ function mapToTask(raw: any): Task | null {
     time_in_status,
     ein_status: einStatus,
     current_status_days: calcCurrentStatusDays(raw),
-    state: (stateField as StateType) ?? inferStateFromName(raw.name),
-    package: (packageField as PackageType) ?? inferPackageFromName(raw.name),
+    state: normalizeState(stateLabel) ?? inferStateFromName(raw.name),
+    package: normalizePackage(packageLabel) ?? inferPackageFromName(raw.name),
   };
 }
 
@@ -536,9 +597,9 @@ function mapToBankTask(raw: any): BankTask | null {
         ? "bank_delay"
         : null;
 
-  const stateField = getCustomFieldValue(cf, "state") ?? getCustomFieldValue(cf, "estado");
-  const packageField = getCustomFieldValue(cf, "package") ?? getCustomFieldValue(cf, "paquete");
-  const bankField = getCustomFieldValue(cf, "bank") ?? getCustomFieldValue(cf, "banco");
+  const stateLabel = getDropdownLabel(cf, ["State", "Estado"]);
+  const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
+  const bankLabel = getDropdownLabel(cf, ["Banco", "Bank"]);
 
   return {
     id: raw.id,
@@ -562,9 +623,9 @@ function mapToBankTask(raw: any): BankTask | null {
     client_wait_days: clientWaitDays,
     bank_wait_days: bankWaitDays,
     blocking_alert: blockingAlert,
-    state: (stateField as StateType) ?? inferStateFromName(raw.name),
-    package: (packageField as PackageType) ?? inferPackageFromName(raw.name),
-    bank: (bankField as BankType) ?? inferBankFromName(raw.name),
+    state: normalizeState(stateLabel) ?? inferStateFromName(raw.name),
+    package: normalizePackage(packageLabel) ?? inferPackageFromName(raw.name),
+    bank: normalizeBank(bankLabel) ?? inferBankFromName(raw.name),
   };
 }
 
