@@ -64,6 +64,8 @@ const defaultLLCKPIs = {
   avgLeadTime: 0,
   avgEINWait: 0,
   delayedTasks: 0,
+  avgDemoraCliente: 0,
+  avgTiempoInterno: 0,
 };
 const defaultBankKPIs = {
   totalTasks: 0,
@@ -392,6 +394,28 @@ function DashboardPage() {
               avgEINWait={kpis.avgEINWait}
               delayedTasks={kpis.delayedTasks}
             />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-chart-3/40 bg-chart-3/5 p-5">
+                <p className="text-sm font-medium text-muted-foreground">Demora del Cliente</p>
+                <p className="text-3xl font-bold text-chart-3 mt-2">
+                  {kpis.avgDemoraCliente.toFixed(2)} d
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Promedio general — campo z_Demora cliente
+                </p>
+              </div>
+              <div className="rounded-lg border border-chart-1/40 bg-chart-1/5 p-5">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Demora Interna de Filings
+                </p>
+                <p className="text-3xl font-bold text-chart-1 mt-2">
+                  {kpis.avgTiempoInterno.toFixed(2)} d
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Promedio general — campo z_Tiempo interno
+                </p>
+              </div>
+            </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <FunnelChart data={funnelData} />
               <TaskRecordsCard

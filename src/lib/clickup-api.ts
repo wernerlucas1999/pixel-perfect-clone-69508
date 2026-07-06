@@ -107,6 +107,8 @@ export interface CustomFields {
   envio_tramite: string | null;
   fecha_solicitud_ein: string | null;
   fecha_recepcion_ein: string | null;
+  demora_cliente: number | null;
+  tiempo_interno: number | null;
 }
 
 export interface BankCustomFields {
@@ -486,6 +488,12 @@ function mapToTask(raw: any): Task | null {
     getCustomFieldValue(cf, "fecha_recepcion_ein") ??
     getCustomFieldValue(cf, "fecha recepcion ein");
 
+  // Demoras numéricas ya calculadas por ClickUp (en días).
+  const demoraClienteRaw = findField(cf, ["z_Demora cliente"]);
+  const tiempoInternoRaw = findField(cf, ["z_Tiempo interno"]);
+  const demoraCliente = demoraClienteRaw ? parseFloat(demoraClienteRaw.value) : NaN;
+  const tiempoInterno = tiempoInternoRaw ? parseFloat(tiempoInternoRaw.value) : NaN;
+
   const einStatusRaw =
     getCustomFieldValue(cf, "ein_status") ?? getCustomFieldValue(cf, "ein status") ?? "n/a";
   const einStatus: EINStatus = ["pendiente", "solicitado", "recibido", "n/a"].includes(
@@ -517,6 +525,8 @@ function mapToTask(raw: any): Task | null {
       envio_tramite: envioTramite,
       fecha_solicitud_ein: fechaSolicitudEin,
       fecha_recepcion_ein: fechaRecepcionEin,
+      demora_cliente: isNaN(demoraCliente) ? null : demoraCliente,
+      tiempo_interno: isNaN(tiempoInterno) ? null : tiempoInterno,
     },
     time_in_status,
     ein_status: einStatus,
@@ -1082,6 +1092,27 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
       ["ESPERANDO INPUT CLIENTE", "ESPERANDO APROB", "FAXEADO", "ESPERANDO EIN"] as LLCStatus[]
     ).some((st) => (t.time_in_status[st] ?? 0) > 5),
   ).length;
+
+  // Promedios de demora (días) desde custom fields ya calculados por ClickUp.
+  let sumDemoraCliente = 0;
+  let countDemoraCliente = 0;
+  let sumTiempoInterno = 0;
+  let countTiempoInterno = 0;
+  for (const t of tasks) {
+    const dc = t.custom_fields.demora_cliente;
+    if (typeof dc === "number" && !isNaN(dc)) {
+      sumDemoraCliente += dc;
+      countDemoraCliente += 1;
+    }
+    const ti = t.custom_fields.tiempo_interno;
+    if (typeof ti === "number" && !isNaN(ti)) {
+      sumTiempoInterno += ti;
+      countTiempoInterno += 1;
+    }
+  }
+  const avgDemoraCliente = countDemoraCliente > 0 ? sumDemoraCliente / countDemoraCliente : 0;
+  const avgTiempoInterno = countTiempoInterno > 0 ? sumTiempoInterno / countTiempoInterno : 0;
+
   return {
     totalTasks,
     completedTasks,
@@ -1090,6 +1121,8 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
     avgLeadTime,
     avgEINWait,
     delayedTasks,
+    avgDemoraCliente,
+    avgTiempoInterno,
   };
 }
 
