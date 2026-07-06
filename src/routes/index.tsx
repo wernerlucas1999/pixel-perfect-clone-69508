@@ -104,7 +104,7 @@ const defaultTaxReturnKPIs = {
 };
 
 function DashboardPage() {
-  const [selectedProcess, setSelectedProcess] = useState<ProcessType | "all">("llc_formation");
+  const [selectedProcess, setSelectedProcess] = useState<ProcessType>("llc_formation");
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const [selectedState, setSelectedState] = useState<StateType | "all">("all");
   const [selectedPackage, setSelectedPackage] = useState<PackageType | "all">("all");

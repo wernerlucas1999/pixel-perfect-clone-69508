@@ -3,8 +3,8 @@ import { Timer, Settings, Bell, GitBranch } from "lucide-react";
 import { PROCESSES, type ProcessType } from "@/lib/clickup-api";
 
 interface SidebarProps {
-  selectedProcess: ProcessType | "all";
-  onProcessChange: (process: ProcessType | "all") => void;
+  selectedProcess: ProcessType;
+  onProcessChange: (process: ProcessType) => void;
 }
 
 const secondaryNavigation = [

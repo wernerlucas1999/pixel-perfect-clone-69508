@@ -79,22 +79,13 @@ export function Header({
               <span className="hidden sm:inline text-sm text-muted-foreground">Proceso:</span>
               <Select
                 value={selectedProcess}
-                onValueChange={(value) => onProcessChange(value as ProcessType | "all")}
+                onValueChange={(value) => onProcessChange(value as ProcessType)}
               >
                 <SelectTrigger className="w-[180px] bg-input border-border text-foreground">
                   <SelectValue placeholder="Seleccionar proceso" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
-                  <SelectItem
-                    value="all"
-                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground" />
-                      Todos los Procesos
-                    </div>
-                  </SelectItem>
-                  {PROCESSES.map((process) => (
+                  {PROCESSES.filter((p) => p.id !== "other").map((process) => (
                     <SelectItem
                       key={process.id}
                       value={process.id}
