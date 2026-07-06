@@ -29,8 +29,8 @@ interface DateRange {
 }
 
 interface HeaderProps {
-  selectedProcess: ProcessType | "all";
-  onProcessChange: (process: ProcessType | "all") => void;
+  selectedProcess: ProcessType;
+  onProcessChange: (process: ProcessType) => void;
   dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   selectedState: StateType | "all";
