@@ -525,6 +525,8 @@ function mapToTask(raw: any): Task | null {
       envio_tramite: envioTramite,
       fecha_solicitud_ein: fechaSolicitudEin,
       fecha_recepcion_ein: fechaRecepcionEin,
+      demora_cliente: isNaN(demoraCliente) ? null : demoraCliente,
+      tiempo_interno: isNaN(tiempoInterno) ? null : tiempoInterno,
     },
     time_in_status,
     ein_status: einStatus,
