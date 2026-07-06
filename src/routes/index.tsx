@@ -104,7 +104,7 @@ const defaultTaxReturnKPIs = {
 };
 
 function DashboardPage() {
-  const [selectedProcess, setSelectedProcess] = useState<ProcessType | "all">("llc_formation");
+  const [selectedProcess, setSelectedProcess] = useState<ProcessType>("llc_formation");
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const [selectedState, setSelectedState] = useState<StateType | "all">("all");
   const [selectedPackage, setSelectedPackage] = useState<PackageType | "all">("all");
@@ -264,7 +264,6 @@ function DashboardPage() {
             await fetchTaxReturnData();
             break;
           case "llc_formation":
-          case "other":
           default:
             await fetchLLCData();
             break;
@@ -381,7 +380,6 @@ function DashboardPage() {
         );
 
       case "llc_formation":
-      case "other":
       default:
         return (
           <>
@@ -400,9 +398,6 @@ function DashboardPage() {
                 <p className="text-3xl font-bold text-chart-3 mt-2">
                   {kpis.avgDemoraCliente.toFixed(2)} d
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Promedio general — campo z_Demora cliente
-                </p>
               </div>
               <div className="rounded-lg border border-chart-1/40 bg-chart-1/5 p-5">
                 <p className="text-sm font-medium text-muted-foreground">
@@ -410,9 +405,6 @@ function DashboardPage() {
                 </p>
                 <p className="text-3xl font-bold text-chart-1 mt-2">
                   {kpis.avgTiempoInterno.toFixed(2)} d
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Promedio general — campo z_Tiempo interno
                 </p>
               </div>
             </div>

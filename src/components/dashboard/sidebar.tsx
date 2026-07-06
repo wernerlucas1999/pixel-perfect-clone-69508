@@ -3,8 +3,8 @@ import { Timer, Settings, Bell, GitBranch } from "lucide-react";
 import { PROCESSES, type ProcessType } from "@/lib/clickup-api";
 
 interface SidebarProps {
-  selectedProcess: ProcessType | "all";
-  onProcessChange: (process: ProcessType | "all") => void;
+  selectedProcess: ProcessType;
+  onProcessChange: (process: ProcessType) => void;
 }
 
 const secondaryNavigation = [
@@ -31,21 +31,7 @@ export function Sidebar({ selectedProcess, onProcessChange }: SidebarProps) {
                 Procesos
               </div>
               <ul role="list" className="-mx-2 mt-2 space-y-1">
-                <li>
-                  <button
-                    onClick={() => onProcessChange("all")}
-                    className={cn(
-                      selectedProcess === "all"
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent",
-                      "w-full group flex items-center gap-x-3 rounded-md p-2 text-sm leading-6 font-medium transition-colors text-left",
-                    )}
-                  >
-                    <GitBranch className="h-5 w-5 shrink-0" />
-                    Todos los procesos
-                  </button>
-                </li>
-                {PROCESSES.map((p) => {
+                {PROCESSES.filter((p) => p.id !== "other").map((p) => {
                   const active = selectedProcess === p.id;
                   return (
                     <li key={p.id}>
