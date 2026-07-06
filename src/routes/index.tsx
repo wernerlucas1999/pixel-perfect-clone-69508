@@ -264,7 +264,6 @@ function DashboardPage() {
             await fetchTaxReturnData();
             break;
           case "llc_formation":
-          case "other":
           default:
             await fetchLLCData();
             break;
@@ -381,7 +380,6 @@ function DashboardPage() {
         );
 
       case "llc_formation":
-      case "other":
       default:
         return (
           <>
@@ -399,9 +397,6 @@ function DashboardPage() {
                 <p className="text-sm font-medium text-muted-foreground">Demora del Cliente</p>
                 <p className="text-3xl font-bold text-chart-3 mt-2">
                   {kpis.avgDemoraCliente.toFixed(2)} d
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Promedio general — campo z_Demora cliente
                 </p>
               </div>
               <div className="rounded-lg border border-chart-1/40 bg-chart-1/5 p-5">
