@@ -488,6 +488,12 @@ function mapToTask(raw: any): Task | null {
     getCustomFieldValue(cf, "fecha_recepcion_ein") ??
     getCustomFieldValue(cf, "fecha recepcion ein");
 
+  // Demoras numéricas ya calculadas por ClickUp (en días).
+  const demoraClienteRaw = findField(cf, ["z_Demora cliente"]);
+  const tiempoInternoRaw = findField(cf, ["z_Tiempo interno"]);
+  const demoraCliente = demoraClienteRaw ? parseFloat(demoraClienteRaw.value) : NaN;
+  const tiempoInterno = tiempoInternoRaw ? parseFloat(tiempoInternoRaw.value) : NaN;
+
   const einStatusRaw =
     getCustomFieldValue(cf, "ein_status") ?? getCustomFieldValue(cf, "ein status") ?? "n/a";
   const einStatus: EINStatus = ["pendiente", "solicitado", "recibido", "n/a"].includes(
