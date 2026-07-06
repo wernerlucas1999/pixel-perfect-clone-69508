@@ -64,6 +64,8 @@ const defaultLLCKPIs = {
   avgLeadTime: 0,
   avgEINWait: 0,
   delayedTasks: 0,
+  avgDemoraCliente: 0,
+  avgTiempoInterno: 0,
 };
 const defaultBankKPIs = {
   totalTasks: 0,
