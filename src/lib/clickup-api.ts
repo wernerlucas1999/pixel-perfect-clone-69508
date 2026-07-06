@@ -1092,6 +1092,27 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
       ["ESPERANDO INPUT CLIENTE", "ESPERANDO APROB", "FAXEADO", "ESPERANDO EIN"] as LLCStatus[]
     ).some((st) => (t.time_in_status[st] ?? 0) > 5),
   ).length;
+
+  // Promedios de demora (días) desde custom fields ya calculados por ClickUp.
+  let sumDemoraCliente = 0;
+  let countDemoraCliente = 0;
+  let sumTiempoInterno = 0;
+  let countTiempoInterno = 0;
+  for (const t of tasks) {
+    const dc = t.custom_fields.demora_cliente;
+    if (typeof dc === "number" && !isNaN(dc)) {
+      sumDemoraCliente += dc;
+      countDemoraCliente += 1;
+    }
+    const ti = t.custom_fields.tiempo_interno;
+    if (typeof ti === "number" && !isNaN(ti)) {
+      sumTiempoInterno += ti;
+      countTiempoInterno += 1;
+    }
+  }
+  const avgDemoraCliente = countDemoraCliente > 0 ? sumDemoraCliente / countDemoraCliente : 0;
+  const avgTiempoInterno = countTiempoInterno > 0 ? sumTiempoInterno / countTiempoInterno : 0;
+
   return {
     totalTasks,
     completedTasks,
@@ -1100,6 +1121,8 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
     avgLeadTime,
     avgEINWait,
     delayedTasks,
+    avgDemoraCliente,
+    avgTiempoInterno,
   };
 }
 
