@@ -406,9 +406,6 @@ function DashboardPage() {
                 <p className="text-3xl font-bold text-chart-1 mt-2">
                   {kpis.avgTiempoInterno.toFixed(2)} d
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Promedio general — campo z_Tiempo interno
-                </p>
               </div>
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
