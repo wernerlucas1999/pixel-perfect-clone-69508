@@ -107,6 +107,8 @@ export interface CustomFields {
   envio_tramite: string | null;
   fecha_solicitud_ein: string | null;
   fecha_recepcion_ein: string | null;
+  demora_cliente: number | null;
+  tiempo_interno: number | null;
 }
 
 export interface BankCustomFields {
