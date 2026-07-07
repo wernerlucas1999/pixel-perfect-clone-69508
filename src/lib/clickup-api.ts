@@ -1216,11 +1216,31 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const clientBlockedCount = openTasks.filter((t) => t.blocking_alert === "client_blocked").length;
   const bankDelayCount = openTasks.filter((t) => t.blocking_alert === "bank_delay").length;
 
+  // Promedios desde Custom Fields limpios (z_Demora cliente, z_Tiempo interno, z_Demora IRS).
+  const avgOf = (pick: (t: BankTask) => number | null) => {
+    let sum = 0;
+    let count = 0;
+    for (const t of tasks) {
+      const v = pick(t);
+      if (v !== null && !isNaN(v)) {
+        sum += v;
+        count += 1;
+      }
+    }
+    return count > 0 ? sum / count : 0;
+  };
+  const avgDemoraCliente = avgOf((t) => t.custom_fields.demora_cliente);
+  const avgTiempoInterno = avgOf((t) => t.custom_fields.tiempo_interno);
+  const avgDemoraIRS = avgOf((t) => t.custom_fields.demora_irs);
+
   return {
     comparisonData,
     clientResponsibilityRatio,
     avgClientDays,
     avgBankDays,
+    avgDemoraCliente,
+    avgTiempoInterno,
+    avgDemoraIRS,
     clientBlockedCount,
     bankDelayCount,
     closedTasksCount: closedTasks.length,
