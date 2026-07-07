@@ -365,6 +365,9 @@ function DashboardPage() {
               clientResponsibilityRatio={bottleneckData.clientResponsibilityRatio}
               totalClientDays={bottleneckData.avgClientDays}
               totalBankDays={bottleneckData.avgBankDays}
+              avgDemoraCliente={bottleneckData.avgDemoraCliente}
+              avgTiempoInterno={bottleneckData.avgTiempoInterno}
+              avgDemoraIRS={bottleneckData.avgDemoraIRS}
             />
           </>
         );
