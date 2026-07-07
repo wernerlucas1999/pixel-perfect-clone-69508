@@ -129,7 +129,18 @@ function DashboardPage() {
     clientResponsibilityRatio: number;
     avgClientDays: number;
     avgBankDays: number;
-  }>({ comparisonData: [], clientResponsibilityRatio: 0, avgClientDays: 0, avgBankDays: 0 });
+    avgDemoraCliente: number;
+    avgTiempoInterno: number;
+    avgDemoraIRS: number;
+  }>({
+    comparisonData: [],
+    clientResponsibilityRatio: 0,
+    avgClientDays: 0,
+    avgBankDays: 0,
+    avgDemoraCliente: 0,
+    avgTiempoInterno: 0,
+    avgDemoraIRS: 0,
+  });
   const [bankStatusCounts, setBankStatusCounts] = useState<any[]>([]);
 
   const [, setFilteredAnnualReports] = useState<AnnualReportTask[]>([]);
