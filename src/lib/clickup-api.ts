@@ -120,6 +120,9 @@ export interface BankCustomFields {
   pedido_verif_id: string | null; // Pedido verif. ID
   completa_verif_id: string | null; // Completa verif. ID
   fecha_aprob_rech: string | null; // Fecha aprob/rech (cierre del banco)
+  demora_cliente: number | null; // z_Demora cliente
+  tiempo_interno: number | null; // z_Tiempo interno
+  demora_irs: number | null; // z_Demora IRS
 }
 
 export interface TimeInStatus {
