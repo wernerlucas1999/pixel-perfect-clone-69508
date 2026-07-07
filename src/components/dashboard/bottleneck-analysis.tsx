@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Building2, Clock } from "lucide-react";
+import { Users, Building2, Clock, Landmark, Wallet } from "lucide-react";
 
 interface ComparisonData {
   name: string;
@@ -17,6 +17,12 @@ interface BottleneckAnalysisProps {
   totalClientDays: number;
   /** Demora promedio por tarea cerrada — días imputables al banco */
   totalBankDays: number;
+  /** Promedio del custom field z_Demora cliente (en días) */
+  avgDemoraCliente: number;
+  /** Promedio del custom field z_Tiempo interno (en días) */
+  avgTiempoInterno: number;
+  /** Promedio del custom field z_Demora IRS (en días) */
+  avgDemoraIRS: number;
 }
 
 export function BottleneckAnalysis({
@@ -24,13 +30,16 @@ export function BottleneckAnalysis({
   clientResponsibilityRatio,
   totalClientDays: avgClientDays,
   totalBankDays: avgBankDays,
+  avgDemoraCliente,
+  avgTiempoInterno,
+  avgDemoraIRS,
 }: BottleneckAnalysisProps) {
   const bankResponsibilityRatio = 100 - clientResponsibilityRatio;
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards Row - Only 3 cards now */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* KPI Cards Row */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -54,8 +63,37 @@ export function BottleneckAnalysis({
             <Clock className="h-4 w-4 text-chart-3" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-chart-3">{avgClientDays} dias</div>
-            <p className="text-xs text-muted-foreground mt-1">Promedio por tarea cerrada</p>
+            <div className="text-2xl font-bold text-chart-3">
+              {avgDemoraCliente.toFixed(2)} d
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Demora Interna de Filings
+            </CardTitle>
+            <Wallet className="h-4 w-4 text-chart-2" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-chart-2">
+              {avgTiempoInterno.toFixed(2)} d
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Demora del IRS
+            </CardTitle>
+            <Landmark className="h-4 w-4 text-chart-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-chart-4">
+              {avgDemoraIRS.toFixed(2)} d
+            </div>
           </CardContent>
         </Card>
 
@@ -72,6 +110,7 @@ export function BottleneckAnalysis({
           </CardContent>
         </Card>
       </div>
+
 
 
       {/* Responsibility Ratio Visual */}
