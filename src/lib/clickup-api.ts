@@ -614,6 +614,14 @@ function mapToBankTask(raw: any): BankTask | null {
   const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
   const bankLabel = getDropdownLabel(cf, ["Banco", "Bank"]);
 
+  // Demoras numéricas ya calculadas por ClickUp (en días).
+  const demoraClienteRaw = findField(cf, ["z_Demora cliente"]);
+  const tiempoInternoRaw = findField(cf, ["z_Tiempo interno"]);
+  const demoraIrsRaw = findField(cf, ["z_Demora IRS"]);
+  const demoraClienteN = demoraClienteRaw ? parseFloat(demoraClienteRaw.value) : NaN;
+  const tiempoInternoN = tiempoInternoRaw ? parseFloat(tiempoInternoRaw.value) : NaN;
+  const demoraIrsN = demoraIrsRaw ? parseFloat(demoraIrsRaw.value) : NaN;
+
   return {
     id: raw.id,
     name: raw.name,
@@ -630,6 +638,9 @@ function mapToBankTask(raw: any): BankTask | null {
       pedido_verif_id: pedidoVerifId,
       completa_verif_id: completaVerifId,
       fecha_aprob_rech: fechaAprobRech,
+      demora_cliente: isNaN(demoraClienteN) ? null : demoraClienteN,
+      tiempo_interno: isNaN(tiempoInternoN) ? null : tiempoInternoN,
+      demora_irs: isNaN(demoraIrsN) ? null : demoraIrsN,
     },
     time_in_status: {},
     current_status_days: currentDays,
