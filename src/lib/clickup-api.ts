@@ -120,6 +120,9 @@ export interface BankCustomFields {
   pedido_verif_id: string | null; // Pedido verif. ID
   completa_verif_id: string | null; // Completa verif. ID
   fecha_aprob_rech: string | null; // Fecha aprob/rech (cierre del banco)
+  demora_cliente: number | null; // z_Demora cliente
+  tiempo_interno: number | null; // z_Tiempo interno
+  demora_irs: number | null; // z_Demora IRS
 }
 
 export interface TimeInStatus {
@@ -611,6 +614,14 @@ function mapToBankTask(raw: any): BankTask | null {
   const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
   const bankLabel = getDropdownLabel(cf, ["Banco", "Bank"]);
 
+  // Demoras numéricas ya calculadas por ClickUp (en días).
+  const demoraClienteRaw = findField(cf, ["z_Demora cliente"]);
+  const tiempoInternoRaw = findField(cf, ["z_Tiempo interno"]);
+  const demoraIrsRaw = findField(cf, ["z_Demora IRS"]);
+  const demoraClienteN = demoraClienteRaw ? parseFloat(demoraClienteRaw.value) : NaN;
+  const tiempoInternoN = tiempoInternoRaw ? parseFloat(tiempoInternoRaw.value) : NaN;
+  const demoraIrsN = demoraIrsRaw ? parseFloat(demoraIrsRaw.value) : NaN;
+
   return {
     id: raw.id,
     name: raw.name,
@@ -627,6 +638,9 @@ function mapToBankTask(raw: any): BankTask | null {
       pedido_verif_id: pedidoVerifId,
       completa_verif_id: completaVerifId,
       fecha_aprob_rech: fechaAprobRech,
+      demora_cliente: isNaN(demoraClienteN) ? null : demoraClienteN,
+      tiempo_interno: isNaN(tiempoInternoN) ? null : tiempoInternoN,
+      demora_irs: isNaN(demoraIrsN) ? null : demoraIrsN,
     },
     time_in_status: {},
     current_status_days: currentDays,
@@ -1202,11 +1216,31 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const clientBlockedCount = openTasks.filter((t) => t.blocking_alert === "client_blocked").length;
   const bankDelayCount = openTasks.filter((t) => t.blocking_alert === "bank_delay").length;
 
+  // Promedios desde Custom Fields limpios (z_Demora cliente, z_Tiempo interno, z_Demora IRS).
+  const avgOf = (pick: (t: BankTask) => number | null) => {
+    let sum = 0;
+    let count = 0;
+    for (const t of tasks) {
+      const v = pick(t);
+      if (v !== null && !isNaN(v)) {
+        sum += v;
+        count += 1;
+      }
+    }
+    return count > 0 ? sum / count : 0;
+  };
+  const avgDemoraCliente = avgOf((t) => t.custom_fields.demora_cliente);
+  const avgTiempoInterno = avgOf((t) => t.custom_fields.tiempo_interno);
+  const avgDemoraIRS = avgOf((t) => t.custom_fields.demora_irs);
+
   return {
     comparisonData,
     clientResponsibilityRatio,
     avgClientDays,
     avgBankDays,
+    avgDemoraCliente,
+    avgTiempoInterno,
+    avgDemoraIRS,
     clientBlockedCount,
     bankDelayCount,
     closedTasksCount: closedTasks.length,
