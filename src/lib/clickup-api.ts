@@ -817,12 +817,15 @@ export async function fetchRegisteredAgentsTasks(): Promise<AgenteRegistradoTask
   const raw = await fetchAllTasks(REGISTERED_AGENTS_LIST_ID);
   registeredAgentsCache = raw.map((t: any) => {
     const ms = t.date_created ? Number(t.date_created) : null;
+    const cf = t.custom_fields ?? [];
+    const stateLabel = getDropdownLabel(cf, ["State", "Estado"]);
+    const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
     return {
       id: String(t.id),
       name: t.name ?? "",
       entity_name: t.name ?? "",
-      state: "new_mexico" as StateType,
-      package: "solo_llc" as PackageType,
+      state: normalizeState(stateLabel) ?? inferStateFromName(t.name ?? ""),
+      package: normalizePackage(packageLabel) ?? inferPackageFromName(t.name ?? ""),
       renewal_date: t.due_date ?? "",
       date_created: msToDate(ms),
       date_created_ms: ms && isFinite(ms) ? ms : null,
@@ -834,13 +837,16 @@ export async function fetchRegisteredAgentsTasks(): Promise<AgenteRegistradoTask
 }
 
 export async function getFilteredAgentesRegistrados(
-  _state?: StateType | "all",
-  _pkg?: PackageType | "all",
+  state?: StateType | "all",
+  pkg?: PackageType | "all",
   dateRange?: { from: Date | null; to: Date | null },
 ): Promise<AgenteRegistradoTask[]> {
-  const all = await fetchRegisteredAgentsTasks();
+  let all = await fetchRegisteredAgentsTasks();
+  if (state && state !== "all") all = all.filter((t) => t.state === state);
+  if (pkg && pkg !== "all") all = all.filter((t) => t.package === pkg);
   return filterByDateRange(all, dateRange);
 }
+
 
 function filterByDateRange<T extends { date_created_ms: number | null }>(
   items: T[],
