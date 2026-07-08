@@ -615,12 +615,20 @@ function mapToBankTask(raw: any): BankTask | null {
   const bankLabel = getDropdownLabel(cf, ["Banco", "Bank"]);
 
   // Demoras numéricas ya calculadas por ClickUp (en días).
-  const demoraClienteRaw = findField(cf, ["z_Demora cliente"]);
-  const tiempoInternoRaw = findField(cf, ["z_Tiempo interno"]);
-  const demoraIrsRaw = findField(cf, ["z_Demora IRS"]);
-  const demoraClienteN = demoraClienteRaw ? parseFloat(demoraClienteRaw.value) : NaN;
-  const tiempoInternoN = tiempoInternoRaw ? parseFloat(tiempoInternoRaw.value) : NaN;
-  const demoraIrsN = demoraIrsRaw ? parseFloat(demoraIrsRaw.value) : NaN;
+  // IMPORTANTE: respetar el nombre EXACTO del custom field (mayúsculas/espacios)
+  // e ignorar valores vacíos, guion o indefinidos para no bajar el promedio.
+  const parseNumericCF = (raw: any): number => {
+    if (!raw) return NaN;
+    const v = raw.value;
+    if (v === null || v === undefined) return NaN;
+    const s = String(v).trim();
+    if (s === "" || s === "-") return NaN;
+    const n = parseFloat(s);
+    return isNaN(n) ? NaN : n;
+  };
+  const demoraClienteN = parseNumericCF(findField(cf, ["z_Demora cliente"]));
+  const tiempoInternoN = parseNumericCF(findField(cf, ["z_Tiempo interno"]));
+  const demoraIrsN = parseNumericCF(findField(cf, ["z_Demora IRS"]));
 
   return {
     id: raw.id,
