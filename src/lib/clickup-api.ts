@@ -664,7 +664,7 @@ function mapToBankTask(raw: any): BankTask | null {
 
 // ─── CACHE EN MEMORIA (evita re-fetch en cada render) ──────
 let _llcCache: { data: Task[]; ts: number } | null = null;
-let _bankCache: { data: BankTask[]; ts: number } | null = null;
+let _bankCacheV2: { data: BankTask[]; ts: number } | null = null;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
 export async function fetchLLCTasks(): Promise<Task[]> {
