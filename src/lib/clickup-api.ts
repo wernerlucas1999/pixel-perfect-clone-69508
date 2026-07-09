@@ -247,6 +247,7 @@ export interface AgenteRegistradoTask {
   renewal_date: string;
   date_created: string | null;
   date_created_ms: number | null;
+  date_closed_ms: number | null;
   status: AgenteStatus;
   assignee: string;
 }
@@ -817,6 +818,7 @@ export async function fetchRegisteredAgentsTasks(): Promise<AgenteRegistradoTask
   const raw = await fetchAllTasks(REGISTERED_AGENTS_LIST_ID);
   registeredAgentsCache = raw.map((t: any) => {
     const ms = t.date_created ? Number(t.date_created) : null;
+    const closedMs = t.date_closed ? Number(t.date_closed) : null;
     const cf = t.custom_fields ?? [];
     const stateLabel = getDropdownLabel(cf, ["State", "Estado"]);
     const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
@@ -829,6 +831,7 @@ export async function fetchRegisteredAgentsTasks(): Promise<AgenteRegistradoTask
       renewal_date: t.due_date ?? "",
       date_created: msToDate(ms),
       date_created_ms: ms && isFinite(ms) ? ms : null,
+      date_closed_ms: closedMs && isFinite(closedMs) ? closedMs : null,
       status: mapAgenteStatus(t?.status?.status ?? ""),
       assignee: t?.assignees?.[0]?.username ?? "",
     };
@@ -844,7 +847,23 @@ export async function getFilteredAgentesRegistrados(
   let all = await fetchRegisteredAgentsTasks();
   if (state && state !== "all") all = all.filter((t) => t.state === state);
   if (pkg && pkg !== "all") all = all.filter((t) => t.package === pkg);
-  return filterByDateRange(all, dateRange);
+  return filterByClosedDateRange(all, dateRange);
+}
+
+function filterByClosedDateRange<T extends { date_closed_ms: number | null }>(
+  items: T[],
+  dateRange?: { from: Date | null; to: Date | null },
+): T[] {
+  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+  if (from === null && to === null) return items;
+  return items.filter((t) => {
+    const ms = t.date_closed_ms;
+    if (typeof ms !== "number" || !isFinite(ms)) return false;
+    if (from !== null && ms < from) return false;
+    if (to !== null && ms > to) return false;
+    return true;
+  });
 }
 
 
