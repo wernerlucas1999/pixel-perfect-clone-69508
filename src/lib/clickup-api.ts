@@ -1249,12 +1249,14 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const bankDelayCount = openTasks.filter((t) => t.blocking_alert === "bank_delay").length;
 
   // Promedios desde Custom Fields limpios (z_Demora cliente, z_Tiempo interno, z_Demora IRS).
+  // El divisor es la cantidad de tareas que tengan un número cargado >= 0;
+  // se ignoran null, undefined, vacío, guion o cualquier valor no numérico.
   const avgOf = (pick: (t: BankTask) => number | null) => {
     let sum = 0;
     let count = 0;
     for (const t of tasks) {
       const v = pick(t);
-      if (v !== null && !isNaN(v)) {
+      if (typeof v === "number" && !isNaN(v) && v >= 0) {
         sum += v;
         count += 1;
       }
