@@ -741,10 +741,9 @@ export async function getFilteredBankTasks(
     const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
     const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
     tasks = tasks.filter((t) => {
-      // Cerrada → date_closed (obligatorio en rango). Abierta → date_created.
-      const refStr = t.closed_at ?? t.created_at;
-      if (!refStr) return false;
-      const refMs = new Date(refStr).getTime();
+      // Filtro estricto por Fecha de Cierre real (date_closed), igual que Agentes Registrados.
+      if (!t.closed_at) return false;
+      const refMs = new Date(t.closed_at).getTime();
       if (isNaN(refMs)) return false;
       if (fromMs !== null && refMs < fromMs) return false;
       if (toMs !== null && refMs > toMs) return false;
