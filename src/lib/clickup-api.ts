@@ -691,10 +691,10 @@ export async function fetchLLCTasks(): Promise<Task[]> {
 }
 
 export async function fetchBankTasks(): Promise<BankTask[]> {
-  if (_bankCache && Date.now() - _bankCache.ts < CACHE_TTL_MS) return _bankCache.data;
+  if (_bankCacheV2 && Date.now() - _bankCacheV2.ts < CACHE_TTL_MS) return _bankCacheV2.data;
   const raw = await fetchAllTasks(LIST_IDS.bank_application);
   const data = raw.map(mapToBankTask).filter((t): t is BankTask => t !== null);
-  _bankCache = { data, ts: Date.now() };
+  _bankCacheV2 = { data, ts: Date.now() };
   return data;
 }
 
