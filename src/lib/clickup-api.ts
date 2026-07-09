@@ -247,6 +247,7 @@ export interface AgenteRegistradoTask {
   renewal_date: string;
   date_created: string | null;
   date_created_ms: number | null;
+  date_closed_ms: number | null;
   status: AgenteStatus;
   assignee: string;
 }
