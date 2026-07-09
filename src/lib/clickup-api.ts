@@ -664,7 +664,7 @@ function mapToBankTask(raw: any): BankTask | null {
 
 // ─── CACHE EN MEMORIA (evita re-fetch en cada render) ──────
 let _llcCache: { data: Task[]; ts: number } | null = null;
-let _bankCache: { data: BankTask[]; ts: number } | null = null;
+let _bankCacheV2: { data: BankTask[]; ts: number } | null = null;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
 export async function fetchLLCTasks(): Promise<Task[]> {
@@ -691,10 +691,10 @@ export async function fetchLLCTasks(): Promise<Task[]> {
 }
 
 export async function fetchBankTasks(): Promise<BankTask[]> {
-  if (_bankCache && Date.now() - _bankCache.ts < CACHE_TTL_MS) return _bankCache.data;
+  if (_bankCacheV2 && Date.now() - _bankCacheV2.ts < CACHE_TTL_MS) return _bankCacheV2.data;
   const raw = await fetchAllTasks(LIST_IDS.bank_application);
   const data = raw.map(mapToBankTask).filter((t): t is BankTask => t !== null);
-  _bankCache = { data, ts: Date.now() };
+  _bankCacheV2 = { data, ts: Date.now() };
   return data;
 }
 
@@ -1249,12 +1249,14 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const bankDelayCount = openTasks.filter((t) => t.blocking_alert === "bank_delay").length;
 
   // Promedios desde Custom Fields limpios (z_Demora cliente, z_Tiempo interno, z_Demora IRS).
+  // El divisor es la cantidad de tareas que tengan un número cargado >= 0;
+  // se ignoran null, undefined, vacío, guion o cualquier valor no numérico.
   const avgOf = (pick: (t: BankTask) => number | null) => {
     let sum = 0;
     let count = 0;
     for (const t of tasks) {
       const v = pick(t);
-      if (v !== null && !isNaN(v)) {
+      if (typeof v === "number" && !isNaN(v) && v >= 0) {
         sum += v;
         count += 1;
       }
