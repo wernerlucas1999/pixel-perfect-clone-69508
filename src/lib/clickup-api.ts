@@ -1241,6 +1241,8 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const totalClientDays = comparisonData.reduce((s, t) => s + t.clientDays, 0);
   const totalBankDays = comparisonData.reduce((s, t) => s + t.bankDays, 0);
   const total = totalClientDays + totalBankDays;
+  const n = comparisonData.length;
+  const avgClientDays = n > 0 ? Math.round((totalClientDays / n) * 10) / 10 : 0;
   const clientResponsibilityRatio = total > 0 ? Math.round((totalClientDays / total) * 100) : 0;
 
   // Alertas de bloqueo (solo tareas abiertas — para volumen, no para promedios)
@@ -1279,9 +1281,8 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
 
   const avgDemoraCliente = totalTareas > 0 ? sumaDemoraCliente / totalTareas : 0;
   const avgTiempoInterno = totalTareas > 0 ? sumaTiempoInterno / totalTareas : 0;
-  const avgBankDays = totalTareas > 0 ? sumaDemoraBanco / totalTareas : 0;
+  const avgBankDays = totalTareas > 0 ? Math.round((sumaDemoraBanco / totalTareas) * 100) / 100 : 0;
   const avgDemoraIRS = totalTareas > 0 ? sumaDemoraIRS / totalTareas : 0;
-  const avgClientDays = avgDemoraCliente;
 
   return {
     comparisonData,
