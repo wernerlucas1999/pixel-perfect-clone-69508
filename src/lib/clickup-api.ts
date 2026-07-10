@@ -1249,23 +1249,21 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const bankDelayCount = openTasks.filter((t) => t.blocking_alert === "bank_delay").length;
 
   // Promedios desde Custom Fields limpios (z_Demora cliente, z_Tiempo interno, z_Demora IRS).
-  // El divisor es la cantidad de tareas que tengan un número cargado >= 0;
-  // se ignoran null, undefined, vacío, guion o cualquier valor no numérico.
-  const avgOf = (pick: (t: BankTask) => number | null) => {
+  // Se usa EXACTAMENTE el mismo set de tareas ya filtrado por date_closed (tasks).
+  // Divisor global: el total absoluto de tareas del filtro; valores null/vacíos
+  // cuentan como 0 en la suma para mantener sintonía con el listado.
+  const denom = tasks.length;
+  const sumOf = (pick: (t: BankTask) => number | null) => {
     let sum = 0;
-    let count = 0;
     for (const t of tasks) {
       const v = pick(t);
-      if (typeof v === "number" && !isNaN(v) && v >= 0) {
-        sum += v;
-        count += 1;
-      }
+      if (typeof v === "number" && !isNaN(v) && v >= 0) sum += v;
     }
-    return count > 0 ? sum / count : 0;
+    return sum;
   };
-  const avgDemoraCliente = avgOf((t) => t.custom_fields.demora_cliente);
-  const avgTiempoInterno = avgOf((t) => t.custom_fields.tiempo_interno);
-  const avgDemoraIRS = avgOf((t) => t.custom_fields.demora_irs);
+  const avgDemoraCliente = denom > 0 ? sumOf((t) => t.custom_fields.demora_cliente) / denom : 0;
+  const avgTiempoInterno = denom > 0 ? sumOf((t) => t.custom_fields.tiempo_interno) / denom : 0;
+  const avgDemoraIRS = denom > 0 ? sumOf((t) => t.custom_fields.demora_irs) / denom : 0;
 
   return {
     comparisonData,
