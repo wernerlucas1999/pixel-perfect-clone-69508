@@ -122,6 +122,7 @@ export interface BankCustomFields {
   fecha_aprob_rech: string | null; // Fecha aprob/rech (cierre del banco)
   demora_cliente: number | null; // z_Demora cliente
   tiempo_interno: number | null; // z_Tiempo interno
+  demora_banco: number | null; // z_Demora banco
   demora_irs: number | null; // z_Demora IRS
 }
 
@@ -618,6 +619,8 @@ function mapToBankTask(raw: any): BankTask | null {
   // Demoras numéricas ya calculadas por ClickUp (en días).
   // IMPORTANTE: respetar el nombre EXACTO del custom field (mayúsculas/espacios)
   // e ignorar valores vacíos, guion o indefinidos para no bajar el promedio.
+  const findExactField = (fields: any[], name: string): any | null =>
+    fields.find((f: any) => String(f?.name ?? "") === name) ?? null;
   const parseNumericCF = (raw: any): number => {
     if (!raw) return NaN;
     const v = raw.value;
@@ -627,9 +630,10 @@ function mapToBankTask(raw: any): BankTask | null {
     const n = parseFloat(s);
     return isNaN(n) ? NaN : n;
   };
-  const demoraClienteN = parseNumericCF(findField(cf, ["z_Demora cliente"]));
-  const tiempoInternoN = parseNumericCF(findField(cf, ["z_Tiempo interno"]));
-  const demoraIrsN = parseNumericCF(findField(cf, ["z_Demora IRS"]));
+  const demoraClienteN = parseNumericCF(findExactField(cf, "z_Demora cliente"));
+  const tiempoInternoN = parseNumericCF(findExactField(cf, "z_Tiempo interno"));
+  const demoraBancoN = parseNumericCF(findExactField(cf, "z_Demora banco"));
+  const demoraIrsN = parseNumericCF(findExactField(cf, "z_Demora IRS"));
 
   return {
     id: raw.id,
@@ -649,6 +653,7 @@ function mapToBankTask(raw: any): BankTask | null {
       fecha_aprob_rech: fechaAprobRech,
       demora_cliente: isNaN(demoraClienteN) ? null : demoraClienteN,
       tiempo_interno: isNaN(tiempoInternoN) ? null : tiempoInternoN,
+      demora_banco: isNaN(demoraBancoN) ? null : demoraBancoN,
       demora_irs: isNaN(demoraIrsN) ? null : demoraIrsN,
     },
     time_in_status: {},
@@ -664,7 +669,7 @@ function mapToBankTask(raw: any): BankTask | null {
 
 // ─── CACHE EN MEMORIA (evita re-fetch en cada render) ──────
 let _llcCache: { data: Task[]; ts: number } | null = null;
-let _bankCacheV2: { data: BankTask[]; ts: number } | null = null;
+let _bankCacheV3: { data: BankTask[]; ts: number } | null = null;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
 export async function fetchLLCTasks(): Promise<Task[]> {
@@ -691,10 +696,10 @@ export async function fetchLLCTasks(): Promise<Task[]> {
 }
 
 export async function fetchBankTasks(): Promise<BankTask[]> {
-  if (_bankCacheV2 && Date.now() - _bankCacheV2.ts < CACHE_TTL_MS) return _bankCacheV2.data;
+  if (_bankCacheV3 && Date.now() - _bankCacheV3.ts < CACHE_TTL_MS) return _bankCacheV3.data;
   const raw = await fetchAllTasks(LIST_IDS.bank_application);
   const data = raw.map(mapToBankTask).filter((t): t is BankTask => t !== null);
-  _bankCacheV2 = { data, ts: Date.now() };
+  _bankCacheV3 = { data, ts: Date.now() };
   return data;
 }
 
@@ -1236,11 +1241,6 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const totalClientDays = comparisonData.reduce((s, t) => s + t.clientDays, 0);
   const totalBankDays = comparisonData.reduce((s, t) => s + t.bankDays, 0);
   const total = totalClientDays + totalBankDays;
-  const n = comparisonData.length;
-  // Sin tareas cerradas en el rango => 0 (la UI muestra "0 días"). NO se usa
-  // tiempo de tareas en curso para no distorsionar el promedio.
-  const avgClientDays = n > 0 ? Math.round((totalClientDays / n) * 10) / 10 : 0;
-  const avgBankDays = n > 0 ? Math.round((totalBankDays / n) * 10) / 10 : 0;
   const clientResponsibilityRatio = total > 0 ? Math.round((totalClientDays / total) * 100) : 0;
 
   // Alertas de bloqueo (solo tareas abiertas — para volumen, no para promedios)
@@ -1248,22 +1248,40 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const clientBlockedCount = openTasks.filter((t) => t.blocking_alert === "client_blocked").length;
   const bankDelayCount = openTasks.filter((t) => t.blocking_alert === "bank_delay").length;
 
-  // Promedios desde Custom Fields limpios (z_Demora cliente, z_Tiempo interno, z_Demora IRS).
-  // Se usa EXACTAMENTE el mismo set de tareas ya filtrado por date_closed (tasks).
-  // Divisor global: el total absoluto de tareas del filtro; valores null/vacíos
-  // cuentan como 0 en la suma para mantener sintonía con el listado.
-  const denom = tasks.length;
-  const sumOf = (pick: (t: BankTask) => number | null) => {
-    let sum = 0;
-    for (const t of tasks) {
-      const v = pick(t);
-      if (typeof v === "number" && !isNaN(v) && v >= 0) sum += v;
+  // Promedios forzados desde el MISMO array filtrado que usa la pestaña.
+  // Ejemplo junio: totalTareas = 26 (dinámico con tasks.length). Cada null,
+  // undefined, vacío o guion cuenta como 0 porque solo se suman números válidos.
+  const totalTareas = tasks.length;
+  let sumaDemoraCliente = 0;
+  let sumaTiempoInterno = 0;
+  let sumaDemoraBanco = 0;
+  let sumaDemoraIRS = 0;
+
+  for (const task of tasks) {
+    const demoraCliente = task.custom_fields.demora_cliente;
+    const tiempoInterno = task.custom_fields.tiempo_interno;
+    const demoraBanco = task.custom_fields.demora_banco;
+    const demoraIRS = task.custom_fields.demora_irs;
+
+    if (typeof demoraCliente === "number" && isFinite(demoraCliente) && demoraCliente >= 0) {
+      sumaDemoraCliente += demoraCliente;
     }
-    return sum;
-  };
-  const avgDemoraCliente = denom > 0 ? sumOf((t) => t.custom_fields.demora_cliente) / denom : 0;
-  const avgTiempoInterno = denom > 0 ? sumOf((t) => t.custom_fields.tiempo_interno) / denom : 0;
-  const avgDemoraIRS = denom > 0 ? sumOf((t) => t.custom_fields.demora_irs) / denom : 0;
+    if (typeof tiempoInterno === "number" && isFinite(tiempoInterno) && tiempoInterno >= 0) {
+      sumaTiempoInterno += tiempoInterno;
+    }
+    if (typeof demoraBanco === "number" && isFinite(demoraBanco) && demoraBanco >= 0) {
+      sumaDemoraBanco += demoraBanco;
+    }
+    if (typeof demoraIRS === "number" && isFinite(demoraIRS) && demoraIRS >= 0) {
+      sumaDemoraIRS += demoraIRS;
+    }
+  }
+
+  const avgDemoraCliente = totalTareas > 0 ? sumaDemoraCliente / totalTareas : 0;
+  const avgTiempoInterno = totalTareas > 0 ? sumaTiempoInterno / totalTareas : 0;
+  const avgBankDays = totalTareas > 0 ? sumaDemoraBanco / totalTareas : 0;
+  const avgDemoraIRS = totalTareas > 0 ? sumaDemoraIRS / totalTareas : 0;
+  const avgClientDays = avgDemoraCliente;
 
   return {
     comparisonData,
