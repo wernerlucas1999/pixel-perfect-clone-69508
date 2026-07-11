@@ -669,7 +669,9 @@ function mapToBankTask(raw: any): BankTask | null {
 
 // ─── CACHE EN MEMORIA (evita re-fetch en cada render) ──────
 let _llcCache: { data: Task[]; ts: number } | null = null;
-let _bankCacheV3: { data: BankTask[]; ts: number } | null = null;
+let _bankCacheV4: { data: BankTask[]; ts: number } | null = null;
+// Vista "Métricas 2.0" de ClickUp — fuente de verdad para Aplicación Bancaria
+const BANK_VIEW_ID = "8c901jk-6274";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
 export async function fetchLLCTasks(): Promise<Task[]> {
@@ -696,10 +698,17 @@ export async function fetchLLCTasks(): Promise<Task[]> {
 }
 
 export async function fetchBankTasks(): Promise<BankTask[]> {
-  if (_bankCacheV3 && Date.now() - _bankCacheV3.ts < CACHE_TTL_MS) return _bankCacheV3.data;
-  const raw = await fetchAllTasks(LIST_IDS.bank_application);
+  if (_bankCacheV4 && Date.now() - _bankCacheV4.ts < CACHE_TTL_MS) return _bankCacheV4.data;
+  // Fuente: vista "Métricas 2.0" (no la lista general) para respetar la vista real de trabajo.
+  let raw: any[];
+  try {
+    raw = await fetchAllTasksByView(BANK_VIEW_ID);
+  } catch (err) {
+    console.warn("[Bank] view endpoint failed, falling back to list:", err);
+    raw = await fetchAllTasks(LIST_IDS.bank_application);
+  }
   const data = raw.map(mapToBankTask).filter((t): t is BankTask => t !== null);
-  _bankCacheV3 = { data, ts: Date.now() };
+  _bankCacheV4 = { data, ts: Date.now() };
   return data;
 }
 
