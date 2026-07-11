@@ -669,7 +669,9 @@ function mapToBankTask(raw: any): BankTask | null {
 
 // ─── CACHE EN MEMORIA (evita re-fetch en cada render) ──────
 let _llcCache: { data: Task[]; ts: number } | null = null;
-let _bankCacheV3: { data: BankTask[]; ts: number } | null = null;
+let _bankCacheV4: { data: BankTask[]; ts: number } | null = null;
+// Vista "Métricas 2.0" de ClickUp — fuente de verdad para Aplicación Bancaria
+const BANK_VIEW_ID = "8c901jk-6274";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
 export async function fetchLLCTasks(): Promise<Task[]> {
