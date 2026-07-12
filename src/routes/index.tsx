@@ -11,6 +11,7 @@ import { AnnualReportsView } from "@/components/dashboard/annual-reports-view";
 import { AgentesRegistradosView } from "@/components/dashboard/agentes-registrados-view";
 import { CXTicketsView } from "@/components/dashboard/cx-tickets-view";
 import { TaxReturnView } from "@/components/dashboard/tax-return-view";
+import { DiagnosticPanel } from "@/components/dashboard/diagnostic-panel";
 import {
   getFilteredTasks,
   getFilteredBankTasks,
