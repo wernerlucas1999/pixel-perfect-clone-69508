@@ -439,6 +439,7 @@ function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background dark">
+      <DiagnosticPanel selectedProcess={selectedProcess} />
       <Sidebar selectedProcess={selectedProcess} onProcessChange={setSelectedProcess} />
       <div className="lg:pl-64">
         <Header
