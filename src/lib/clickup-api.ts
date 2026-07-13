@@ -1712,3 +1712,25 @@ export function getTaxReturnByAssignee(
     .sort((a, b) => b.count - a.count);
 }
 
+// Cuenta días hábiles (lunes a viernes) entre dos fechas,
+// replicando NETWORKDAYS de ClickUp con tu convención del workspace:
+//  - mismo día = 0
+//  - cuenta incluyendo ambos extremos (inicio y fin)
+//  - nunca negativo
+function businessDays(startStr: string | null, endStr: string | null): number | null {
+  if (!startStr || !endStr) return null;   // falta una fecha → lo decide quien la llama
+  if (startStr === endStr) return 0;        // mismo día = 0 (tu regla)
+
+  const cur = new Date(startStr + "T12:00:00");
+  const end = new Date(endStr + "T12:00:00");
+  if (isNaN(cur.getTime()) || isNaN(end.getTime())) return null;
+  if (end < cur) return 0;                  // fin antes que inicio → 0
+
+  let count = 0;
+  while (cur <= end) {
+    const day = cur.getDay();               // 0 = domingo, 6 = sábado
+    if (day !== 0 && day !== 6) count++;     // solo suma días hábiles
+    cur.setDate(cur.getDate() + 1);          // avanza un día
+  }
+  return count;
+}
