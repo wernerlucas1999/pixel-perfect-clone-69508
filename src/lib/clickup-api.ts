@@ -493,10 +493,25 @@ function mapToTask(raw: any): Task | null {
     getCustomFieldValue(cf, "fecha_recepcion_ein") ??
     getCustomFieldValue(cf, "fecha recepcion ein");
 
-  // Demoras numéricas ya calculadas por ClickUp (en días).
-  const demoraClienteRaw = findField(cf, ["z_Demora cliente"]);
+// Demora del cliente: reconstruida desde las fechas crudas con businessDays,
+  // porque el campo fórmula z_Demora cliente no exporta valor por la API.
+  // Regla de negocio: si no hubo "Fecha solicitud a cliente", no hubo pedido
+  // de corrección, así que la demora es 0.
+  const fechaSolicitudCliente = getCustomFieldValue(cf, "fecha solicitud a cliente");
+  const fechaCorreccionCliente =
+    getCustomFieldValue(cf, "fecha corrección cliente") ??
+    getCustomFieldValue(cf, "fecha correccion cliente");
+  let demoraCliente: number;
+  if (!fechaSolicitudCliente) {
+    demoraCliente = 0;
+  } else {
+    const dcCalc = businessDays(fechaSolicitudCliente, fechaCorreccionCliente);
+    demoraCliente = dcCalc === null ? NaN : Math.max(0, dcCalc);
+  }
+
+  // z_Tiempo interno: por ahora se sigue leyendo del campo fórmula.
+  // (Lo reconstruimos en el próximo paso; hoy tocamos solo Demora del Cliente.)
   const tiempoInternoRaw = findField(cf, ["z_Tiempo interno"]);
-  const demoraCliente = demoraClienteRaw ? parseFloat(demoraClienteRaw.value) : NaN;
   const tiempoInterno = tiempoInternoRaw ? parseFloat(tiempoInternoRaw.value) : NaN;
 
   const einStatusRaw =
