@@ -1187,14 +1187,7 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
   }
   const avgDemoraCliente = countDemoraCliente > 0 ? sumDemoraCliente / countDemoraCliente : 0;
   const avgTiempoInterno = countTiempoInterno > 0 ? sumTiempoInterno / countTiempoInterno : 0;
-// ESPÍA TEMPORAL — borrar después de diagnosticar
-  console.log("[ESPIA demora cliente]", {
-    totalTareas: tasks.length,
-    tareasContadasEnPromedio: countDemoraCliente,
-    sumaTotal: sumDemoraCliente,
-    promedioCalculado: avgDemoraCliente,
-    primeras5Demoras: tasks.slice(0, 5).map((t) => t.custom_fields.demora_cliente),
-  });
+
   return {
     totalTasks,
     completedTasks,
