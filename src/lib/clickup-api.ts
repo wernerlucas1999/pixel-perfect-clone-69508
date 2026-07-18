@@ -1749,3 +1749,44 @@ function businessDays(startStr: string | null, endStr: string | null): number | 
   }
   return count;
 }
+
+// Ajusta la fecha de inicio según la regla de las 18h (hora Argentina):
+// si la tarea se creó a las 18:00 o después, el reloj interno arranca
+// el siguiente día hábil. Devuelve la fecha ajustada como "YYYY-MM-DD".
+function ajustarInicio18h(dateCreatedMs: string | number | null): string | null {
+  if (!dateCreatedMs) return null;
+  const ms = typeof dateCreatedMs === "string" ? parseInt(dateCreatedMs) : dateCreatedMs;
+  if (isNaN(ms)) return null;
+
+  const d = new Date(ms);
+
+  // Leemos la HORA en zona horaria de Argentina (no la del servidor).
+  const horaArg = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      hour: "2-digit",
+      hour12: false,
+    }).format(d),
+  );
+
+  // Leemos la FECHA (año-mes-día) también en zona Argentina.
+  const fechaArg = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d); // en-CA da formato "YYYY-MM-DD"
+
+  // Si se creó a las 18h o después → correr al siguiente día hábil.
+  if (horaArg >= 18) {
+    const base = new Date(fechaArg + "T12:00:00");
+    base.setDate(base.getDate() + 1);              // día siguiente
+    while (base.getDay() === 0 || base.getDay() === 6) {
+      base.setDate(base.getDate() + 1);            // si cae finde, seguir hasta hábil
+    }
+    return base.toISOString().split("T")[0];
+  }
+
+  // Si se creó antes de las 18h → usar la fecha de creación tal cual.
+  return fechaArg;
+}
