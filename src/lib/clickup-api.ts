@@ -463,10 +463,18 @@ function minutesInStatus(entry: any, statusName: string): number {
 
 function mapToTask(raw: any): Task | null {
   const cf = raw.custom_fields ?? [];
-  // ESPÍA TEMPORAL 18h — borrar después de verificar
+// ESPÍA TEMPORAL 18h — borrar después de verificar
+  const _msEspia = raw.date_created ? parseInt(raw.date_created) : null;
   console.log("[ESPIA 18h]", {
     tarea: raw.name,
     dateCreatedCrudo: raw.date_created,
+    horaLeidaArg: _msEspia
+      ? new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/Argentina/Buenos_Aires",
+          hour: "2-digit",
+          hour12: false,
+        }).format(new Date(_msEspia))
+      : "sin fecha",
     inicioAjustado: ajustarInicio18h(raw.date_created),
   });
   const statusRaw = raw.status?.status ?? "";
