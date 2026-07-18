@@ -470,7 +470,8 @@ function mapToTask(raw: any): Task | null {
     const fEnvio = getCustomFieldValue(cf, "envío del trámite") ??
                    getCustomFieldValue(cf, "envio del tramite");
     const finTramo1 = fSolCliente ? fSolCliente : fEnvio;
-    const tramo1Calc = businessDays(inicioAjust, finTramo1);
+ const tramo1Calc = businessDays(inicioAjust, finTramo1);
+    if (fSolCliente) {
     console.log("[ESPIA tramo1]", {
       tarea: raw.name,
       inicioAjustado: inicioAjust,
@@ -479,7 +480,8 @@ function mapToTask(raw: any): Task | null {
       fechaEnvio: fEnvio,
       finUsado: finTramo1,
       tramo1Calculado: tramo1Calc,
-    });
+ });
+    }
   }
   const statusRaw = raw.status?.status ?? "";
   const statusType = String(raw.status?.type ?? "").toLowerCase();
