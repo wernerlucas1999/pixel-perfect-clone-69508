@@ -463,6 +463,12 @@ function minutesInStatus(entry: any, statusName: string): number {
 
 function mapToTask(raw: any): Task | null {
   const cf = raw.custom_fields ?? [];
+  // ESPÍA TEMPORAL 18h — borrar después de verificar
+  console.log("[ESPIA 18h]", {
+    tarea: raw.name,
+    dateCreatedCrudo: raw.date_created,
+    inicioAjustado: ajustarInicio18h(raw.date_created),
+  });
   const statusRaw = raw.status?.status ?? "";
   const statusType = String(raw.status?.type ?? "").toLowerCase();
   const isClosed = statusType === "closed" || raw.date_closed != null;
