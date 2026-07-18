@@ -463,26 +463,6 @@ function minutesInStatus(entry: any, statusName: string): number {
 
 function mapToTask(raw: any): Task | null {
   const cf = raw.custom_fields ?? [];
-// ESPÍA TEMPORAL tramo1 — borrar después de verificar
-  {
-    const inicioAjust = ajustarInicio18h(raw.date_created);
-    const fSolCliente = getCustomFieldValue(cf, "fecha solicitud a cliente");
-    const fEnvio = getCustomFieldValue(cf, "envío del trámite") ??
-                   getCustomFieldValue(cf, "envio del tramite");
-    const finTramo1 = fSolCliente ? fSolCliente : fEnvio;
- const tramo1Calc = businessDays(inicioAjust, finTramo1);
-    if (fSolCliente) {
-    console.log("[ESPIA tramo1]", {
-      tarea: raw.name,
-      inicioAjustado: inicioAjust,
-      huboSolicitudCliente: fSolCliente ? "SÍ → mide hasta solicitud" : "NO → mide hasta envío",
-      fechaSolicitudCliente: fSolCliente,
-      fechaEnvio: fEnvio,
-      finUsado: finTramo1,
-      tramo1Calculado: tramo1Calc,
- });
-    }
-  }
   const statusRaw = raw.status?.status ?? "";
   const statusType = String(raw.status?.type ?? "").toLowerCase();
   const isClosed = statusType === "closed" || raw.date_closed != null;
