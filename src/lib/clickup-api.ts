@@ -509,10 +509,35 @@ function mapToTask(raw: any): Task | null {
     demoraCliente = dcCalc === null ? NaN : Math.max(0, dcCalc);
   }
 
-  // z_Tiempo interno: por ahora se sigue leyendo del campo fórmula.
-  // (Lo reconstruimos en el próximo paso; hoy tocamos solo Demora del Cliente.)
-  const tiempoInternoRaw = findField(cf, ["z_Tiempo interno"]);
-  const tiempoInterno = tiempoInternoRaw ? parseFloat(tiempoInternoRaw.value) : NaN;
+ // z_Tiempo interno: reconstruido desde fechas crudas (el campo fórmula no exporta valor).
+  // Es la suma de tres tramos, replicando la lógica de ClickUp.
+  const _inicioInterno = ajustarInicio18h(raw.date_created);
+  const _fSolCli = getCustomFieldValue(cf, "fecha solicitud a cliente");
+  const _fEnvio =
+    getCustomFieldValue(cf, "envío del trámite") ?? getCustomFieldValue(cf, "envio del tramite");
+  const _fCorrec =
+    getCustomFieldValue(cf, "fecha corrección cliente") ??
+    getCustomFieldValue(cf, "fecha correccion cliente");
+  const _fAprob =
+    getCustomFieldValue(cf, "aprobación del trámite") ??
+    getCustomFieldValue(cf, "aprobacion del tramite");
+  const _fSolEIN =
+    getCustomFieldValue(cf, "fecha solicitud ein") ?? getCustomFieldValue(cf, "fecha solicitud EIN");
+
+  // tramo1: inicio ajustado → (solicitud a cliente si la hubo, si no envío del trámite)
+  const _finT1 = _fSolCli ? _fSolCli : _fEnvio;
+  const _t1 = businessDays(_inicioInterno, _finT1);
+  const tramo1 = _t1 === null ? 0 : Math.max(0, _t1);
+
+  // tramo2: fecha corrección cliente → envío del trámite (0 si falta alguna)
+  const _t2 = businessDays(_fCorrec, _fEnvio);
+  const tramo2 = _t2 === null ? 0 : Math.max(0, _t2);
+
+  // tramo3: aprobación del trámite → solicitud EIN (0 si falta alguna)
+  const _t3 = businessDays(_fAprob, _fSolEIN);
+  const tramo3 = _t3 === null ? 0 : Math.max(0, _t3);
+
+  const tiempoInterno = tramo1 + tramo2 + tramo3;
 
   const einStatusRaw =
     getCustomFieldValue(cf, "ein_status") ?? getCustomFieldValue(cf, "ein status") ?? "n/a";
