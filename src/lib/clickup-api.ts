@@ -538,16 +538,7 @@ function mapToTask(raw: any): Task | null {
   const tramo3 = _t3 === null ? 0 : Math.max(0, _t3);
 
   const tiempoInterno = tramo1 + tramo2 + tramo3;
-// ESPÍA TEMPORAL verificación — borrar después
-  if (raw.name && raw.name.toUpperCase().includes("AVE RIVIERA")) {
-    console.log("[ESPIA verif]", {
-      tarea: raw.name,
-      tramo1,
-      tramo2,
-      tramo3,
-      tiempoInterno,
-    });
-  }
+
   const einStatusRaw =
     getCustomFieldValue(cf, "ein_status") ?? getCustomFieldValue(cf, "ein status") ?? "n/a";
   const einStatus: EINStatus = ["pendiente", "solicitado", "recibido", "n/a"].includes(
@@ -1764,7 +1755,7 @@ export function getTaxReturnByAssignee(
 // Cuenta días hábiles (lunes a viernes) entre dos fechas,
 // replicando NETWORKDAYS de ClickUp con tu convención del workspace:
 //  - mismo día = 0
-//  - cuenta incluyendo ambos extremos (inicio y fin)
+//  - no cuenta el día de inicio (regla NETWORKDAYS de ClickUp)
 //  - nunca negativo
 function businessDays(startStr: string | null, endStr: string | null): number | null {
   if (!startStr || !endStr) return null;   // falta una fecha → lo decide quien la llama
