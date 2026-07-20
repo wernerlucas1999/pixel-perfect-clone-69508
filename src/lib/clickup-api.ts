@@ -538,7 +538,16 @@ function mapToTask(raw: any): Task | null {
   const tramo3 = _t3 === null ? 0 : Math.max(0, _t3);
 
   const tiempoInterno = tramo1 + tramo2 + tramo3;
-
+// ESPÍA TEMPORAL verificación — borrar después
+  if (raw.name && raw.name.toUpperCase().includes("AVE RIVIERA")) {
+    console.log("[ESPIA verif]", {
+      tarea: raw.name,
+      tramo1,
+      tramo2,
+      tramo3,
+      tiempoInterno,
+    });
+  }
   const einStatusRaw =
     getCustomFieldValue(cf, "ein_status") ?? getCustomFieldValue(cf, "ein status") ?? "n/a";
   const einStatus: EINStatus = ["pendiente", "solicitado", "recibido", "n/a"].includes(
