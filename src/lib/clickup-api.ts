@@ -1766,7 +1766,8 @@ function businessDays(startStr: string | null, endStr: string | null): number | 
   if (isNaN(cur.getTime()) || isNaN(end.getTime())) return null;
   if (end < cur) return 0;                  // fin antes que inicio → 0
 
-  let count = 0;
+let count = 0;
+  cur.setDate(cur.getDate() + 1);   // no contar el día de inicio (regla NETWORKDAYS de ClickUp)
   while (cur <= end) {
     const day = cur.getDay();               // 0 = domingo, 6 = sábado
     if (day !== 0 && day !== 6) count++;     // solo suma días hábiles
