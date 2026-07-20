@@ -508,20 +508,7 @@ function mapToTask(raw: any): Task | null {
     const dcCalc = businessDays(fechaSolicitudCliente, fechaCorreccionCliente);
     demoraCliente = dcCalc === null ? NaN : Math.max(0, dcCalc);
   }
-// ESPÍA TEMPORAL verif demora cliente — borrar después
-  if (raw.name && raw.name.toUpperCase().includes("HC METAL")) {
-    const _sol = getCustomFieldValue(cf, "fecha solicitud a cliente");
-    const _cor =
-      getCustomFieldValue(cf, "fecha corrección cliente") ??
-      getCustomFieldValue(cf, "fecha correccion cliente");
-    console.log("[ESPIA HC METAL]", {
-      tarea: raw.name,
-      fechaSolicitud: _sol,
-      fechaCorreccion: _cor,
-      demoraClienteCalculada: businessDays(_sol, _cor),
-      demoraClienteFinal: demoraCliente,
-    });
-  }
+
  // z_Tiempo interno: reconstruido desde fechas crudas (el campo fórmula no exporta valor).
   // Es la suma de tres tramos, replicando la lógica de ClickUp.
   const _inicioInterno = ajustarInicio18h(raw.date_created);
