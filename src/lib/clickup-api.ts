@@ -616,6 +616,16 @@ fechaEIN(raw: any): BankTask | null {
   const fechaAprobRech =
     getCustomFieldValue(cf, "fecha aprob/rech") ?? getCustomFieldValue(cf, "fecha aprob rech");
 const fechaEin = getCustomFieldValue(cf, "fecha ein");
+  // ESPÍA TEMPORAL fecha ein — borrar después
+  if (raw.name && raw.name.toUpperCase().includes("SYROX")) {
+    console.log("[ESPIA fechaEin]", {
+      tarea: raw.name,
+      fechaEin,
+      fechaAplicacion,
+      fechaCorreccion,
+      fechaCreacion,
+    });
+  }
   // ═══════════════════════════════════════════════════════════════
   // FORMULAS DE RESPONSABILIDAD (solo se usan para tareas cerradas)
   // ═══════════════════════════════════════════════════════════════
