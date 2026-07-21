@@ -678,17 +678,7 @@ function mapToBankTask(raw: any): BankTask | null {
   const _inicioBanco = completaVerifId ? completaVerifId : fechaAplicacion;
   const _dbCalc = businessDays(_inicioBanco, fechaAprobRech);
   const demoraBancoN = _dbCalc === null ? NaN : Math.max(0, _dbCalc);
-  // ESPÍA TEMPORAL verif demora banco — borrar después
-  if (raw.name && raw.name.toUpperCase().includes("SYROX")) {
-    console.log("[ESPIA SYROX banco]", {
-      tarea: raw.name,
-      completaVerifId,
-      fechaAplicacion,
-      fechaAprobRech,
-      inicioUsado: _inicioBanco,
-      demoraBancoCalculada: demoraBancoN,
-    });
-  }
+
   const demoraIrsN = parseNumericCF(findExactField(cf, "z_Demora IRS"));
 
   return {
