@@ -672,7 +672,12 @@ function mapToBankTask(raw: any): BankTask | null {
   };
   const demoraClienteN = parseNumericCF(findExactField(cf, "z_Demora cliente"));
   const tiempoInternoN = parseNumericCF(findExactField(cf, "z_Tiempo interno"));
-  const demoraBancoN = parseNumericCF(findExactField(cf, "z_Demora banco"));
+  // z_Demora banco: reconstruida desde fechas crudas (el campo fórmula no exporta valor).
+  // Regla: el reloj del banco arranca en "Completa verif ID" si existe; si no, en "Fecha aplicación".
+  // Termina siempre en "Fecha aprob/rech". Días hábiles, nunca negativo.
+  const _inicioBanco = completaVerifId ? completaVerifId : fechaAplicacion;
+  const _dbCalc = businessDays(_inicioBanco, fechaAprobRech);
+  const demoraBancoN = _dbCalc === null ? NaN : Math.max(0, _dbCalc);
   const demoraIrsN = parseNumericCF(findExactField(cf, "z_Demora IRS"));
 
   return {
