@@ -581,7 +581,7 @@ function mapToTask(raw: any): Task | null {
   };
 }
 
-function mapToBankTask(raw: any): BankTask | null {
+fechaEIN(raw: any): BankTask | null {
   const cf = raw.custom_fields ?? [];
   const statusRaw = raw.status?.status ?? "";
   const statusType = String(raw.status?.type ?? "").toLowerCase();
@@ -615,7 +615,7 @@ function mapToBankTask(raw: any): BankTask | null {
     getCustomFieldValue(cf, "completa verif. id") ?? getCustomFieldValue(cf, "completa verif id");
   const fechaAprobRech =
     getCustomFieldValue(cf, "fecha aprob/rech") ?? getCustomFieldValue(cf, "fecha aprob rech");
-
+const fechaEin = getCustomFieldValue(cf, "fecha ein");
   // ═══════════════════════════════════════════════════════════════
   // FORMULAS DE RESPONSABILIDAD (solo se usan para tareas cerradas)
   // ═══════════════════════════════════════════════════════════════
