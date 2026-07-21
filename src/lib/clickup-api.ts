@@ -617,7 +617,7 @@ function mapToBankTask(raw: any): BankTask | null {
     getCustomFieldValue(cf, "fecha aprob/rech") ?? getCustomFieldValue(cf, "fecha aprob rech");
 const fechaEin = getCustomFieldValue(cf, "fecha ein");
   // ESPÍA TEMPORAL fecha ein — borrar después
-  if (raw.name && raw.name.toUpperCase().includes("SYROX")) {
+ if (raw.name && raw.name.toUpperCase().includes("FACUNDO")) {
     console.log("[ESPIA fechaEin]", {
       tarea: raw.name,
       fechaEin,
