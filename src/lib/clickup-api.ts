@@ -581,7 +581,7 @@ function mapToTask(raw: any): Task | null {
   };
 }
 
-fechaEIN(raw: any): BankTask | null {
+function mapToBankTask(raw: any): BankTask | null {
   const cf = raw.custom_fields ?? [];
   const statusRaw = raw.status?.status ?? "";
   const statusType = String(raw.status?.type ?? "").toLowerCase();
