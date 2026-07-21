@@ -689,7 +689,25 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
   const _dbCalc = businessDays(_inicioBanco, fechaAprobRech);
   const demoraBancoN = _dbCalc === null ? NaN : Math.max(0, _dbCalc);
 
-  const demoraIrsN = parseNumericCF(findExactField(cf, "z_Demora IRS"));
+ // z_Demora IRS: reconstruida desde fechas crudas (el campo fórmula no exporta valor).
+  // Mide cuánto suma la espera del EIN a la aplicación bancaria:
+  //  - Si no hay Fecha EIN → 0
+  //  - Si el EIN llegó DESPUÉS de aplicar (no frenó la aplicación) → 0
+  //  - Si hubo que esperar el EIN → desde corrección (si la hubo) o desde creación, hasta Fecha EIN
+  let demoraIrsN: number;
+  if (!fechaEin) {
+    demoraIrsN = 0;
+  } else if (fechaAplicacion && fechaEin > fechaAplicacion) {
+    demoraIrsN = 0;
+  } else {
+    const _inicioIrs = fechaCorreccion ? fechaCorreccion : fechaCreacion;
+    if (_inicioIrs && fechaEin > _inicioIrs) {
+      const _diCalc = businessDays(_inicioIrs, fechaEin);
+      demoraIrsN = _diCalc === null ? NaN : Math.max(0, _diCalc);
+    } else {
+      demoraIrsN = 0;
+    }
+  }
 
   return {
     id: raw.id,
