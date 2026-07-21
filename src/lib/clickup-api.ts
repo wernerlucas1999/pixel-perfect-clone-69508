@@ -700,16 +700,17 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
     }
   }
 
-  // ESPÍA TEMPORAL demora IRS — borrar después
-  if (raw.name && raw.name.toUpperCase().includes("FACUNDO")) {
+// ESPÍA TEMPORAL demora IRS — borrar después
+  if (raw.name && raw.name.toUpperCase().includes("CUTRARO")) {
     console.log("[ESPIA IRS]", {
       tarea: raw.name,
       fechaEin,
       fechaAplicacion,
+      fechaCorreccion,
+      fechaCreacion,
       demoraIrsCalculada: demoraIrsN,
     });
   }
-  
   return {
     id: raw.id,
     name: raw.name,
