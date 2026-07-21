@@ -616,16 +616,7 @@ function mapToBankTask(raw: any): BankTask | null {
   const fechaAprobRech =
     getCustomFieldValue(cf, "fecha aprob/rech") ?? getCustomFieldValue(cf, "fecha aprob rech");
 const fechaEin = getCustomFieldValue(cf, "fecha ein");
-  // ESPÍA TEMPORAL fecha ein — borrar después
- if (raw.name && raw.name.toUpperCase().includes("FACUNDO")) {
-    console.log("[ESPIA fechaEin]", {
-      tarea: raw.name,
-      fechaEin,
-      fechaAplicacion,
-      fechaCorreccion,
-      fechaCreacion,
-    });
-  }
+  
   // ═══════════════════════════════════════════════════════════════
   // FORMULAS DE RESPONSABILIDAD (solo se usan para tareas cerradas)
   // ═══════════════════════════════════════════════════════════════
@@ -709,6 +700,16 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
     }
   }
 
+  // ESPÍA TEMPORAL demora IRS — borrar después
+  if (raw.name && raw.name.toUpperCase().includes("FACUNDO")) {
+    console.log("[ESPIA IRS]", {
+      tarea: raw.name,
+      fechaEin,
+      fechaAplicacion,
+      demoraIrsCalculada: demoraIrsN,
+    });
+  }
+  
   return {
     id: raw.id,
     name: raw.name,
