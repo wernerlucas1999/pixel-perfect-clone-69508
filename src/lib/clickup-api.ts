@@ -705,6 +705,16 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
   const _inicioServicio = ajustarInicio18h(raw.date_created);
   const _tsCalc = businessDays(_inicioServicio, fechaAprobRech);
   const tiempoServicioN = _tsCalc === null ? NaN : Math.max(0, _tsCalc);
+  // ESPÍA TEMPORAL tiempo servicio — borrar después
+  if (raw.name && raw.name.toUpperCase().includes("MORKKER")) {
+    console.log("[ESPIA servicio]", {
+      tarea: raw.name,
+      dateCreatedCrudo: raw.date_created,
+      inicioServicioAjustado: _inicioServicio,
+      fechaAprobRech,
+      tiempoServicioCalculado: tiempoServicioN,
+    });
+  }
 
   return {
     id: raw.id,
