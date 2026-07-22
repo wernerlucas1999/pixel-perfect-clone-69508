@@ -700,7 +700,6 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
     }
   }
 
-  }
   return {
     id: raw.id,
     name: raw.name,
