@@ -699,6 +699,11 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
       demoraIrsN = 0;
     }
   }
+  // z_Tiempo de servicio: reconstruido desde fechas crudas.
+  // Mide el proceso total: desde la creación (ajustada por regla 18h) hasta aprob/rech. Días hábiles.
+  const _inicioServicio = ajustarInicio18h(raw.date_created);
+  const _tsCalc = businessDays(_inicioServicio, fechaAprobRech);
+  const tiempoServicioN = _tsCalc === null ? NaN : Math.max(0, _tsCalc);
 
   return {
     id: raw.id,
