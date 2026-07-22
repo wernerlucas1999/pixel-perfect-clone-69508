@@ -744,6 +744,22 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
 
   // Demora cliente total = Bloque 1 + Bloque 2
   const demoraClienteN = _bloque1 + _bloque2;
+
+  // ESPÍA TEMPORAL demora cliente — borrar después
+  if (raw.name && raw.name.toUpperCase().includes("DIANG")) {
+    console.log("[ESPIA demora cliente]", {
+      tarea: raw.name,
+      solicitudInfo,
+      fechaCorreccion,
+      pedidoVerifId,
+      completaVerifId,
+      fechaEin,
+      fechaAplicacion,
+      bloque1: _bloque1,
+      bloque2: _bloque2,
+      demoraClienteTotal: demoraClienteN,
+    });
+  }
   return {
     id: raw.id,
     name: raw.name,
