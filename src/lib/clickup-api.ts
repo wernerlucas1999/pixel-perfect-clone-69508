@@ -672,7 +672,6 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
     const n = parseFloat(s);
     return isNaN(n) ? NaN : n;
   };
-  const demoraClienteN = parseNumericCF(findExactField(cf, "z_Demora cliente"));
   const tiempoInternoN = parseNumericCF(findExactField(cf, "z_Tiempo interno"));
   // z_Demora banco: reconstruida desde fechas crudas (el campo fórmula no exporta valor).
   // Regla: el reloj del banco arranca en "Completa verif ID" si existe; si no, en "Fecha aplicación".
@@ -731,7 +730,20 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
       _bloque1 = 0;
     }
   }
+  
+// BLOQUE 2: tiempo que el cliente tardó en completar la verificación de identidad.
+  let _bloque2: number;
+  if (!pedidoVerifId || !completaVerifId) {
+    _bloque2 = 0;
+  } else if (pedidoVerifId !== completaVerifId) {
+    const _b2 = businessDays(pedidoVerifId, completaVerifId);
+    _bloque2 = _b2 === null ? 0 : Math.max(0, _b2);
+  } else {
+    _bloque2 = 0;
+  }
 
+  // Demora cliente total = Bloque 1 + Bloque 2
+  const demoraClienteN = _bloque1 + _bloque2;
   return {
     id: raw.id,
     name: raw.name,
