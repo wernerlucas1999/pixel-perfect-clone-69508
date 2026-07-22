@@ -820,6 +820,8 @@ export async function getFilteredBankTasks(
   bank?: BankType | "all",
 ): Promise<BankTask[]> {
   let tasks = await fetchBankTasks();
+  // ESPÍA TEMPORAL filtro bancaria — borrar después
+  console.log("[ESPIA filtro]", tasks.map((t) => ({ nombre: t.name, closed_at: t.closed_at })));
   if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
   if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
   if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
