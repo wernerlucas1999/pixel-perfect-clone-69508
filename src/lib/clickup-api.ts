@@ -771,14 +771,8 @@ export async function fetchLLCTasks(): Promise<Task[]> {
 
 export async function fetchBankTasks(): Promise<BankTask[]> {
   if (_bankCacheV4 && Date.now() - _bankCacheV4.ts < CACHE_TTL_MS) return _bankCacheV4.data;
-  // Fuente: vista "Métricas 2.0" (no la lista general) para respetar la vista real de trabajo.
-  let raw: any[];
-  try {
-    raw = await fetchAllTasksByView(BANK_VIEW_ID);
-  } catch (err) {
-    console.warn("[Bank] view endpoint failed, falling back to list:", err);
-    raw = await fetchAllTasks(LIST_IDS.bank_application);
-  }
+// Fuente: lista completa "Aplicaciones 2.0" (todas las tareas, sin filtro de vista).
+  const raw = await fetchAllTasks(LIST_IDS.bank_application);
   const data = raw.map(mapToBankTask).filter((t): t is BankTask => t !== null);
   _bankCacheV4 = { data, ts: Date.now() };
   return data;
