@@ -124,6 +124,7 @@ export interface BankCustomFields {
   tiempo_interno: number | null; // z_Tiempo interno
   demora_banco: number | null; // z_Demora banco
   demora_irs: number | null; // z_Demora IRS
+  tiempo_servicio: number | null; // z_Tiempo de servicio
 }
 
 export interface TimeInStatus {
@@ -725,6 +726,7 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
       tiempo_interno: isNaN(tiempoInternoN) ? null : tiempoInternoN,
       demora_banco: isNaN(demoraBancoN) ? null : demoraBancoN,
       demora_irs: isNaN(demoraIrsN) ? null : demoraIrsN,
+      tiempo_servicio: isNaN(tiempoServicioN) ? null : tiempoServicioN,
     },
     time_in_status: {},
     current_status_days: currentDays,
