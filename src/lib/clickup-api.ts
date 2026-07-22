@@ -607,7 +607,10 @@ function mapToBankTask(raw: any): BankTask | null {
     msToDate(parseInt(raw.date_created))!;
   const solicitudInfo = getCustomFieldValue(cf, "solicitud info");
   const fechaCorreccion =
-    getCustomFieldValue(cf, "fecha corrección") ?? getCustomFieldValue(cf, "fecha correccion");
+    getCustomFieldValue(cf, "fecha correc.") ??
+    getCustomFieldValue(cf, "fecha correc") ??
+    getCustomFieldValue(cf, "fecha corrección") ??
+    getCustomFieldValue(cf, "fecha correccion");
   const fechaAplicacion =
     getCustomFieldValue(cf, "fecha aplicación") ?? getCustomFieldValue(cf, "fecha aplicacion");
   const pedidoVerifId =
