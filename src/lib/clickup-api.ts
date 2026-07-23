@@ -675,7 +675,6 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
     const n = parseFloat(s);
     return isNaN(n) ? NaN : n;
   };
-  const tiempoInternoN = parseNumericCF(findExactField(cf, "z_Tiempo interno"));
   // z_Demora banco: reconstruida desde fechas crudas (el campo fórmula no exporta valor).
   // Regla: el reloj del banco arranca en "Completa verif ID" si existe; si no, en "Fecha aplicación".
   // Termina siempre en "Fecha aprob/rech". Días hábiles, nunca negativo.
@@ -741,6 +740,46 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
 
   // Demora cliente total = Bloque 1 + Bloque 2
   const demoraClienteN = _bloque1 + _bloque2;
+
+  // z_Tiempo interno (bancaria): trabajo que Filings le carga al proceso.
+  // Tramo 1: revisión inicial (inicio ajustado → solicitud info). Solo si hubo solicitud info.
+  // Tramo 2: espera resuelta → aplicación (desde corrección/EIN el más tardío, hasta aplicación).
+  const _inicioInterno = ajustarInicio18h(raw.date_created);
+
+  // TRAMO 1
+  let _tramoInt1: number;
+  if (solicitudInfo) {
+    const _t1 = businessDays(_inicioInterno, solicitudInfo);
+    _tramoInt1 = _t1 === null ? 0 : Math.max(0, _t1);
+  } else {
+    _tramoInt1 = 0;
+  }
+
+  // TRAMO 2
+  let _tramoInt2: number;
+  if (!fechaAplicacion) {
+    _tramoInt2 = 0;
+  } else {
+    // El EIN cuenta solo si llegó antes o el mismo día que la aplicación.
+    const _einAplica = fechaEin && fechaEin <= fechaAplicacion ? fechaEin : null;
+    // Inicio del tramo 2: el más tardío entre corrección y EIN (los que apliquen).
+    let _inicioT2: string | null = null;
+    if (fechaCorreccion && _einAplica) {
+      _inicioT2 = fechaCorreccion > _einAplica ? fechaCorreccion : _einAplica;
+    } else if (fechaCorreccion) {
+      _inicioT2 = fechaCorreccion;
+    } else if (_einAplica) {
+      _inicioT2 = _einAplica;
+    }
+    if (_inicioT2) {
+      const _t2 = businessDays(_inicioT2, fechaAplicacion);
+      _tramoInt2 = _t2 === null ? 0 : Math.max(0, _t2);
+    } else {
+      _tramoInt2 = 0;
+    }
+  }
+
+  const tiempoInternoN = _tramoInt1 + _tramoInt2;
 
   return {
     id: raw.id,
