@@ -742,24 +742,6 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
   // Demora cliente total = Bloque 1 + Bloque 2
   const demoraClienteN = _bloque1 + _bloque2;
 
-// ESPÍA TEMPORAL verif IRS + cliente — borrar después
-  if (raw.name && raw.name.toUpperCase().includes("INNOVANDOCONAGUS")) {
-    console.log("[ESPIA verif doble]", {
-      tarea: raw.name,
-      fechaCreacion,
-      solicitudInfo,
-      fechaCorreccion,
-      fechaAplicacion,
-      fechaEin,
-      pedidoVerifId,
-      completaVerifId,
-      demoraIrsCalculada: demoraIrsN,
-      bloque1: _bloque1,
-      bloque2: _bloque2,
-      demoraClienteTotal: demoraClienteN,
-    });
-  }  
-
   return {
     id: raw.id,
     name: raw.name,
