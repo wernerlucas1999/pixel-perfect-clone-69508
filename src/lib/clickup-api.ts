@@ -1254,14 +1254,11 @@ export function getAverageTimeByStatus(tasks: Task[]) {
 export function calculateLeadTime(tasks: Task[]) {
   const done = tasks.filter((t) => t.closed_at);
   if (!done.length) return 0;
-  return Math.round(
-    done.reduce((s, t) => {
-      return (
-        s +
-        Math.ceil((new Date(t.closed_at!).getTime() - new Date(t.created_at).getTime()) / 86400000)
-      );
-    }, 0) / done.length,
-  );
+  const suma = done.reduce((s, t) => {
+    const d = businessDays(t.created_at, t.closed_at!);
+    return s + (d === null ? 0 : d);
+  }, 0);
+  return Math.round((suma / done.length) * 10) / 10;
 }
 
 export function calculateCycleTimeKPIs(tasks: Task[]) {
