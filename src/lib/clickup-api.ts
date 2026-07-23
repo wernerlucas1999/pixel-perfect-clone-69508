@@ -781,21 +781,6 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
 
   const tiempoInternoN = _tramoInt1 + _tramoInt2;
 
-  // ESPÍA TEMPORAL tiempo interno — borrar después
-  if (raw.name && raw.name.toUpperCase().includes("DIANG")) {
-    console.log("[ESPIA interno]", {
-      tarea: raw.name,
-      inicioAjustado: _inicioInterno,
-      solicitudInfo,
-      fechaCorreccion,
-      fechaAplicacion,
-      fechaEin,
-      tramo1: _tramoInt1,
-      tramo2: _tramoInt2,
-      tiempoInternoTotal: tiempoInternoN,
-    });
-  }
-
   return {
     id: raw.id,
     name: raw.name,
