@@ -1339,15 +1339,16 @@ export function calculateBankKPIs(tasks: BankTask[]) {
   const completedTasks = closedTasks.length;
 
   // KPIs de tiempos (solo tareas cerradas)
-  const avgLeadTime =
+ const avgLeadTime =
     closedTasks.length > 0
       ? Math.round(
-          closedTasks.reduce((sum, t) => {
-            const created = new Date(t.created_at);
-            const closed = new Date(t.closed_at!);
-            return sum + Math.ceil((closed.getTime() - created.getTime()) / 86400000);
-          }, 0) / closedTasks.length,
-        )
+          (closedTasks.reduce((sum, t) => {
+            const d = businessDays(t.created_at, t.closed_at!);
+            return sum + (d === null ? 0 : d);
+          }, 0) /
+            closedTasks.length) *
+            10,
+        ) / 10
       : 0;
 
   return { totalTasks, pendingTasks, inProgressTasks, completedTasks, avgLeadTime };
