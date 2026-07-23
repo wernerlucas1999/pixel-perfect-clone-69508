@@ -709,25 +709,19 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
   const tiempoServicioN = _tsCalc === null ? NaN : Math.max(0, _tsCalc);
 
   // z_Demora cliente (bancaria): Bloque 1 (info/corrección) + Bloque 2 (verif ID).
-  // BLOQUE 1: tiempo que el cliente hizo esperar respondiendo la info/corrección.
+ // BLOQUE 1: tiempo que el cliente hizo esperar respondiendo la info/corrección.
+  // Si el EIN cayó ENTRE solicitud info y corrección, se mide desde el EIN
+  // (porque ese tramo previo fue espera del EIN, no del cliente).
   let _bloque1: number;
-  if (!solicitudInfo) {
+  if (!solicitudInfo || !fechaCorreccion) {
     _bloque1 = 0;
-  } else if (!fechaEin || (fechaAplicacion && fechaEin > fechaAplicacion)) {
-    // Caso A (común): aplicamos antes de que llegue el EIN → mide solicitud info → corrección
-    if (fechaCorreccion && solicitudInfo !== fechaCorreccion) {
-      const _b1 = businessDays(solicitudInfo, fechaCorreccion);
-      _bloque1 = _b1 === null ? 0 : Math.max(0, _b1);
-    } else {
-      _bloque1 = 0;
-    }
   } else {
-    // Caso B (raro): el EIN llegó antes de aplicar
-    if (fechaCorreccion && fechaEin > fechaCorreccion) {
-      const _b1 = businessDays(fechaCorreccion, fechaEin);
-      _bloque1 = _b1 === null ? 0 : Math.max(0, _b1);
-    } else if (solicitudInfo && fechaCorreccion && solicitudInfo !== fechaCorreccion) {
-      const _b1 = businessDays(solicitudInfo, fechaCorreccion);
+    // ¿El EIN está estrictamente entre solicitud info y corrección?
+    const _einEnMedio =
+      fechaEin && fechaEin > solicitudInfo && fechaEin < fechaCorreccion;
+    const _inicioB1 = _einEnMedio ? fechaEin : solicitudInfo;
+    if (_inicioB1 !== fechaCorreccion) {
+      const _b1 = businessDays(_inicioB1, fechaCorreccion);
       _bloque1 = _b1 === null ? 0 : Math.max(0, _b1);
     } else {
       _bloque1 = 0;
