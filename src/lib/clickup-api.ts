@@ -742,21 +742,6 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
   // Demora cliente total = Bloque 1 + Bloque 2
   const demoraClienteN = _bloque1 + _bloque2;
 
-  // ESPÍA TEMPORAL demora cliente — borrar después
-  if (raw.name && raw.name.toUpperCase().includes("DIANG")) {
-    console.log("[ESPIA demora cliente]", {
-      tarea: raw.name,
-      solicitudInfo,
-      fechaCorreccion,
-      pedidoVerifId,
-      completaVerifId,
-      fechaEin,
-      fechaAplicacion,
-      bloque1: _bloque1,
-      bloque2: _bloque2,
-      demoraClienteTotal: demoraClienteN,
-    });
-  }
   return {
     id: raw.id,
     name: raw.name,
@@ -865,8 +850,6 @@ export async function getFilteredBankTasks(
   bank?: BankType | "all",
 ): Promise<BankTask[]> {
   let tasks = await fetchBankTasks();
-  // ESPÍA TEMPORAL filtro bancaria — borrar después
-  console.log("[ESPIA filtro]", tasks.map((t) => ({ nombre: t.name, closed_at: t.closed_at })));
   if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
   if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
   if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
