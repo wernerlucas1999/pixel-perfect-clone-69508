@@ -1253,6 +1253,16 @@ export function getAverageTimeByStatus(tasks: Task[]) {
 
 export function calculateLeadTime(tasks: Task[]) {
   const done = tasks.filter((t) => t.closed_at);
+  // ESPÍA TEMPORAL verif leadtime — borrar después
+  if (done.length > 0) {
+    const _t = done[0];
+    console.log("[ESPIA verif LT]", {
+      nombre: _t.name,
+      creado: _t.created_at,
+      cerrado: _t.closed_at,
+      leadTimeCalculado: businessDays(_t.created_at, _t.closed_at!),
+    });
+  }
   if (!done.length) return 0;
   const suma = done.reduce((s, t) => {
     const d = businessDays(t.created_at, t.closed_at!);
