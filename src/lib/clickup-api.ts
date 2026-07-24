@@ -1274,26 +1274,41 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
       t.status !== "NO INICIAR",
   ).length;
   const avgLeadTime = calculateLeadTime(tasks);
-  // EIN: SOLO tareas CERRADAS dentro del rango y con tiempo real > 0 en
-  // "ESPERANDO EIN". Excluye tareas en curso (no distorsiona el promedio)
-  // y excluye registros con 0 minutos (procesos que se saltaron el paso).
+ // Espera EIN: días hábiles entre solicitud EIN y recepción EIN.
+  // Solo tareas cerradas que tienen ambas fechas cargadas.
   const einWait = tasks.filter(
-    (t) => t.closed_at !== null && (t.time_in_status["ESPERANDO EIN"] ?? 0) > 0,
+    (t) =>
+      t.closed_at !== null &&
+      t.custom_fields.fecha_solicitud_ein &&
+      t.custom_fields.fecha_recepcion_ein,
   );
 
-  // ESPÍA TEMPORAL ein wait — borrar después
+  // ESPÍA TEMPORAL espera ein — borrar después
   if (einWait.length > 0) {
     const _t = einWait[0];
-    console.log("[ESPIA einwait]", {
+    console.log("[ESPIA espera EIN]", {
       nombre: _t.name,
-      tiempoEnEsperandoEIN: _t.time_in_status["ESPERANDO EIN"],
+      solicitudEin: _t.custom_fields.fecha_solicitud_ein,
+      recepcionEin: _t.custom_fields.fecha_recepcion_ein,
+      esperaCalculada: businessDays(
+        _t.custom_fields.fecha_solicitud_ein!,
+        _t.custom_fields.fecha_recepcion_ein!,
+      ),
     });
   }
-  
- const avgEINWait = einWait.length
+
+  const avgEINWait = einWait.length
     ? Math.round(
-        einWait.reduce((s, t) => s + (t.time_in_status["ESPERANDO EIN"] ?? 0), 0) / einWait.length,
-      )
+        (einWait.reduce((s, t) => {
+          const d = businessDays(
+            t.custom_fields.fecha_solicitud_ein!,
+            t.custom_fields.fecha_recepcion_ein!,
+          );
+          return s + (d === null ? 0 : d);
+        }, 0) /
+          einWait.length) *
+          10,
+      ) / 10
     : 0;
   const delayedTasks = tasks.filter((t) =>
     (
