@@ -1262,6 +1262,7 @@ export function calculateLeadTime(tasks: Task[]) {
 }
 
 export function calculateCycleTimeKPIs(tasks: Task[]) {
+  console.log("[ESPIA KPIs LLC] función ejecutándose, tareas:", tasks.length, "con EIN:", tasks.filter(t => t.closed_at && t.custom_fields.fecha_solicitud_ein && t.custom_fields.fecha_recepcion_ein).length);
   const totalTasks = tasks.length;
   // "ENTREGA COMPLETADA" es el estado de cierre definitivo
   const completedTasks = tasks.filter((t) => t.status === "ENTREGA COMPLETADA").length;
