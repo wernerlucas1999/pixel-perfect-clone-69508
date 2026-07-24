@@ -1263,6 +1263,18 @@ export function calculateLeadTime(tasks: Task[]) {
 }
 
 export function calculateCycleTimeKPIs(tasks: Task[]) {
+  // ESPÍA TEMPORAL diagnostico EIN — borrar después
+  {
+    const conAmbas = tasks.filter(t => t.custom_fields.fecha_solicitud_ein && t.custom_fields.fecha_recepcion_ein).length;
+    const soloSolicitud = tasks.filter(t => t.custom_fields.fecha_solicitud_ein && !t.custom_fields.fecha_recepcion_ein).length;
+    const soloRecepcion = tasks.filter(t => !t.custom_fields.fecha_solicitud_ein && t.custom_fields.fecha_recepcion_ein).length;
+    const ninguna = tasks.filter(t => !t.custom_fields.fecha_solicitud_ein && !t.custom_fields.fecha_recepcion_ein).length;
+    const cerradas = tasks.filter(t => t.closed_at !== null).length;
+    console.log("[ESPIA diag EIN]", { total: tasks.length, cerradas, conAmbas, soloSolicitud, soloRecepcion, ninguna });
+    // muestro 3 ejemplos de tareas SIN ambas fechas, para ver qué tienen
+    const sinAmbas = tasks.filter(t => !(t.custom_fields.fecha_solicitud_ein && t.custom_fields.fecha_recepcion_ein)).slice(0, 3);
+    sinAmbas.forEach(t => console.log("[ESPIA diag ejemplo]", { nombre: t.name, sol: t.custom_fields.fecha_solicitud_ein, rec: t.custom_fields.fecha_recepcion_ein, cerrada: t.closed_at }));
+  }
   const totalTasks = tasks.length;
   // "ENTREGA COMPLETADA" es el estado de cierre definitivo
   const completedTasks = tasks.filter((t) => t.status === "ENTREGA COMPLETADA").length;
