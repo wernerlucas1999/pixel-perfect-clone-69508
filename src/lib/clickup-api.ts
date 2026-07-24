@@ -1280,15 +1280,7 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
   const einWait = tasks.filter(
     (t) => t.closed_at !== null && (t.time_in_status["ESPERANDO EIN"] ?? 0) > 0,
   );
-  const avgEINWait = einWait.length
-    // ESPÍA TEMPORAL ein wait — borrar después
-  if (einWait.length > 0) {
-    const _t = einWait[0];
-    console.log("[ESPIA einwait]", {
-      nombre: _t.name,
-      tiempoEnEsperandoEIN: _t.time_in_status["ESPERANDO EIN"],
-    });
-  }
+ const avgEINWait = einWait.length
     ? Math.round(
         einWait.reduce((s, t) => s + (t.time_in_status["ESPERANDO EIN"] ?? 0), 0) / einWait.length,
       )
