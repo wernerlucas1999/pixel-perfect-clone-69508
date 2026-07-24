@@ -488,11 +488,12 @@ function mapToTask(raw: any): Task | null {
   const envioTramite =
     getCustomFieldValue(cf, "envio_tramite") ?? getCustomFieldValue(cf, "envío tramite");
   const fechaSolicitudEin =
-    getCustomFieldValue(cf, "fecha_solicitud_ein") ??
-    getCustomFieldValue(cf, "fecha solicitud ein");
+    getCustomFieldValue(cf, "fecha solicitud ein") ??
+    getCustomFieldValue(cf, "fecha_solicitud_ein");
   const fechaRecepcionEin =
-    getCustomFieldValue(cf, "fecha_recepcion_ein") ??
-    getCustomFieldValue(cf, "fecha recepcion ein");
+    getCustomFieldValue(cf, "fecha recepción ein") ??
+    getCustomFieldValue(cf, "fecha recepcion ein") ??
+    getCustomFieldValue(cf, "fecha_recepcion_ein");
 
 // Demora del cliente: reconstruida desde las fechas crudas con businessDays,
   // porque el campo fórmula z_Demora cliente no exporta valor por la API.
