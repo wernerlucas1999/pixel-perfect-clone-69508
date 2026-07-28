@@ -1376,17 +1376,11 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   // ═══════════════════════════════════════════════════════════════
   const closedTasks = tasks.filter((t) => t.closed_at !== null);
 
-  const buildRow = (t: BankTask) => {
+ const buildRow = (t: BankTask) => {
     const cf = t.custom_fields;
-    const esperaCorreccion = daysBetween(cf.solicitud_info, cf.fecha_correccion);
-    const esperaVerifId = daysBetween(cf.pedido_verif_id, cf.completa_verif_id);
-    const clientDays = esperaCorreccion + esperaVerifId;
-
-    let bankDays = 0;
-    if (cf.fecha_aplicacion && cf.fecha_aprob_rech) {
-      const totalBankProcess = daysBetween(cf.fecha_aplicacion, cf.fecha_aprob_rech);
-      bankDays = Math.max(0, totalBankProcess - esperaVerifId);
-    }
+    // Usa los valores ya verificados (días hábiles, lógica correcta), no recalcula.
+    const clientDays = typeof cf.demora_cliente === "number" ? Math.max(0, cf.demora_cliente) : 0;
+    const bankDays = typeof cf.demora_banco === "number" ? Math.max(0, cf.demora_banco) : 0;
 
     return {
       name: t.name.replace(/Cuenta (Mercury|Relay|Lili) - /i, "").substring(0, 25),
