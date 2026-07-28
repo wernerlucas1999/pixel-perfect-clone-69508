@@ -1223,7 +1223,9 @@ export function getFunnelData(tasks: Task[]) {
   tasks.forEach((t) => {
     counts[t.status]++;
   });
-  return LLC_STATUS_FLOW.map((s) => ({ status: s, count: counts[s], fill: STATUS_COLORS[s] }));
+return LLC_STATUS_FLOW
+    .filter((s) => s !== "ENTREGA COMPLETADA")
+    .map((s) => ({ status: s, count: counts[s], fill: STATUS_COLORS[s] }));
 }
 
 export function getAverageTimeByStatus(tasks: Task[]) {
