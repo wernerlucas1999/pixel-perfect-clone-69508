@@ -23,6 +23,14 @@ interface BottleneckAnalysisProps {
   avgTiempoInterno: number;
   /** Promedio del custom field z_Demora IRS (en días) */
   avgDemoraIRS: number;
+  /** Porcentaje de responsabilidad del cliente sobre la suma de 4 demoras */
+  ratioCliente: number;
+  /** Porcentaje de responsabilidad del banco sobre la suma de 4 demoras */
+  ratioBanco: number;
+  /** Porcentaje de responsabilidad interna (Filings) sobre la suma de 4 demoras */
+  ratioInterno: number;
+  /** Porcentaje de responsabilidad del IRS sobre la suma de 4 demoras */
+  ratioIRS: number;
 }
 
 export function BottleneckAnalysis({
@@ -33,6 +41,10 @@ export function BottleneckAnalysis({
   avgDemoraCliente,
   avgTiempoInterno,
   avgDemoraIRS,
+  ratioCliente,
+  ratioBanco,
+  ratioInterno,
+  ratioIRS,
 }: BottleneckAnalysisProps) {
   const bankResponsibilityRatio = 100 - clientResponsibilityRatio;
 
