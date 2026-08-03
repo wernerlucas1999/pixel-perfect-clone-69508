@@ -133,6 +133,10 @@ function DashboardPage() {
     avgDemoraCliente: number;
     avgTiempoInterno: number;
     avgDemoraIRS: number;
+    ratioCliente: number;
+    ratioBanco: number;
+    ratioInterno: number;
+    ratioIRS: number;
   }>({
     comparisonData: [],
     clientResponsibilityRatio: 0,
@@ -141,6 +145,10 @@ function DashboardPage() {
     avgDemoraCliente: 0,
     avgTiempoInterno: 0,
     avgDemoraIRS: 0,
+    ratioCliente: 0,
+    ratioBanco: 0,
+    ratioInterno: 0,
+    ratioIRS: 0,
   });
   const [bankStatusCounts, setBankStatusCounts] = useState<any[]>([]);
 
@@ -369,6 +377,10 @@ function DashboardPage() {
               avgDemoraCliente={bottleneckData.avgDemoraCliente}
               avgTiempoInterno={bottleneckData.avgTiempoInterno}
               avgDemoraIRS={bottleneckData.avgDemoraIRS}
+              ratioCliente={bottleneckData.ratioCliente}
+              ratioBanco={bottleneckData.ratioBanco}
+              ratioInterno={bottleneckData.ratioInterno}
+              ratioIRS={bottleneckData.ratioIRS}
             />
           </>
         );
