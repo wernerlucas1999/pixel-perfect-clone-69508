@@ -138,27 +138,53 @@ export function BottleneckAnalysis({
             <div className="flex h-8 overflow-hidden rounded-lg">
               <div
                 className="bg-chart-3 flex items-center justify-center text-xs font-medium text-primary-foreground transition-all"
-                style={{ width: `${clientResponsibilityRatio}%` }}
+                style={{ width: `${ratioCliente}%` }}
               >
-                {clientResponsibilityRatio > 10 && `${clientResponsibilityRatio}%`}
+                {ratioCliente > 10 && `${ratioCliente}%`}
+              </div>
+              <div
+                className="bg-chart-2 flex items-center justify-center text-xs font-medium text-primary-foreground transition-all"
+                style={{ width: `${ratioInterno}%` }}
+              >
+                {ratioInterno > 10 && `${ratioInterno}%`}
+              </div>
+              <div
+                className="bg-chart-4 flex items-center justify-center text-xs font-medium text-primary-foreground transition-all"
+                style={{ width: `${ratioIRS}%` }}
+              >
+                {ratioIRS > 10 && `${ratioIRS}%`}
               </div>
               <div
                 className="bg-chart-1 flex items-center justify-center text-xs font-medium text-primary-foreground transition-all"
-                style={{ width: `${bankResponsibilityRatio}%` }}
+                style={{ width: `${ratioBanco}%` }}
               >
-                {bankResponsibilityRatio > 10 && `${bankResponsibilityRatio}%`}
+                {ratioBanco > 10 && `${ratioBanco}%`}
               </div>
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <span className="inline-block w-3 h-3 rounded bg-chart-3" />
                 <span className="text-muted-foreground">
-                  Cliente: {avgClientDays} dias prom.
+                  Cliente: {avgDemoraCliente.toFixed(2)} días prom.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-chart-2" />
+                <span className="text-muted-foreground">
+                  Filings: {avgTiempoInterno.toFixed(2)} días prom.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-chart-4" />
+                <span className="text-muted-foreground">
+                  IRS: {avgDemoraIRS.toFixed(2)} días prom.
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-block w-3 h-3 rounded bg-chart-1" />
-                <span className="text-muted-foreground">Banco: {avgBankDays} dias prom.</span>
+                <span className="text-muted-foreground">
+                  Banco: {avgBankDays.toFixed(2)} días prom.
+                </span>
               </div>
             </div>
           </div>
