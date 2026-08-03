@@ -369,6 +369,10 @@ function DashboardPage() {
               avgDemoraCliente={bottleneckData.avgDemoraCliente}
               avgTiempoInterno={bottleneckData.avgTiempoInterno}
               avgDemoraIRS={bottleneckData.avgDemoraIRS}
+              ratioCliente={bottleneckData.ratioCliente}
+              ratioBanco={bottleneckData.ratioBanco}
+              ratioInterno={bottleneckData.ratioInterno}
+              ratioIRS={bottleneckData.ratioIRS}
             />
           </>
         );
