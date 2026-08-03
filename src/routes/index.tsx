@@ -405,7 +405,7 @@ function DashboardPage() {
               inProgressTasks={kpis.inProgressTasks}
               avgLeadTime={kpis.avgLeadTime}
               avgEINWait={kpis.avgEINWait}
-              delayedTasks={kpis.delayedTasks}
+              
             />
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-lg border border-chart-3/40 bg-chart-3/5 p-5">
