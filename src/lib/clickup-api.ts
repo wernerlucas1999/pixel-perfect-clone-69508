@@ -1440,7 +1440,14 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
   const avgBankDays = totalTareas > 0 ? Math.round((sumaDemoraBanco / totalTareas) * 100) / 100 : 0;
   const avgDemoraIRS = totalTareas > 0 ? sumaDemoraIRS / totalTareas : 0;
 
-  return {
+  // Ratios de las 4 categorías (porcentaje sobre la suma de las 4 demoras).
+  const sumaTotal4 = avgDemoraCliente + avgTiempoInterno + avgBankDays + avgDemoraIRS;
+  const ratioCliente = sumaTotal4 > 0 ? Math.round((avgDemoraCliente / sumaTotal4) * 100) : 0;
+  const ratioInterno = sumaTotal4 > 0 ? Math.round((avgTiempoInterno / sumaTotal4) * 100) : 0;
+  const ratioBanco = sumaTotal4 > 0 ? Math.round((avgBankDays / sumaTotal4) * 100) : 0;
+  const ratioIRS = sumaTotal4 > 0 ? Math.round((avgDemoraIRS / sumaTotal4) * 100) : 0;
+  
+return {
     comparisonData,
     clientResponsibilityRatio,
     avgClientDays,
@@ -1448,6 +1455,10 @@ export function calculateBottleneckAnalysis(tasks: BankTask[]) {
     avgDemoraCliente,
     avgTiempoInterno,
     avgDemoraIRS,
+    ratioCliente,
+    ratioInterno,
+    ratioBanco,
+    ratioIRS,
     clientBlockedCount,
     bankDelayCount,
     closedTasksCount: closedTasks.length,
