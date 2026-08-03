@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ListTodo, CheckCircle2, Clock, AlertTriangle, Timer, Activity } from "lucide-react";
+import { ListTodo, CheckCircle2, Clock, Timer, Activity } from "lucide-react";
 
 interface KPICardsProps {
   totalTasks: number;
@@ -8,7 +8,6 @@ interface KPICardsProps {
   inProgressTasks: number;
   avgLeadTime: number;
   avgEINWait: number;
-  delayedTasks: number;
 }
 
 export function KPICards({
@@ -18,7 +17,6 @@ export function KPICards({
   inProgressTasks,
   avgLeadTime,
   avgEINWait,
-  delayedTasks,
 }: KPICardsProps) {
   const kpis = [
     {
@@ -56,17 +54,11 @@ export function KPICards({
       description: "Tiempo en espera",
       accent: avgEINWait > 15,
     },
-    {
-      title: "Tareas Demoradas",
-      value: delayedTasks,
-      icon: AlertTriangle,
-      description: "> 5 dias en estado",
-      accent: delayedTasks > 0,
-    },
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+
       {kpis.map((kpi) => (
         <Card
           key={kpi.title}
