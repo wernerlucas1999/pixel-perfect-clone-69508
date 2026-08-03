@@ -30,43 +30,28 @@ interface BottleneckAnalysisProps {
   /** Porcentaje de responsabilidad interna (Filings) sobre la suma de 4 demoras */
   ratioInterno: number;
   /** Porcentaje de responsabilidad del IRS sobre la suma de 4 demoras */
-  ratioIRS: number;
+  IRS: number;
 }
 
 export function BottleneckAnalysis({
   comparisonData,
-  clientResponsibilityRatio,
+  clientResponsibility,
   totalClientDays: avgClientDays,
   totalBankDays: avgBankDays,
   avgDemoraCliente,
   avgTiempoInterno,
   avgDemoraIRS,
-  ratioCliente,
-  ratioBanco,
-  ratioInterno,
-  ratioIRS,
+  Cliente,
+  Banco,
+  Interno,
+  IRS,
 }: BottleneckAnalysisProps) {
-  const bankResponsibilityRatio = 100 - clientResponsibilityRatio;
+  const bankResponsibility = 100 - clientResponsibility;
 
   return (
     <div className="space-y-6">
       {/* KPI Cards Row */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card className="border-border bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Ratio Responsabilidad
-            </CardTitle>
-            <Users className="h-4 w-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-warning">
-              {clientResponsibilityRatio}% Cliente
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Del tiempo total de espera</p>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
