@@ -30,23 +30,22 @@ interface BottleneckAnalysisProps {
   /** Porcentaje de responsabilidad interna (Filings) sobre la suma de 4 demoras */
   ratioInterno: number;
   /** Porcentaje de responsabilidad del IRS sobre la suma de 4 demoras */
-  IRS: number;
+  ratioIRS: number;
 }
 
 export function BottleneckAnalysis({
   comparisonData,
-  clientResponsibility,
+  clientResponsibilityRatio,
   totalClientDays: avgClientDays,
   totalBankDays: avgBankDays,
   avgDemoraCliente,
   avgTiempoInterno,
   avgDemoraIRS,
-  Cliente,
-  Banco,
-  Interno,
-  IRS,
+  ratioCliente,
+  ratioBanco,
+  ratioInterno,
+  ratioIRS,
 }: BottleneckAnalysisProps) {
-
   return (
     <div className="space-y-6">
       {/* KPI Cards Row */}
