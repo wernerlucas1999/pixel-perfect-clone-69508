@@ -46,7 +46,6 @@ export function BottleneckAnalysis({
   Interno,
   IRS,
 }: BottleneckAnalysisProps) {
-  const bankResponsibility = 100 - clientResponsibility;
 
   return (
     <div className="space-y-6">
