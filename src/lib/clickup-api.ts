@@ -300,6 +300,16 @@ function getCustomFieldValue(fields: any[], name: string): string | null {
   return String(f.value);
 }
 
+// Igual que getCustomFieldValue pero matcheando por "id" del custom field en
+// vez de por "name" — usar cuando el id ya fue verificado contra la API real,
+// porque el label visible en ClickUp puede cambiar y el id no.
+function getCustomFieldDateById(fields: any[], fieldId: string): string | null {
+  if (!Array.isArray(fields)) return null;
+  const f = fields.find((f: any) => f?.id === fieldId);
+  if (!f || f?.value === undefined || f?.value === null || f?.value === "") return null;
+  return msToDate(f.value);
+}
+
 // Resuelve un campo drop_down de ClickUp a su label visible.
 // El value puede ser: number (índice/orderindex) o string (option id / label).
 function getDropdownLabel(fields: any[], names: string[]): string | null {
@@ -1666,10 +1676,21 @@ export interface TaxReturnTask {
   isClosed: boolean;
   assignees: string[];
   tipoLLC: string | null;
-  tiempoCompletado: number | null;
   created_at_ms: number | null;
   closed_at_ms: number | null;
+  diasInfoACierre: number | null;
+  diasInfoAEnvioFirma: number | null;
+  diasFirmaACierre: number | null;
+  diasLeadTime: number | null;
 }
+
+// IDs de custom fields verificados contra la API real de ClickUp
+// (view/list "Tax Return" — 901407106445).
+const TAX_RETURN_FIELD_IDS = {
+  infoRecibida: "dcfbc610-a620-4f20-817e-13dbd63aeffa",
+  envioFirmarCliente: "6840720f-6c24-44c6-a583-ff267efced4b",
+  reciboFirma: "bad02203-2935-483d-9c1d-a8523cae7aa1",
+};
 
 let _taxReturnCache: { data: TaxReturnTask[]; ts: number } | null = null;
 
@@ -1746,21 +1767,14 @@ function getCustomFieldDropdownLabel(fields: any[], name: string): string | null
   return null;
 }
 
-const TIEMPO_FIELD_NAMES = [
-  "tiempo en completar tax - desde compra obl",
-  "tiempo en completar tax desde compra obl",
-  "tiempo en completar tax",
-];
-
 const TIPO_LLC_FIELD_NAMES = ["tipo llc", "tipo de llc"];
 
 function mapTaxReturnTask(raw: any): TaxReturnTask | null {
   const cf = raw?.custom_fields ?? [];
   const statusRaw = String(raw?.status?.status ?? "");
   const statusType = String(raw?.status?.type ?? "").toLowerCase();
-  const isClosed = statusType === "closed" || raw?.date_closed != null;
+  const isClosed = statusType === "closed";
 
-  const tiempo = getCustomFieldNumber(cf, TIEMPO_FIELD_NAMES);
   let tipoLLC: string | null = null;
   for (const n of TIPO_LLC_FIELD_NAMES) {
     tipoLLC = getCustomFieldDropdownLabel(cf, n);
@@ -1774,6 +1788,13 @@ function mapTaxReturnTask(raw: any): TaxReturnTask | null {
   const createdMs = raw?.date_created ? Number(raw.date_created) : null;
   const closedMs = raw?.date_closed ? Number(raw.date_closed) : null;
 
+  const infoRecibidaStr = getCustomFieldDateById(cf, TAX_RETURN_FIELD_IDS.infoRecibida);
+  const envioFirmarStr = getCustomFieldDateById(cf, TAX_RETURN_FIELD_IDS.envioFirmarCliente);
+  const reciboFirmaStr = getCustomFieldDateById(cf, TAX_RETURN_FIELD_IDS.reciboFirma);
+  // date_closed solo es una fecha de cierre válida cuando isClosed es true.
+  const fechaCierreStr = isClosed ? msToDate(raw?.date_closed ?? null) : null;
+  const fechaCreacionAjustadaStr = ajustarInicio18h(raw?.date_created ?? null);
+
   return {
     id: String(raw.id),
     name: raw?.name ?? "",
@@ -1781,9 +1802,16 @@ function mapTaxReturnTask(raw: any): TaxReturnTask | null {
     isClosed,
     assignees: assignees.length > 0 ? assignees : ["Sin asignar"],
     tipoLLC,
-    tiempoCompletado: tiempo,
     created_at_ms: createdMs && isFinite(createdMs) ? createdMs : null,
     closed_at_ms: closedMs && isFinite(closedMs) ? closedMs : null,
+    // Métrica 1: tiempo en completar tax desde Info Recibida (solo cerradas)
+    diasInfoACierre: isClosed ? businessDays(infoRecibidaStr, fechaCierreStr) : null,
+    // Métrica 2: demora interna en enviar a firmar (se puede calcular aunque no esté cerrada)
+    diasInfoAEnvioFirma: businessDays(infoRecibidaStr, envioFirmarStr),
+    // Métrica 3: demora interna de presentación, desde recibo de firma (solo cerradas)
+    diasFirmaACierre: isClosed ? businessDays(reciboFirmaStr, fechaCierreStr) : null,
+    // Métrica 4: lead time desde compra (creación ajustada por regla 18h), solo cerradas
+    diasLeadTime: isClosed ? businessDays(fechaCreacionAjustadaStr, fechaCierreStr) : null,
   };
 }
 
@@ -1822,19 +1850,6 @@ export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
   const closed = tasks.filter((t) => t.isClosed);
   const open = tasks.filter((t) => !t.isClosed);
 
-  // Promedio de tiempo en completar (sólo cerradas con valor numérico válido)
-  let sum = 0;
-  let count = 0;
-  for (const t of closed) {
-    const n = t.tiempoCompletado;
-    if (n === null || n === undefined) continue;
-    const v = typeof n === "number" ? n : parseFloat(String(n));
-    if (!isFinite(v) || isNaN(v)) continue;
-    sum += v;
-    count += 1;
-  }
-  const avgCompletionDays = count > 0 ? sum / count : 0;
-
   // Conteo por estado de las abiertas
   const byStatus: Record<string, number> = {};
   for (const t of open) {
@@ -1845,12 +1860,29 @@ export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
     .map(([status, count]) => ({ status, count }))
     .sort((a, b) => b.count - a.count);
 
+  const avgOf = (values: (number | null)[]) => {
+    const valid = values.filter((v): v is number => v !== null && isFinite(v));
+    const avg = valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+    return { avg, count: valid.length };
+  };
+
+  const infoACierre = avgOf(tasks.map((t) => t.diasInfoACierre));
+  const infoAEnvioFirma = avgOf(tasks.map((t) => t.diasInfoAEnvioFirma));
+  const firmaACierre = avgOf(tasks.map((t) => t.diasFirmaACierre));
+  const leadTime = avgOf(tasks.map((t) => t.diasLeadTime));
+
   return {
     totalCompleted: closed.length,
-    avgCompletionDays,
-    completedWithTime: count,
     inProgressTotal: open.length,
     inProgressByStatus,
+    avgDiasInfoACierre: infoACierre.avg,
+    countDiasInfoACierre: infoACierre.count,
+    avgDiasInfoAEnvioFirma: infoAEnvioFirma.avg,
+    countDiasInfoAEnvioFirma: infoAEnvioFirma.count,
+    avgDiasFirmaACierre: firmaACierre.avg,
+    countDiasFirmaACierre: firmaACierre.count,
+    avgDiasLeadTime: leadTime.avg,
+    countDiasLeadTime: leadTime.count,
   };
 }
 

@@ -98,10 +98,16 @@ const defaultCXTicketsKPIs = {
 
 const defaultTaxReturnKPIs = {
   totalCompleted: 0,
-  avgCompletionDays: 0,
-  completedWithTime: 0,
   inProgressTotal: 0,
   inProgressByStatus: [] as { status: string; count: number }[],
+  avgDiasInfoACierre: 0,
+  countDiasInfoACierre: 0,
+  avgDiasInfoAEnvioFirma: 0,
+  countDiasInfoAEnvioFirma: 0,
+  avgDiasFirmaACierre: 0,
+  countDiasFirmaACierre: 0,
+  avgDiasLeadTime: 0,
+  countDiasLeadTime: 0,
 };
 
 function DashboardPage() {

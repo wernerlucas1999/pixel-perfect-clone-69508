@@ -8,16 +8,31 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
-import { CheckCircle2, Timer, ListChecks, Users, FileText } from "lucide-react";
+import {
+  CheckCircle2,
+  ListChecks,
+  Users,
+  FileText,
+  CalendarCheck,
+  Send,
+  PenLine,
+  Hourglass,
+} from "lucide-react";
 import { TIPOS_LLC, type TipoLLC } from "@/lib/clickup-api";
 
 interface TaxReturnViewProps {
   kpis: {
     totalCompleted: number;
-    avgCompletionDays: number;
-    completedWithTime: number;
     inProgressTotal: number;
     inProgressByStatus: { status: string; count: number }[];
+    avgDiasInfoACierre: number;
+    countDiasInfoACierre: number;
+    avgDiasInfoAEnvioFirma: number;
+    countDiasInfoAEnvioFirma: number;
+    avgDiasFirmaACierre: number;
+    countDiasFirmaACierre: number;
+    avgDiasLeadTime: number;
+    countDiasLeadTime: number;
   };
   byAssignee: { assignee: string; count: number }[];
   tipoLLC: TipoLLC | "all";
@@ -64,7 +79,7 @@ export function TaxReturnView({
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -81,23 +96,6 @@ export function TaxReturnView({
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tiempo Promedio de Completado
-            </CardTitle>
-            <Timer className="h-4 w-4 text-chart-2" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-chart-2">
-              {formatDays(kpis.avgCompletionDays)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              promedio sobre {kpis.completedWithTime} taxes con dato
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
               Taxes en Proceso
             </CardTitle>
             <ListChecks className="h-4 w-4 text-warning" />
@@ -105,6 +103,77 @@ export function TaxReturnView({
           <CardContent>
             <div className="text-3xl font-bold text-warning">{kpis.inProgressTotal}</div>
             <p className="text-xs text-muted-foreground mt-1">tareas activas (no cerradas)</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* KPI Cards — 4 métricas basadas en fechas reales de ClickUp */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Completado desde Info Recibida
+            </CardTitle>
+            <CalendarCheck className="h-4 w-4 text-chart-1" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-chart-1">
+              {formatDays(kpis.avgDiasInfoACierre)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              promedio sobre {kpis.countDiasInfoACierre} taxes con dato
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Demora Interna — Envío a Firmar
+            </CardTitle>
+            <Send className="h-4 w-4 text-chart-3" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-chart-3">
+              {formatDays(kpis.avgDiasInfoAEnvioFirma)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              promedio sobre {kpis.countDiasInfoAEnvioFirma} taxes con dato
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Demora Interna — Presentación
+            </CardTitle>
+            <PenLine className="h-4 w-4 text-warning" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-warning">
+              {formatDays(kpis.avgDiasFirmaACierre)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              promedio sobre {kpis.countDiasFirmaACierre} taxes con dato
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Lead Time desde Compra
+            </CardTitle>
+            <Hourglass className="h-4 w-4 text-chart-2" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-chart-2">
+              {formatDays(kpis.avgDiasLeadTime)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              promedio sobre {kpis.countDiasLeadTime} taxes con dato
+            </p>
           </CardContent>
         </Card>
       </div>
