@@ -34,6 +34,7 @@ import {
   getCXTicketsByAssignee,
   calculateTaxReturnKPIs,
   getTaxReturnByAssignee,
+  getTaxReturnTaskExtremes,
   type ProcessType,
   type StateType,
   type PackageType,
@@ -185,6 +186,10 @@ function DashboardPage() {
   const [taxReturnByAssignee, setTaxReturnByAssignee] = useState<
     { assignee: string; count: number }[]
   >([]);
+  const [taxReturnExtremes, setTaxReturnExtremes] = useState<{
+    fastest: TaskRecord | null;
+    slowest: TaskRecord | null;
+  }>({ fastest: null, slowest: null });
 
   const fetchLLCData = useCallback(async () => {
     try {
@@ -262,12 +267,14 @@ function DashboardPage() {
       setFilteredTaxReturns(items);
       setTaxReturnKPIs(calculateTaxReturnKPIs(items));
       setTaxReturnByAssignee(getTaxReturnByAssignee(items));
+      setTaxReturnExtremes(getTaxReturnTaskExtremes(items));
     } catch (err) {
       console.error("Error fetching Tax Return:", err);
       // No bloquear el dashboard: dejar KPIs en cero y mostrar aviso.
       setFilteredTaxReturns([]);
       setTaxReturnKPIs(defaultTaxReturnKPIs);
       setTaxReturnByAssignee([]);
+      setTaxReturnExtremes({ fastest: null, slowest: null });
       setError(
         "No se pudo cargar Tax Return (verifica que el ID de lista/vista de ClickUp sea correcto y tenga acceso).",
       );
@@ -410,12 +417,20 @@ function DashboardPage() {
 
       case "tax_return":
         return (
-          <TaxReturnView
-            kpis={taxReturnKPIs}
-            byAssignee={taxReturnByAssignee}
-            tipoLLC={selectedTipoLLC}
-            onTipoLLCChange={setSelectedTipoLLC}
-          />
+          <>
+            <TaxReturnView
+              kpis={taxReturnKPIs}
+              byAssignee={taxReturnByAssignee}
+              tipoLLC={selectedTipoLLC}
+              onTipoLLCChange={setSelectedTipoLLC}
+            />
+            <TaskRecordsCard
+              fastest={taxReturnExtremes.fastest}
+              slowest={taxReturnExtremes.slowest}
+              title="Récords de Ciclo — Tax Return"
+              description="Taxes cerrados con menor y mayor Lead Time desde Compra (días hábiles, regla 18h)"
+            />
+          </>
         );
 
       case "llc_formation":
