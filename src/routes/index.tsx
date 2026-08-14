@@ -108,6 +108,12 @@ const defaultTaxReturnKPIs = {
   countDiasFirmaACierre: 0,
   avgDiasLeadTime: 0,
   countDiasLeadTime: 0,
+  avgDemoraCliente: 0,
+  countDemoraCliente: 0,
+  avgDemoraInterna: 0,
+  countDemoraInterna: 0,
+  ratioCliente: 0,
+  ratioInterno: 0,
 };
 
 function DashboardPage() {

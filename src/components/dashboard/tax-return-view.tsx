@@ -17,6 +17,8 @@ import {
   Send,
   PenLine,
   Hourglass,
+  Clock,
+  Wallet,
 } from "lucide-react";
 import { TIPOS_LLC, type TipoLLC } from "@/lib/clickup-api";
 
@@ -33,6 +35,12 @@ interface TaxReturnViewProps {
     countDiasFirmaACierre: number;
     avgDiasLeadTime: number;
     countDiasLeadTime: number;
+    avgDemoraCliente: number;
+    countDemoraCliente: number;
+    avgDemoraInterna: number;
+    countDemoraInterna: number;
+    ratioCliente: number;
+    ratioInterno: number;
   };
   byAssignee: { assignee: string; count: number }[];
   tipoLLC: TipoLLC | "all";
@@ -177,6 +185,85 @@ export function TaxReturnView({
           </CardContent>
         </Card>
       </div>
+
+      {/* Bottleneck de 2 categorías — equivalente a BottleneckAnalysis de
+          Aplicación Bancaria, sin IRS ni Banco (no aplican a este proceso) */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Demora Cliente
+            </CardTitle>
+            <Clock className="h-4 w-4 text-chart-3" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-chart-3">
+              {formatDays(kpis.avgDemoraCliente)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              promedio sobre {kpis.countDemoraCliente} taxes cerrados con dato
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Demora Interna
+            </CardTitle>
+            <Wallet className="h-4 w-4 text-chart-2" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-chart-2">
+              {formatDays(kpis.avgDemoraInterna)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              promedio sobre {kpis.countDemoraInterna} taxes cerrados con dato
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="text-foreground">Distribución de Responsabilidad</CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Proporción del tiempo de espera total atribuible a cada parte
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex h-8 overflow-hidden rounded-lg">
+              <div
+                className="bg-chart-3 flex items-center justify-center text-xs font-medium text-primary-foreground transition-all"
+                style={{ width: `${kpis.ratioCliente}%` }}
+              >
+                {kpis.ratioCliente > 10 && `${kpis.ratioCliente}%`}
+              </div>
+              <div
+                className="bg-chart-2 flex items-center justify-center text-xs font-medium text-primary-foreground transition-all"
+                style={{ width: `${kpis.ratioInterno}%` }}
+              >
+                {kpis.ratioInterno > 10 && `${kpis.ratioInterno}%`}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-chart-3" />
+                <span className="text-muted-foreground">
+                  Cliente: {kpis.avgDemoraCliente.toFixed(2)} días prom.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-chart-2" />
+                <span className="text-muted-foreground">
+                  Interno: {kpis.avgDemoraInterna.toFixed(2)} días prom.
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tabs internos */}
       <Tabs defaultValue="analisis" className="w-full">

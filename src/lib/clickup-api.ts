@@ -1682,6 +1682,7 @@ export interface TaxReturnTask {
   diasInfoAEnvioFirma: number | null;
   diasFirmaACierre: number | null;
   diasLeadTime: number | null;
+  diasDemoraCliente: number | null;
 }
 
 // IDs de custom fields verificados contra la API real de ClickUp
@@ -1812,6 +1813,8 @@ function mapTaxReturnTask(raw: any): TaxReturnTask | null {
     diasFirmaACierre: isClosed ? businessDays(reciboFirmaStr, fechaCierreStr) : null,
     // Métrica 4: lead time desde compra (creación ajustada por regla 18h), solo cerradas
     diasLeadTime: isClosed ? businessDays(fechaCreacionAjustadaStr, fechaCierreStr) : null,
+    // Demora Cliente (bottleneck): desde que se envía a firmar hasta que el cliente firma
+    diasDemoraCliente: businessDays(envioFirmarStr, reciboFirmaStr),
   };
 }
 
@@ -1871,6 +1874,18 @@ export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
   const firmaACierre = avgOf(tasks.map((t) => t.diasFirmaACierre));
   const leadTime = avgOf(tasks.map((t) => t.diasLeadTime));
 
+  // Bottleneck de 2 categorías (equivalente a BottleneckAnalysis de Aplicación
+  // Bancaria, pero sin IRS ni Banco). A diferencia de ahí, el divisor de los
+  // promedios es EXACTAMENTE la cantidad de tasks cerradas con dato válido —
+  // coincide con lo que dice el texto de la tarjeta.
+  const demoraCliente = avgOf(closed.map((t) => t.diasDemoraCliente));
+  const demoraInterna = avgOf(
+    closed.map((t) => (t.diasInfoAEnvioFirma ?? 0) + (t.diasFirmaACierre ?? 0)),
+  );
+  const sumaDemoras = demoraCliente.avg + demoraInterna.avg;
+  const ratioCliente = sumaDemoras > 0 ? Math.round((demoraCliente.avg / sumaDemoras) * 100) : 0;
+  const ratioInterno = sumaDemoras > 0 ? 100 - ratioCliente : 0;
+
   return {
     totalCompleted: closed.length,
     inProgressTotal: open.length,
@@ -1883,6 +1898,12 @@ export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
     countDiasFirmaACierre: firmaACierre.count,
     avgDiasLeadTime: leadTime.avg,
     countDiasLeadTime: leadTime.count,
+    avgDemoraCliente: demoraCliente.avg,
+    countDemoraCliente: demoraCliente.count,
+    avgDemoraInterna: demoraInterna.avg,
+    countDemoraInterna: demoraInterna.count,
+    ratioCliente,
+    ratioInterno,
   };
 }
 
