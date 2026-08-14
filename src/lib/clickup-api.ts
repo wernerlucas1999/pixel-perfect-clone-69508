@@ -1902,6 +1902,21 @@ export function getTaxReturnByAssignee(
     .sort((a, b) => b.count - a.count);
 }
 
+// Tarea más rápida / más lenta según el mismo criterio que "Lead Time desde
+// Compra" (diasLeadTime: businessDays sobre fecha de creación ajustada por
+// la regla de las 18h, solo tareas cerradas) — no una fórmula nueva.
+export function getTaxReturnTaskExtremes(
+  tasks: TaxReturnTask[],
+): { fastest: TaskExtreme | null; slowest: TaskExtreme | null } {
+  const closed = tasks
+    .filter((t): t is TaxReturnTask & { diasLeadTime: number } => t.diasLeadTime !== null)
+    .map((t) => ({ name: t.name, days: t.diasLeadTime }));
+  if (closed.length === 0) return { fastest: null, slowest: null };
+  const fastest = closed.reduce((a, b) => (b.days < a.days ? b : a));
+  const slowest = closed.reduce((a, b) => (b.days > a.days ? b : a));
+  return { fastest, slowest };
+}
+
 // Cuenta días hábiles (lunes a viernes) entre dos fechas,
 // replicando NETWORKDAYS de ClickUp con tu convención del workspace:
 //  - mismo día = 0
