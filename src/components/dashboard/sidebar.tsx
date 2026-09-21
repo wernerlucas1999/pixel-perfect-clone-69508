@@ -1,16 +1,11 @@
 import { cn } from "@/lib/utils";
-import { Timer, Settings, Bell, GitBranch } from "lucide-react";
+import { Timer } from "lucide-react";
 import { PROCESSES, type ProcessType } from "@/lib/clickup-api";
 
 interface SidebarProps {
   selectedProcess: ProcessType;
   onProcessChange: (process: ProcessType) => void;
 }
-
-const secondaryNavigation = [
-  { name: "Notificaciones", icon: Bell },
-  { name: "Configuracion", icon: Settings },
-];
 
 export function Sidebar({ selectedProcess, onProcessChange }: SidebarProps) {
   return (
@@ -21,7 +16,7 @@ export function Sidebar({ selectedProcess, onProcessChange }: SidebarProps) {
           <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center">
             <Timer className="h-5 w-5 text-accent-foreground" />
           </div>
-          <span className="text-lg font-semibold text-sidebar-foreground">CycleMetrics</span>
+          <span className="text-lg font-semibold text-sidebar-foreground">Dashboard KPI</span>
         </div>
 
         <nav className="flex flex-1 flex-col">
@@ -54,37 +49,6 @@ export function Sidebar({ selectedProcess, onProcessChange }: SidebarProps) {
                   );
                 })}
               </ul>
-            </li>
-
-            <li>
-              <div className="text-xs font-semibold leading-6 text-muted-foreground uppercase tracking-wider">
-                Sistema
-              </div>
-              <ul role="list" className="-mx-2 mt-2 space-y-1">
-                {secondaryNavigation.map((item) => (
-                  <li key={item.name}>
-                    <a
-                      href="#"
-                      className="text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-medium transition-colors"
-                    >
-                      <item.icon className="h-5 w-5 shrink-0 text-muted-foreground group-hover:text-sidebar-foreground transition-colors" />
-                      {item.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </li>
-
-            <li className="mt-auto">
-              <div className="flex items-center gap-x-3 rounded-md p-2 text-sm font-medium hover:bg-sidebar-accent transition-colors cursor-pointer">
-                <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center">
-                  <span className="text-sm font-medium text-accent-foreground">MG</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sidebar-foreground">Maria Garcia</span>
-                  <span className="text-xs text-muted-foreground">Admin</span>
-                </div>
-              </div>
             </li>
           </ul>
         </nav>
