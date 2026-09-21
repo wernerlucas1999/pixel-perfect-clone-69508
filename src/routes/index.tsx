@@ -193,12 +193,14 @@ function DashboardPage() {
 
   const fetchLLCData = useCallback(async () => {
     try {
-      const tasks = await getFilteredTasks(
-        selectedProcess,
-        dateRange,
-        selectedState,
-        selectedPackage,
-      );
+      const tasks = await getFilteredTasks({
+        data: {
+          processType: selectedProcess,
+          dateRange,
+          state: selectedState,
+          pkg: selectedPackage,
+        },
+      });
       setFilteredTasks(tasks);
       setKpis(calculateCycleTimeKPIs(tasks));
       setFunnelData(getFunnelData(tasks));
@@ -211,12 +213,14 @@ function DashboardPage() {
 
   const fetchBankData = useCallback(async () => {
     try {
-      const tasks = await getFilteredBankTasks(
-        dateRange,
-        selectedState,
-        selectedPackage,
-        selectedBank,
-      );
+      const tasks = await getFilteredBankTasks({
+        data: {
+          dateRange,
+          state: selectedState,
+          pkg: selectedPackage,
+          bank: selectedBank,
+        },
+      });
       setFilteredBankTasks(tasks);
       setBankKpis(calculateBankKPIs(tasks));
       setBottleneckData(calculateBottleneckAnalysis(tasks));
@@ -230,7 +234,9 @@ function DashboardPage() {
 
   const fetchAnnualReportsData = useCallback(async () => {
     try {
-      const reports = await getFilteredAnnualReports(selectedState, selectedPackage, dateRange);
+      const reports = await getFilteredAnnualReports({
+        data: { state: selectedState, pkg: selectedPackage, dateRange },
+      });
       setFilteredAnnualReports(reports);
       setAnnualReportsKPIs(calculateAnnualReportsKPIs(reports));
       setAnnualReportsPieData(getAnnualReportsPieData(reports));
@@ -241,7 +247,9 @@ function DashboardPage() {
 
   const fetchAgentesData = useCallback(async () => {
     try {
-      const agentes = await getFilteredAgentesRegistrados(selectedState, selectedPackage, dateRange);
+      const agentes = await getFilteredAgentesRegistrados({
+        data: { state: selectedState, pkg: selectedPackage, dateRange },
+      });
       setFilteredAgentes(agentes);
       setAgentesKPIs(calculateAgentesKPIs(agentes));
       setAgentesStatusChartData(getAgentesStatusChartData(agentes));
@@ -252,7 +260,9 @@ function DashboardPage() {
 
   const fetchCXTicketsData = useCallback(async () => {
     try {
-      const tickets = await getFilteredCXTickets(selectedState, selectedPackage, dateRange);
+      const tickets = await getFilteredCXTickets({
+        data: { state: selectedState, pkg: selectedPackage, dateRange },
+      });
       setFilteredCXTickets(tickets);
       setCXTicketsKPIs(calculateCXTicketsKPIs(tickets));
       setCXByAssignee(getCXTicketsByAssignee(tickets));
@@ -263,7 +273,9 @@ function DashboardPage() {
 
   const fetchTaxReturnData = useCallback(async () => {
     try {
-      const items = await getFilteredTaxReturns(dateRange, selectedTipoLLC);
+      const items = await getFilteredTaxReturns({
+        data: { dateRange, tipoLLC: selectedTipoLLC },
+      });
       setFilteredTaxReturns(items);
       setTaxReturnKPIs(calculateTaxReturnKPIs(items));
       setTaxReturnByAssignee(getTaxReturnByAssignee(items));

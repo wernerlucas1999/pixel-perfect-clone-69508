@@ -1,16 +1,26 @@
+import { createServerFn } from "@tanstack/react-start";
+
 // ============================================================
 // clickup-api.ts
-// Reemplaza lib/mock-data.ts con datos reales de ClickUp.
-// Instrucciones: copiá este archivo a lib/clickup-api.ts
-// y actualizá los imports en app/page.tsx (ver abajo).
+// Capa de datos de ClickUp. Las funciones getFiltered* están
+// envueltas con createServerFn: corren solo en el servidor
+// (Cloudflare Worker), así el token nunca llega al bundle del cliente.
 // ============================================================
 
 // ─── CONFIG ────────────────────────────────────────────────
-// Recomendado: mové el token a .env.local como:
-//   NEXT_PUBLIC_CLICKUP_TOKEN=pk_49618794_...
-// y reemplazá la línea de abajo por:
-//   const CLICKUP_TOKEN = process.env.NEXT_PUBLIC_CLICKUP_TOKEN!
-const CLICKUP_TOKEN = "pk_49618794_OA2IWD79GWYGL70C3W2UEENSRE77JSKV";
+// El token vive como secret de Cloudflare (wrangler secret put CLICKUP_TOKEN
+// en prod, .dev.vars en local) y se lee en runtime dentro del handler,
+// nunca a nivel de módulo (Cloudflare solo lo expone durante el request).
+function getClickUpToken(): string {
+  const token = process.env.CLICKUP_TOKEN;
+  if (!token) {
+    throw new Error(
+      "CLICKUP_TOKEN no está configurado. Definilo en .dev.vars (local) o con " +
+        "`wrangler secret put CLICKUP_TOKEN` (producción).",
+    );
+  }
+  return token;
+}
 
 const LIST_IDS = {
   llc_formation: "900200216635", // Lista "To-do 2.0"
@@ -418,7 +428,7 @@ async function fetchAllTasks(listId: string): Promise<any[]> {
   while (true) {
     const res = await fetch(
       `${BASE_URL}/list/${listId}/task?include_closed=true&subtasks=false&page=${page}&limit=100`,
-      { headers: { Authorization: CLICKUP_TOKEN } },
+      { headers: { Authorization: getClickUpToken() } },
     );
     if (!res.ok) throw new Error(`ClickUp API error ${res.status}: ${await res.text()}`);
     const data = await res.json();
@@ -438,7 +448,7 @@ async function fetchBulkTimeInStatus(taskIds: string[]): Promise<Record<string, 
     const qs = batch.map((id) => `task_ids=${encodeURIComponent(id)}`).join("&");
     try {
       const res = await fetch(`${BASE_URL}/task/bulk_time_in_status/task_ids/?${qs}`, {
-        headers: { Authorization: CLICKUP_TOKEN },
+        headers: { Authorization: getClickUpToken() },
       });
       if (!res.ok) continue;
       const data = await res.json();
@@ -866,58 +876,66 @@ export async function fetchBankTasks(): Promise<BankTask[]> {
 
 // ─── FUNCIONES DE FILTRO (misma firma que mock-data.ts) ────
 
-export async function getFilteredTasks(
-  processType: ProcessType | "all",
-  dateRange?: { from: Date | null; to: Date | null },
-  state?: StateType | "all",
-  pkg?: PackageType | "all",
-): Promise<Task[]> {
-  let tasks = await fetchLLCTasks();
-  if (processType !== "all") tasks = tasks.filter((t) => t.process_type === processType);
-  if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
-  if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
-  if (dateRange?.from || dateRange?.to) {
-    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-    tasks = tasks.filter((t) => {
-      // Cerrada → usar date_closed; Abierta → usar date_created (proxy de actividad).
-      const refStr = t.closed_at ?? t.created_at;
-      if (!refStr) return false;
-      const refMs = new Date(refStr).getTime();
-      if (isNaN(refMs)) return false;
-      if (fromMs !== null && refMs < fromMs) return false;
-      if (toMs !== null && refMs > toMs) return false;
-      return true;
-    });
-  }
-  return tasks;
-}
+export const getFilteredTasks = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: {
+      processType: ProcessType | "all";
+      dateRange?: { from: Date | null; to: Date | null };
+      state?: StateType | "all";
+      pkg?: PackageType | "all";
+    }) => data,
+  )
+  .handler(async ({ data: { processType, dateRange, state, pkg } }): Promise<Task[]> => {
+    let tasks = await fetchLLCTasks();
+    if (processType !== "all") tasks = tasks.filter((t) => t.process_type === processType);
+    if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
+    if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
+    if (dateRange?.from || dateRange?.to) {
+      const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+      const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+      tasks = tasks.filter((t) => {
+        // Cerrada → usar date_closed; Abierta → usar date_created (proxy de actividad).
+        const refStr = t.closed_at ?? t.created_at;
+        if (!refStr) return false;
+        const refMs = new Date(refStr).getTime();
+        if (isNaN(refMs)) return false;
+        if (fromMs !== null && refMs < fromMs) return false;
+        if (toMs !== null && refMs > toMs) return false;
+        return true;
+      });
+    }
+    return tasks;
+  });
 
-export async function getFilteredBankTasks(
-  dateRange?: { from: Date | null; to: Date | null },
-  state?: StateType | "all",
-  pkg?: PackageType | "all",
-  bank?: BankType | "all",
-): Promise<BankTask[]> {
-  let tasks = await fetchBankTasks();
-  if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
-  if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
-  if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
-  if (dateRange?.from || dateRange?.to) {
-    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-    tasks = tasks.filter((t) => {
-      // Filtro estricto por Fecha de Cierre real (date_closed), igual que Agentes Registrados.
-      if (!t.closed_at) return false;
-      const refMs = new Date(t.closed_at).getTime();
-      if (isNaN(refMs)) return false;
-      if (fromMs !== null && refMs < fromMs) return false;
-      if (toMs !== null && refMs > toMs) return false;
-      return true;
-    });
-  }
-  return tasks;
-}
+export const getFilteredBankTasks = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: {
+      dateRange?: { from: Date | null; to: Date | null };
+      state?: StateType | "all";
+      pkg?: PackageType | "all";
+      bank?: BankType | "all";
+    }) => data,
+  )
+  .handler(async ({ data: { dateRange, state, pkg, bank } }): Promise<BankTask[]> => {
+    let tasks = await fetchBankTasks();
+    if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
+    if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
+    if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
+    if (dateRange?.from || dateRange?.to) {
+      const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+      const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+      tasks = tasks.filter((t) => {
+        // Filtro estricto por Fecha de Cierre real (date_closed), igual que Agentes Registrados.
+        if (!t.closed_at) return false;
+        const refMs = new Date(t.closed_at).getTime();
+        if (isNaN(refMs)) return false;
+        if (fromMs !== null && refMs < fromMs) return false;
+        if (toMs !== null && refMs > toMs) return false;
+        return true;
+      });
+    }
+    return tasks;
+  });
 
 
 // Stubs para las listas aún no conectadas
@@ -956,14 +974,18 @@ export async function fetchAnnualReportsTasks(): Promise<AnnualReportTask[]> {
   return annualReportsCache!;
 }
 
-export async function getFilteredAnnualReports(
-  _state?: StateType | "all",
-  _pkg?: PackageType | "all",
-  dateRange?: { from: Date | null; to: Date | null },
-): Promise<AnnualReportTask[]> {
-  const all = await fetchAnnualReportsTasks();
-  return filterByDateRange(all, dateRange);
-}
+export const getFilteredAnnualReports = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: {
+      state?: StateType | "all";
+      pkg?: PackageType | "all";
+      dateRange?: { from: Date | null; to: Date | null };
+    }) => data,
+  )
+  .handler(async ({ data: { dateRange } }): Promise<AnnualReportTask[]> => {
+    const all = await fetchAnnualReportsTasks();
+    return filterByDateRange(all, dateRange);
+  });
 
 // ─── AGENTES REGISTRADOS (ClickUp list real) ───────────────
 const REGISTERED_AGENTS_LIST_ID = "901406624813";
@@ -1004,16 +1026,20 @@ export async function fetchRegisteredAgentsTasks(): Promise<AgenteRegistradoTask
   return registeredAgentsCache!;
 }
 
-export async function getFilteredAgentesRegistrados(
-  state?: StateType | "all",
-  pkg?: PackageType | "all",
-  dateRange?: { from: Date | null; to: Date | null },
-): Promise<AgenteRegistradoTask[]> {
-  let all = await fetchRegisteredAgentsTasks();
-  if (state && state !== "all") all = all.filter((t) => t.state === state);
-  if (pkg && pkg !== "all") all = all.filter((t) => t.package === pkg);
-  return filterByClosedDateRange(all, dateRange);
-}
+export const getFilteredAgentesRegistrados = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: {
+      state?: StateType | "all";
+      pkg?: PackageType | "all";
+      dateRange?: { from: Date | null; to: Date | null };
+    }) => data,
+  )
+  .handler(async ({ data: { state, pkg, dateRange } }): Promise<AgenteRegistradoTask[]> => {
+    let all = await fetchRegisteredAgentsTasks();
+    if (state && state !== "all") all = all.filter((t) => t.state === state);
+    if (pkg && pkg !== "all") all = all.filter((t) => t.package === pkg);
+    return filterByClosedDateRange(all, dateRange);
+  });
 
 function filterByClosedDateRange<T extends { date_closed_ms: number | null }>(
   items: T[],
@@ -1193,26 +1219,30 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
   return ticketeraCache;
 }
 
-export async function getFilteredCXTickets(
-  _state?: StateType | "all",
-  _pkg?: PackageType | "all",
-  dateRange?: { from: Date | null; to: Date | null },
-): Promise<CXTicket[]> {
-  const all = await fetchTicketeraTasks();
-  const from = dateRange?.from ? dateRange.from.getTime() : null;
-  // Incluir el día "to" completo (hasta 23:59:59.999)
-  const to = dateRange?.to
-    ? new Date(dateRange.to).setHours(23, 59, 59, 999)
-    : null;
-  if (from === null && to === null) return all;
-  return all.filter((t) => {
-    const ms = t.created_at_ms;
-    if (typeof ms !== "number" || !isFinite(ms)) return false;
-    if (from !== null && ms < from) return false;
-    if (to !== null && ms > to) return false;
-    return true;
+export const getFilteredCXTickets = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: {
+      state?: StateType | "all";
+      pkg?: PackageType | "all";
+      dateRange?: { from: Date | null; to: Date | null };
+    }) => data,
+  )
+  .handler(async ({ data: { dateRange } }): Promise<CXTicket[]> => {
+    const all = await fetchTicketeraTasks();
+    const from = dateRange?.from ? dateRange.from.getTime() : null;
+    // Incluir el día "to" completo (hasta 23:59:59.999)
+    const to = dateRange?.to
+      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+      : null;
+    if (from === null && to === null) return all;
+    return all.filter((t) => {
+      const ms = t.created_at_ms;
+      if (typeof ms !== "number" || !isFinite(ms)) return false;
+      if (from !== null && ms < from) return false;
+      if (to !== null && ms > to) return false;
+      return true;
+    });
   });
-}
 
 // ─── KPI CALCULATORS (idénticos a mock-data.ts) ────────────
 
@@ -1700,7 +1730,7 @@ async function fetchAllTasksByView(viewId: string): Promise<any[]> {
   let page = 0;
   while (true) {
     const res = await fetch(`${BASE_URL}/view/${viewId}/task?page=${page}`, {
-      headers: { Authorization: CLICKUP_TOKEN },
+      headers: { Authorization: getClickUpToken() },
     });
     if (!res.ok) throw new Error(`ClickUp View API error ${res.status}: ${await res.text()}`);
     const data = await res.json();
@@ -1718,7 +1748,7 @@ async function fetchAllTasksByList(listId: string): Promise<any[]> {
   let page = 0;
   while (true) {
     const url = `${BASE_URL}/list/${listId}/task?page=${page}&subtasks=false&include_closed=true`;
-    const res = await fetch(url, { headers: { Authorization: CLICKUP_TOKEN } });
+    const res = await fetch(url, { headers: { Authorization: getClickUpToken() } });
     if (!res.ok) throw new Error(`ClickUp List API error ${res.status}: ${await res.text()}`);
     const data = await res.json();
     const batch: any[] = data?.tasks ?? [];
@@ -1826,28 +1856,32 @@ export async function fetchTaxReturnTasks(): Promise<TaxReturnTask[]> {
   return data;
 }
 
-export async function getFilteredTaxReturns(
-  dateRange?: { from: Date | null; to: Date | null },
-  tipoLLC?: TipoLLC | "all",
-): Promise<TaxReturnTask[]> {
-  const all = await fetchTaxReturnTasks();
-  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+export const getFilteredTaxReturns = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: {
+      dateRange?: { from: Date | null; to: Date | null };
+      tipoLLC?: TipoLLC | "all";
+    }) => data,
+  )
+  .handler(async ({ data: { dateRange, tipoLLC } }): Promise<TaxReturnTask[]> => {
+    const all = await fetchTaxReturnTasks();
+    const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
 
-  return all.filter((t) => {
-    if (tipoLLC && tipoLLC !== "all") {
-      const tl = (t.tipoLLC ?? "").toLowerCase().trim();
-      if (tl !== tipoLLC.toLowerCase().trim()) return false;
-    }
-    if (from === null && to === null) return true;
-    // Cerrada → date_closed; Abierta → date_created
-    const ref = t.isClosed ? t.closed_at_ms : t.created_at_ms;
-    if (typeof ref !== "number" || !isFinite(ref)) return false;
-    if (from !== null && ref < from) return false;
-    if (to !== null && ref > to) return false;
-    return true;
+    return all.filter((t) => {
+      if (tipoLLC && tipoLLC !== "all") {
+        const tl = (t.tipoLLC ?? "").toLowerCase().trim();
+        if (tl !== tipoLLC.toLowerCase().trim()) return false;
+      }
+      if (from === null && to === null) return true;
+      // Cerrada → date_closed; Abierta → date_created
+      const ref = t.isClosed ? t.closed_at_ms : t.created_at_ms;
+      if (typeof ref !== "number" || !isFinite(ref)) return false;
+      if (from !== null && ref < from) return false;
+      if (to !== null && ref > to) return false;
+      return true;
+    });
   });
-}
 
 export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
   const closed = tasks.filter((t) => t.isClosed);
