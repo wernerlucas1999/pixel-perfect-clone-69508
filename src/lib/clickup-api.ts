@@ -4,19 +4,19 @@ import { createServerFn } from "@tanstack/react-start";
 // clickup-api.ts
 // Capa de datos de ClickUp. Las funciones getFiltered* están
 // envueltas con createServerFn: corren solo en el servidor
-// (Cloudflare Worker), así el token nunca llega al bundle del cliente.
+// (Vercel Function), así el token nunca llega al bundle del cliente.
 // ============================================================
 
 // ─── CONFIG ────────────────────────────────────────────────
-// El token vive como secret de Cloudflare (wrangler secret put CLICKUP_TOKEN
-// en prod, .dev.vars en local) y se lee en runtime dentro del handler,
-// nunca a nivel de módulo (Cloudflare solo lo expone durante el request).
+// El token vive como variable de entorno del proyecto en Vercel (prod) y en
+// .env.local (local), y se lee en runtime dentro del handler, nunca a nivel
+// de módulo.
 function getClickUpToken(): string {
   const token = process.env.CLICKUP_TOKEN;
   if (!token) {
     throw new Error(
-      "CLICKUP_TOKEN no está configurado. Definilo en .dev.vars (local) o con " +
-        "`wrangler secret put CLICKUP_TOKEN` (producción).",
+      "CLICKUP_TOKEN no está configurado. Definilo en .env.local (local) o en " +
+        "Settings → Environment Variables del proyecto en Vercel (producción).",
     );
   }
   return token;
