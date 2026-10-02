@@ -420,22 +420,105 @@ function calcCurrentStatusDays(task: any): number {
   return Math.floor((Date.now() - updated) / 86400000);
 }
 
+// ─── CLIENTE HTTP (concurrencia + rate limit) ──────────────
+// ClickUp permite 100 requests/minuto por token. Todas las llamadas pasan por
+// clickUpFetch, que limita cuántas hay en vuelo a la vez (compartido entre
+// pantallas) y reintenta los 429 esperando hasta que se libere el límite.
+const CLICKUP_MAX_CONCURRENCY = 6;
+const CLICKUP_MAX_RETRIES_429 = 5;
+
+let clickUpActive = 0;
+const clickUpQueue: (() => void)[] = [];
+// Si un request recibe 429, todos los siguientes esperan hasta este instante.
+let clickUpPausedUntil = 0;
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+async function acquireClickUpSlot(): Promise<void> {
+  if (clickUpActive < CLICKUP_MAX_CONCURRENCY) {
+    clickUpActive++;
+    return;
+  }
+  // El slot se transfiere directo desde releaseClickUpSlot.
+  await new Promise<void>((resolve) => clickUpQueue.push(resolve));
+}
+
+function releaseClickUpSlot(): void {
+  const next = clickUpQueue.shift();
+  if (next) next();
+  else clickUpActive--;
+}
+
+// Cuánto esperar ante un 429: Retry-After (segundos) o X-RateLimit-Reset
+// (epoch en segundos); si no vienen, backoff exponencial.
+function rateLimitWaitMs(res: Response, attempt: number): number {
+  const retryAfter = Number(res.headers.get("retry-after"));
+  if (retryAfter > 0) return retryAfter * 1000;
+  const reset = Number(res.headers.get("x-ratelimit-reset"));
+  if (reset > 0) return Math.min(Math.max(reset * 1000 - Date.now() + 500, 1000), 65_000);
+  return Math.min(2000 * 2 ** attempt, 60_000);
+}
+
+async function clickUpFetch(url: string): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    await acquireClickUpSlot();
+    let res: Response;
+    try {
+      const pause = clickUpPausedUntil - Date.now();
+      if (pause > 0) await sleep(pause);
+      res = await fetch(url, { headers: { Authorization: getClickUpToken() } });
+    } finally {
+      releaseClickUpSlot();
+    }
+    if (res.status !== 429 || attempt >= CLICKUP_MAX_RETRIES_429) return res;
+    await res.body?.cancel();
+    const waitMs = rateLimitWaitMs(res, attempt);
+    clickUpPausedUntil = Math.max(clickUpPausedUntil, Date.now() + waitMs);
+    console.warn(`[ClickUp] 429 rate limit, reintento ${attempt + 1} en ${Math.round(waitMs / 1000)}s`);
+  }
+}
+
 // ─── FETCHER GENÉRICO ──────────────────────────────────────
 
-async function fetchAllTasks(listId: string): Promise<any[]> {
+// Pide las páginas en tandas de CLICKUP_MAX_CONCURRENCY. Dentro de cada tanda
+// los resultados se recorren en orden de página y se corta en la primera que
+// cumple isLastPage: las páginas posteriores de esa tanda se descartan, así
+// el resultado es idéntico al de la paginación secuencial. Un error solo se
+// propaga si ocurre en una página anterior o igual a la última.
+async function fetchPagesConcurrently(
+  pageUrl: (page: number) => string,
+  isLastPage: (data: any, batch: any[]) => boolean,
+  errorLabel: string,
+  maxPage = Infinity,
+): Promise<any[]> {
   const tasks: any[] = [];
-  let page = 0;
-  while (true) {
-    const res = await fetch(
-      `${BASE_URL}/list/${listId}/task?include_closed=true&subtasks=false&page=${page}&limit=100`,
-      { headers: { Authorization: getClickUpToken() } },
+  for (let start = 0; start <= maxPage; start += CLICKUP_MAX_CONCURRENCY) {
+    const pages: number[] = [];
+    for (let p = start; p < start + CLICKUP_MAX_CONCURRENCY && p <= maxPage; p++) pages.push(p);
+    const results = await Promise.allSettled(
+      pages.map(async (p) => {
+        const res = await clickUpFetch(pageUrl(p));
+        if (!res.ok) throw new Error(`${errorLabel} ${res.status}: ${await res.text()}`);
+        return res.json();
+      }),
     );
-    if (!res.ok) throw new Error(`ClickUp API error ${res.status}: ${await res.text()}`);
-    const data = await res.json();
-    tasks.push(...(data.tasks ?? []));
-    if (!data.tasks?.length || data.tasks.length < 100) break;
-    page++;
+    for (const r of results) {
+      if (r.status === "rejected") throw r.reason;
+      const batch: any[] = r.value?.tasks ?? [];
+      tasks.push(...batch);
+      if (isLastPage(r.value, batch)) return tasks;
+    }
   }
+  return tasks;
+}
+
+async function fetchAllTasks(listId: string): Promise<any[]> {
+  const tasks = await fetchPagesConcurrently(
+    (page) =>
+      `${BASE_URL}/list/${listId}/task?include_closed=true&subtasks=false&page=${page}&limit=100`,
+    (_data, batch) => batch.length < 100,
+    "ClickUp API error",
+  );
   // FILTRO RADICAL: garantizar 100% que ninguna subtarea pase
   return tasks.filter((t) => !t.parent);
 }
@@ -443,20 +526,21 @@ async function fetchAllTasks(listId: string): Promise<any[]> {
 // Bulk time-in-status: { taskId: { status_history: [{status, total_time:{by_minute, since}}], current_status: {...} } }
 async function fetchBulkTimeInStatus(taskIds: string[]): Promise<Record<string, any>> {
   const out: Record<string, any> = {};
-  for (let i = 0; i < taskIds.length; i += 100) {
-    const batch = taskIds.slice(i, i + 100);
-    const qs = batch.map((id) => `task_ids=${encodeURIComponent(id)}`).join("&");
-    try {
-      const res = await fetch(`${BASE_URL}/task/bulk_time_in_status/task_ids/?${qs}`, {
-        headers: { Authorization: getClickUpToken() },
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      Object.assign(out, data ?? {});
-    } catch {
-      // batch error: continuamos con datos parciales
-    }
-  }
+  const batches: string[][] = [];
+  for (let i = 0; i < taskIds.length; i += 100) batches.push(taskIds.slice(i, i + 100));
+  await Promise.all(
+    batches.map(async (batch) => {
+      const qs = batch.map((id) => `task_ids=${encodeURIComponent(id)}`).join("&");
+      try {
+        const res = await clickUpFetch(`${BASE_URL}/task/bulk_time_in_status/task_ids/?${qs}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        Object.assign(out, data ?? {});
+      } catch {
+        // batch error: continuamos con datos parciales
+      }
+    }),
+  );
   return out;
 }
 
@@ -1725,38 +1809,26 @@ const TAX_RETURN_FIELD_IDS = {
 
 let _taxReturnCache: { data: TaxReturnTask[]; ts: number } | null = null;
 
+// Tope de páginas (0..50) para no quedar en loop si ClickUp nunca marca el fin.
+const TAX_RETURN_MAX_PAGE = 50;
+
 async function fetchAllTasksByView(viewId: string): Promise<any[]> {
-  const tasks: any[] = [];
-  let page = 0;
-  while (true) {
-    const res = await fetch(`${BASE_URL}/view/${viewId}/task?page=${page}`, {
-      headers: { Authorization: getClickUpToken() },
-    });
-    if (!res.ok) throw new Error(`ClickUp View API error ${res.status}: ${await res.text()}`);
-    const data = await res.json();
-    const batch: any[] = data?.tasks ?? [];
-    tasks.push(...batch);
-    if (data?.last_page === true || batch.length === 0) break;
-    page++;
-    if (page > 50) break;
-  }
+  const tasks = await fetchPagesConcurrently(
+    (page) => `${BASE_URL}/view/${viewId}/task?page=${page}`,
+    (data, batch) => data?.last_page === true || batch.length === 0,
+    "ClickUp View API error",
+    TAX_RETURN_MAX_PAGE,
+  );
   return tasks.filter((t) => !t.parent);
 }
 
 async function fetchAllTasksByList(listId: string): Promise<any[]> {
-  const tasks: any[] = [];
-  let page = 0;
-  while (true) {
-    const url = `${BASE_URL}/list/${listId}/task?page=${page}&subtasks=false&include_closed=true`;
-    const res = await fetch(url, { headers: { Authorization: getClickUpToken() } });
-    if (!res.ok) throw new Error(`ClickUp List API error ${res.status}: ${await res.text()}`);
-    const data = await res.json();
-    const batch: any[] = data?.tasks ?? [];
-    tasks.push(...batch);
-    if (data?.last_page === true || batch.length === 0 || batch.length < 100) break;
-    page++;
-    if (page > 50) break;
-  }
+  const tasks = await fetchPagesConcurrently(
+    (page) => `${BASE_URL}/list/${listId}/task?page=${page}&subtasks=false&include_closed=true`,
+    (data, batch) => data?.last_page === true || batch.length < 100,
+    "ClickUp List API error",
+    TAX_RETURN_MAX_PAGE,
+  );
   return tasks.filter((t) => !t.parent);
 }
 
