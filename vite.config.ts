@@ -26,9 +26,11 @@ function loadLocalServerEnv() {
 // Runtime fijo: si no, Nitro elige bun1.x cuando el build corre bajo Bun.
 // Va en una constante porque el tipo del wrapper no declara `vercel`, aunque
 // reenvía todas las opciones a nitro() tal cual.
+// maxDuration: 60 s porque clickUpFetch puede esperar hasta ~60 s ante un 429
+// de ClickUp (src/lib/clickup-api.ts); sin esto Vercel podría cortar antes.
 const nitroOptions = {
   preset: "vercel",
-  vercel: { functions: { runtime: "nodejs22.x" } },
+  vercel: { functions: { runtime: "nodejs22.x", maxDuration: 60 } },
 };
 
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).

@@ -1770,9 +1770,10 @@ export function getBankTaskExtremes(tasks: BankTask[]) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TAX RETURN (ClickUp View: 901407106445)
+// TAX RETURN (ClickUp List: 901407106445)
 // ═══════════════════════════════════════════════════════════════
-const TAX_RETURN_VIEW_ID = "901407106445";
+// Es un ID de lista: /view/901407106445 da 404 (View Not Found).
+const TAX_RETURN_LIST_ID = "901407106445";
 
 export type TipoLLC = "Single-member" | "Multi-member" | "Priority-MM" | "Priority-SM";
 export const TIPOS_LLC: { id: TipoLLC | "all"; name: string }[] = [
@@ -1800,7 +1801,7 @@ export interface TaxReturnTask {
 }
 
 // IDs de custom fields verificados contra la API real de ClickUp
-// (view/list "Tax Return" — 901407106445).
+// (lista "Tax Return" — 901407106445).
 const TAX_RETURN_FIELD_IDS = {
   infoRecibida: "dcfbc610-a620-4f20-817e-13dbd63aeffa",
   envioFirmarCliente: "6840720f-6c24-44c6-a583-ff267efced4b",
@@ -1812,16 +1813,6 @@ let _taxReturnCache: { data: TaxReturnTask[]; ts: number } | null = null;
 // Tope de páginas (0..50) para no quedar en loop si ClickUp nunca marca el fin.
 const TAX_RETURN_MAX_PAGE = 50;
 
-async function fetchAllTasksByView(viewId: string): Promise<any[]> {
-  const tasks = await fetchPagesConcurrently(
-    (page) => `${BASE_URL}/view/${viewId}/task?page=${page}`,
-    (data, batch) => data?.last_page === true || batch.length === 0,
-    "ClickUp View API error",
-    TAX_RETURN_MAX_PAGE,
-  );
-  return tasks.filter((t) => !t.parent);
-}
-
 async function fetchAllTasksByList(listId: string): Promise<any[]> {
   const tasks = await fetchPagesConcurrently(
     (page) => `${BASE_URL}/list/${listId}/task?page=${page}&subtasks=false&include_closed=true`,
@@ -1830,16 +1821,6 @@ async function fetchAllTasksByList(listId: string): Promise<any[]> {
     TAX_RETURN_MAX_PAGE,
   );
   return tasks.filter((t) => !t.parent);
-}
-
-async function fetchTaxReturnRaw(id: string): Promise<any[]> {
-  // Try as view first, then fall back to list endpoint (the ID might be a list ID).
-  try {
-    return await fetchAllTasksByView(id);
-  } catch (err) {
-    console.warn("[TaxReturn] view endpoint failed, trying list endpoint:", err);
-    return await fetchAllTasksByList(id);
-  }
 }
 
 function getCustomFieldDropdownLabel(fields: any[], name: string): string | null {
@@ -1922,7 +1903,7 @@ function mapTaxReturnTask(raw: any): TaxReturnTask | null {
 
 export async function fetchTaxReturnTasks(): Promise<TaxReturnTask[]> {
   if (_taxReturnCache && Date.now() - _taxReturnCache.ts < CACHE_TTL_MS) return _taxReturnCache.data;
-  const raw = await fetchTaxReturnRaw(TAX_RETURN_VIEW_ID);
+  const raw = await fetchAllTasksByList(TAX_RETURN_LIST_ID);
   const data = raw.map(mapTaxReturnTask).filter((t): t is TaxReturnTask => t !== null);
   _taxReturnCache = { data, ts: Date.now() };
   return data;
