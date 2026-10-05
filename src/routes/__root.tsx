@@ -9,6 +9,9 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 
+import { useEffect } from "react";
+
+import { installSessionExpiryRedirect } from "../lib/auth-client";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -115,6 +118,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    installSessionExpiryRedirect();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

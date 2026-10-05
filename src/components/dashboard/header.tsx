@@ -22,6 +22,7 @@ import { CalendarIcon, Menu } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { UserMenu } from "./user-menu";
 
 interface DateRange {
   from: Date | null;
@@ -163,6 +164,8 @@ export function Header({
             </PopoverContent>
           </Popover>
         </div>
+
+        <UserMenu />
       </div>
 
       {/* Bottom Row - State, Package, and Bank Filters */}

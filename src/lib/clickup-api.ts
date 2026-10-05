@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSession } from "./auth-middleware";
 
 // ============================================================
 // clickup-api.ts
@@ -961,6 +962,7 @@ export async function fetchBankTasks(): Promise<BankTask[]> {
 // ─── FUNCIONES DE FILTRO (misma firma que mock-data.ts) ────
 
 export const getFilteredTasks = createServerFn({ method: "GET" })
+  .middleware([requireSession])
   .inputValidator(
     (data: {
       processType: ProcessType | "all";
@@ -992,6 +994,7 @@ export const getFilteredTasks = createServerFn({ method: "GET" })
   });
 
 export const getFilteredBankTasks = createServerFn({ method: "GET" })
+  .middleware([requireSession])
   .inputValidator(
     (data: {
       dateRange?: { from: Date | null; to: Date | null };
@@ -1059,6 +1062,7 @@ export async function fetchAnnualReportsTasks(): Promise<AnnualReportTask[]> {
 }
 
 export const getFilteredAnnualReports = createServerFn({ method: "GET" })
+  .middleware([requireSession])
   .inputValidator(
     (data: {
       state?: StateType | "all";
@@ -1111,6 +1115,7 @@ export async function fetchRegisteredAgentsTasks(): Promise<AgenteRegistradoTask
 }
 
 export const getFilteredAgentesRegistrados = createServerFn({ method: "GET" })
+  .middleware([requireSession])
   .inputValidator(
     (data: {
       state?: StateType | "all";
@@ -1304,6 +1309,7 @@ export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
 }
 
 export const getFilteredCXTickets = createServerFn({ method: "GET" })
+  .middleware([requireSession])
   .inputValidator(
     (data: {
       state?: StateType | "all";
@@ -1910,6 +1916,7 @@ export async function fetchTaxReturnTasks(): Promise<TaxReturnTask[]> {
 }
 
 export const getFilteredTaxReturns = createServerFn({ method: "GET" })
+  .middleware([requireSession])
   .inputValidator(
     (data: {
       dateRange?: { from: Date | null; to: Date | null };
