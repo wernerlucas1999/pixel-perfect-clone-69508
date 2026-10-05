@@ -9,7 +9,6 @@ import { BottleneckAnalysis } from "@/components/dashboard/bottleneck-analysis";
 import { BankStatusCards } from "@/components/dashboard/bank-status-cards";
 import { AnnualReportsView } from "@/components/dashboard/annual-reports-view";
 import { AgentesRegistradosView } from "@/components/dashboard/agentes-registrados-view";
-import { CXTicketsView } from "@/components/dashboard/cx-tickets-view";
 import { TaxReturnView } from "@/components/dashboard/tax-return-view";
 
 import {
@@ -17,7 +16,6 @@ import {
   getFilteredBankTasks,
   getFilteredAnnualReports,
   getFilteredAgentesRegistrados,
-  getFilteredCXTickets,
   getFilteredTaxReturns,
   getFunnelData,
   getLLCTaskExtremes,
@@ -30,8 +28,6 @@ import {
   getAnnualReportsPieData,
   calculateAgentesKPIs,
   getAgentesStatusChartData,
-  calculateCXTicketsKPIs,
-  getCXTicketsByAssignee,
   calculateTaxReturnKPIs,
   getTaxReturnByAssignee,
   getTaxReturnTaskExtremes,
@@ -44,7 +40,6 @@ import {
   type BankTask,
   type AnnualReportTask,
   type AgenteRegistradoTask,
-  type CXTicket,
   type TaxReturnTask,
 } from "@/lib/clickup-api";
 import { Spinner } from "@/components/ui/spinner";
@@ -84,19 +79,6 @@ const defaultAgentesKPIs = {
   completado: 0,
   completionRate: 0,
 };
-const defaultCXTicketsKPIs = {
-  totalTickets: 0,
-  pendientes: 0,
-  enProgreso: 0,
-  completadas: 0,
-  abiertos: 0,
-  resueltos: 0,
-  respondedTickets: 0,
-  avgResponseHours: 0,
-  sameDayPercent: 0,
-  resolutionRate: 0,
-};
-
 const defaultTaxReturnKPIs = {
   totalCompleted: 0,
   inProgressTotal: 0,
@@ -177,10 +159,6 @@ function DashboardPage() {
     { status: string; count: number; fill: string }[]
   >([]);
 
-  const [, setFilteredCXTickets] = useState<CXTicket[]>([]);
-  const [cxTicketsKPIs, setCXTicketsKPIs] = useState(defaultCXTicketsKPIs);
-  const [cxByAssignee, setCXByAssignee] = useState<{ assignee: string; count: number }[]>([]);
-
   const [, setFilteredTaxReturns] = useState<TaxReturnTask[]>([]);
   const [taxReturnKPIs, setTaxReturnKPIs] = useState(defaultTaxReturnKPIs);
   const [taxReturnByAssignee, setTaxReturnByAssignee] = useState<
@@ -258,19 +236,6 @@ function DashboardPage() {
     }
   }, [selectedState, selectedPackage, dateRange]);
 
-  const fetchCXTicketsData = useCallback(async () => {
-    try {
-      const tickets = await getFilteredCXTickets({
-        data: { state: selectedState, pkg: selectedPackage, dateRange },
-      });
-      setFilteredCXTickets(tickets);
-      setCXTicketsKPIs(calculateCXTicketsKPIs(tickets));
-      setCXByAssignee(getCXTicketsByAssignee(tickets));
-    } catch (err) {
-      console.error("Error fetching CX Tickets:", err);
-    }
-  }, [selectedState, selectedPackage, dateRange]);
-
   const fetchTaxReturnData = useCallback(async () => {
     try {
       const items = await getFilteredTaxReturns({
@@ -308,9 +273,6 @@ function DashboardPage() {
           case "agentes_registrados":
             await fetchAgentesData();
             break;
-          case "ticketera_cx":
-            await fetchCXTicketsData();
-            break;
           case "tax_return":
             await fetchTaxReturnData();
             break;
@@ -333,7 +295,6 @@ function DashboardPage() {
     fetchBankData,
     fetchAnnualReportsData,
     fetchAgentesData,
-    fetchCXTicketsData,
     fetchTaxReturnData,
   ]);
 
@@ -423,9 +384,6 @@ function DashboardPage() {
         return (
           <AgentesRegistradosView kpis={agentesKPIs} statusChartData={agentesStatusChartData} />
         );
-
-      case "ticketera_cx":
-        return <CXTicketsView kpis={cxTicketsKPIs} byAssignee={cxByAssignee} />;
 
       case "tax_return":
         return (

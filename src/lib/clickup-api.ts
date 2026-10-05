@@ -28,7 +28,6 @@ const LIST_IDS = {
   bank_application: "900200216649", // Lista "Aplicaciones 2.0"
   // annual_reports:    "TU_ID_AQUI",   // Completar después
   // agentes_registrados: "TU_ID_AQUI", // Completar después
-  // ticketera_cx:      "TU_ID_AQUI",   // Completar después
 };
 
 const BASE_URL = "https://api.clickup.com/api/v2";
@@ -39,7 +38,6 @@ export type ProcessType =
   | "bank_application"
   | "annual_reports"
   | "agentes_registrados"
-  | "ticketera_cx"
   | "tax_return"
   | "other";
 
@@ -188,7 +186,6 @@ export const PROCESSES: Process[] = [
   { id: "bank_application", name: "Aplicacion Bancaria", color: "#3b82f6" },
   { id: "annual_reports", name: "Annual Reports", color: "#8b5cf6" },
   { id: "agentes_registrados", name: "Agentes Registrados", color: "#f97316" },
-  { id: "ticketera_cx", name: "Ticketera CX-Filings", color: "#ec4899" },
   { id: "tax_return", name: "Tax Return", color: "#14b8a6" },
   { id: "other", name: "Otros", color: "#f59e0b" },
 ];
@@ -264,24 +261,6 @@ export interface AgenteRegistradoTask {
   status: AgenteStatus;
   assignee: string;
 }
-export interface CXTicket {
-  id: string;
-  subject: string;
-  client_name: string;
-  created_at: string;
-  created_at_ms: number | null;
-  first_response_at: string | null;
-  first_response_at_ms: number | null;
-  response_delay_ms: number | null;
-  resolved_at: string | null;
-  status: "abierto" | "en_progreso" | "resuelto" | "cerrado";
-  priority: "alta" | "media" | "baja";
-  state: StateType;
-  package: PackageType;
-  assignee: string;
-  assignees: string[];
-}
-
 // ─── HELPERS ───────────────────────────────────────────────
 
 function msToDate(ms: number | string | null): string | null {
@@ -1163,177 +1142,6 @@ function filterByDateRange<T extends { date_created_ms: number | null }>(
   });
 }
 
-// ─── TICKETERA / CX (ClickUp list real) ────────────────────
-const TICKETERA_LIST_ID = "901409992423";
-let ticketeraCache: CXTicket[] | null = null;
-
-const TICKETERA_IN_PROGRESS = new Set([
-  "filings working",
-  "cx working",
-  "client imput",
-  "client input",
-  "accounting working",
-]);
-const TICKETERA_COMPLETED = new Set(["ticket solucionado", "ticket cerrado"]);
-
-function mapTicketeraStatus(raw: string): CXTicket["status"] {
-  const raw0 = (raw || "").trim();
-  // Validación exacta para PENDIENTE en mayúsculas
-  if (raw0.toUpperCase() === "PENDIENTE") return "abierto";
-  const s = raw0.toLowerCase();
-  if (TICKETERA_IN_PROGRESS.has(s)) return "en_progreso";
-  if (TICKETERA_COMPLETED.has(s)) return "resuelto";
-  // Tareas fuera del flujo definido se ignoran del total
-  return "cerrado";
-}
-
-const FIRST_RESPONSE_FIELD_NAMES = [
-  "fecha de respuesta",
-  "fecha respuesta",
-];
-
-const RESPONSE_DELAY_FIELD_NAMES = [
-  "demora primera respuesta",
-  "demora primer respuesta",
-  "demora de primera respuesta",
-];
-
-function getCustomFieldNumber(fields: any[], names: string[]): number | null {
-  if (!Array.isArray(fields)) return null;
-  const lowered = names.map((n) => n.toLowerCase().trim());
-  // Match exacto o por palabras clave ("demora" + "respuesta")
-  const f = fields.find((f: any) => {
-    const nm = String(f?.name ?? "").toLowerCase().trim();
-    if (!nm) return false;
-    if (lowered.includes(nm)) return true;
-    if (nm.includes("demora") && nm.includes("respuesta")) return true;
-    return false;
-  });
-  if (!f || f.value === undefined || f.value === null || f.value === "") return null;
-  let raw: any = f.value;
-  if (typeof raw === "object") raw = raw.value ?? raw.number ?? raw;
-  const n = typeof raw === "number" ? raw : parseFloat(String(raw).trim());
-  return isFinite(n) ? n : null;
-}
-
-const CREATION_FIELD_NAMES = [
-  "fecha de creación",
-  "fecha de creacion",
-  "creation date",
-  "fecha creación",
-  "fecha creacion",
-];
-
-function parseFlexibleDateMs(value: any): number | null {
-  if (value === undefined || value === null || value === "") return null;
-  if (typeof value === "number" && isFinite(value) && value > 0) return value;
-  const str = String(value).trim();
-  if (!str) return null;
-  if (/^\d+$/.test(str)) {
-    const n = Number(str);
-    return isFinite(n) && n > 0 ? n : null;
-  }
-  const dmy = str.match(
-    /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
-  );
-  if (dmy) {
-    let y = parseInt(dmy[3]);
-    if (y < 100) y += 2000;
-    const m = parseInt(dmy[2]) - 1;
-    const d = parseInt(dmy[1]);
-    const hh = dmy[4] ? parseInt(dmy[4]) : 0;
-    const mm = dmy[5] ? parseInt(dmy[5]) : 0;
-    const ss = dmy[6] ? parseInt(dmy[6]) : 0;
-    const ts = Date.UTC(y, m, d, hh, mm, ss);
-    return isFinite(ts) ? ts : null;
-  }
-  const parsed = Date.parse(str);
-  return isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function getCustomFieldMs(fields: any[], names: string[]): number | null {
-  if (!Array.isArray(fields)) return null;
-  const lowered = names.map((n) => n.toLowerCase().trim());
-  const f = fields.find((f: any) =>
-    lowered.includes(String(f?.name ?? "").toLowerCase().trim()),
-  );
-  if (!f) return null;
-  const raw =
-    f.value && typeof f.value === "object" && "date" in f.value ? f.value.date : f.value;
-  return parseFlexibleDateMs(raw);
-}
-
-export async function fetchTicketeraTasks(): Promise<CXTicket[]> {
-  if (ticketeraCache) return ticketeraCache;
-  const raw = await fetchAllTasks(TICKETERA_LIST_ID);
-  ticketeraCache = raw
-    .map((t: any): CXTicket | null => {
-      const rawStatus = (t?.status?.status ?? "").toLowerCase().trim();
-      const isPendiente = rawStatus === "pendiente";
-      const isInProgress = TICKETERA_IN_PROGRESS.has(rawStatus);
-      const isCompleted = TICKETERA_COMPLETED.has(rawStatus);
-      if (!isPendiente && !isInProgress && !isCompleted) return null;
-      const customCreatedMs = getCustomFieldMs(t?.custom_fields ?? [], CREATION_FIELD_NAMES);
-      const dateCreatedMs = t?.date_created ? Number(t.date_created) : null;
-      // Filtro estricto por task.date_created (lo usa el filtro de rango del header)
-      const createdMs =
-        dateCreatedMs && isFinite(dateCreatedMs) ? dateCreatedMs : customCreatedMs;
-      const firstRespMs = getCustomFieldMs(t?.custom_fields ?? [], FIRST_RESPONSE_FIELD_NAMES);
-      const responseDelayMs = getCustomFieldNumber(
-        t?.custom_fields ?? [],
-        RESPONSE_DELAY_FIELD_NAMES,
-      );
-      const assignees: string[] = Array.isArray(t?.assignees)
-        ? t.assignees.map((a: any) => a?.username ?? a?.email ?? "Sin asignar").filter(Boolean)
-        : [];
-      return {
-        id: String(t.id),
-        subject: t.name ?? "",
-        client_name: assignees[0] ?? "",
-        created_at: msToDate(createdMs) ?? "",
-        created_at_ms: createdMs && isFinite(createdMs) ? createdMs : null,
-        first_response_at: msToDate(firstRespMs),
-        first_response_at_ms: firstRespMs,
-        response_delay_ms: responseDelayMs,
-        resolved_at: msToDate(t.date_closed),
-        status: mapTicketeraStatus(rawStatus),
-        priority: "media",
-        state: "new_mexico" as StateType,
-        package: "solo_llc" as PackageType,
-        assignee: assignees[0] ?? "Sin asignar",
-        assignees: assignees.length > 0 ? assignees : ["Sin asignar"],
-      };
-    })
-    .filter((t): t is CXTicket => t !== null);
-  return ticketeraCache;
-}
-
-export const getFilteredCXTickets = createServerFn({ method: "GET" })
-  .middleware([requireSession])
-  .inputValidator(
-    (data: {
-      state?: StateType | "all";
-      pkg?: PackageType | "all";
-      dateRange?: { from: Date | null; to: Date | null };
-    }) => data,
-  )
-  .handler(async ({ data: { dateRange } }): Promise<CXTicket[]> => {
-    const all = await fetchTicketeraTasks();
-    const from = dateRange?.from ? dateRange.from.getTime() : null;
-    // Incluir el día "to" completo (hasta 23:59:59.999)
-    const to = dateRange?.to
-      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
-      : null;
-    if (from === null && to === null) return all;
-    return all.filter((t) => {
-      const ms = t.created_at_ms;
-      if (typeof ms !== "number" || !isFinite(ms)) return false;
-      if (from !== null && ms < from) return false;
-      if (to !== null && ms > to) return false;
-      return true;
-    });
-  });
-
 // ─── KPI CALCULATORS (idénticos a mock-data.ts) ────────────
 
 export function getFunnelData(tasks: Task[]) {
@@ -1657,91 +1465,6 @@ export function getAgentesStatusChartData(tasks: AgenteRegistradoTask[]) {
     { status: "Completado", count: k.completado, fill: "#22c55e" },
   ];
 }
-export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
-  const pendientes = tickets.filter((t) => t.status === "abierto").length;
-  const enProgreso = tickets.filter((t) => t.status === "en_progreso").length;
-  const completadas = tickets.filter((t) => t.status === "resuelto").length;
-  const totalTickets = pendientes + enProgreso + completadas;
-
-  // Usar directamente el Custom Field "Demora primera respuesta" (en días) calculado por ClickUp.
-  // parseFloat puro, sin redondeos intermedios.
-  let totalDemora = 0;
-  let cantidadTicketsValidos = 0;
-  let sameDayCount = 0;
-  for (const t of tickets) {
-    const raw = t.response_delay_ms;
-    if (raw === null || raw === undefined) continue;
-    const n = typeof raw === "number" ? raw : parseFloat(String(raw));
-    if (isNaN(n) || !isFinite(n)) continue;
-    totalDemora += n;
-    cantidadTicketsValidos += 1;
-    if (n < 1) sameDayCount += 1;
-  }
-  const avgResponseDays =
-    cantidadTicketsValidos > 0 ? totalDemora / cantidadTicketsValidos : 0;
-  const sameDayPercent =
-    cantidadTicketsValidos > 0
-      ? Math.round((sameDayCount / cantidadTicketsValidos) * 100)
-      : 0;
-
-  const resolutionRate = totalTickets > 0 ? Math.round((completadas / totalTickets) * 100) : 0;
-
-  return {
-    totalTickets,
-    pendientes,
-    enProgreso,
-    completadas,
-    abiertos: pendientes + enProgreso,
-    resueltos: completadas,
-    respondedTickets: cantidadTicketsValidos,
-    // Mantengo el nombre del campo por compat; el valor es el promedio en DÍAS sin redondear.
-    avgResponseHours: avgResponseDays,
-    avgResponseTime: avgResponseDays * 24 * 60,
-    sameDayPercent,
-    avgResolutionTime: 0,
-    resolutionRate,
-    prioridadAlta: 0,
-    prioridadMedia: 0,
-    prioridadBaja: 0,
-  };
-}
-
-const CX_ALLOWED_ASSIGNEES = ["Tomas Susevich", "Camila Aguirre", "Lucas Werner"];
-
-function matchAllowedAssignee(name: string): string | null {
-  const n = (name || "").toLowerCase().trim();
-  for (const allowed of CX_ALLOWED_ASSIGNEES) {
-    const a = allowed.toLowerCase();
-    if (n === a || n.includes(a) || a.includes(n)) return allowed;
-    // Coincidencia por primer nombre
-    const first = a.split(" ")[0];
-    if (first && n.includes(first)) return allowed;
-  }
-  return null;
-}
-
-export function getCXTicketsByAssignee(
-  tickets: CXTicket[],
-): { assignee: string; count: number }[] {
-  const counts = new Map<string, number>();
-  // Inicializar siempre los 3 colaboradores fijos (para que aparezcan aunque sea con 0)
-  for (const a of CX_ALLOWED_ASSIGNEES) counts.set(a, 0);
-
-  for (const t of tickets) {
-    if (t.status !== "resuelto") continue;
-    const list = t.assignees && t.assignees.length > 0 ? t.assignees : [];
-    for (const a of list) {
-      const allowed = matchAllowedAssignee(a);
-      if (!allowed) continue; // Excluye Atl, María José Manco y cualquier otro
-      counts.set(allowed, (counts.get(allowed) ?? 0) + 1);
-    }
-  }
-  return CX_ALLOWED_ASSIGNEES.map((assignee) => ({
-    assignee,
-    count: counts.get(assignee) ?? 0,
-  }));
-}
-
 // ─── EXTREMOS DE CICLO (más rápida / más lenta) ────────────
 export interface TaskExtreme {
   name: string;

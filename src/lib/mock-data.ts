@@ -5,7 +5,6 @@ export type ProcessType =
   | "bank_application"
   | "annual_reports"
   | "agentes_registrados"
-  | "ticketera_cx"
   | "other";
 
 export type StateType = "new_mexico" | "wyoming" | "delaware" | "florida" | "texas";
@@ -170,21 +169,6 @@ export interface AgenteRegistradoTask {
   assignee: string;
 }
 
-// CX Ticket
-export interface CXTicket {
-  id: string;
-  subject: string;
-  client_name: string;
-  created_at: string;
-  first_response_at: string | null;
-  resolved_at: string | null;
-  status: "abierto" | "en_progreso" | "resuelto" | "cerrado";
-  priority: "alta" | "media" | "baja";
-  state: StateType;
-  package: PackageType;
-  assignee: string;
-}
-
 export interface Process {
   id: ProcessType;
   name: string;
@@ -196,7 +180,6 @@ export const PROCESSES: Process[] = [
   { id: "bank_application", name: "Aplicacion Bancaria", color: "#3b82f6" },
   { id: "annual_reports", name: "Annual Reports", color: "#8b5cf6" },
   { id: "agentes_registrados", name: "Agentes Registrados", color: "#f97316" },
-  { id: "ticketera_cx", name: "Ticketera CX-Filings", color: "#ec4899" },
   { id: "other", name: "Otros", color: "#f59e0b" },
 ];
 
@@ -1231,167 +1214,6 @@ export const AGENTES_REGISTRADOS_DATA: AgenteRegistradoTask[] = [
   },
 ];
 
-// CX Tickets Mock Data
-export const CX_TICKETS_DATA: CXTicket[] = [
-  {
-    id: "cx-001",
-    subject: "Consulta sobre estado de LLC",
-    client_name: "Rodriguez Holdings",
-    created_at: "2026-05-10T09:30:00",
-    first_response_at: "2026-05-10T10:15:00",
-    resolved_at: "2026-05-10T14:00:00",
-    status: "cerrado",
-    priority: "media",
-    state: "new_mexico",
-    package: "pro",
-    assignee: "Laura Fernandez",
-  },
-  {
-    id: "cx-002",
-    subject: "Problema con documentos EIN",
-    client_name: "Tech Solutions",
-    created_at: "2026-05-12T11:00:00",
-    first_response_at: "2026-05-12T11:20:00",
-    resolved_at: null,
-    status: "en_progreso",
-    priority: "alta",
-    state: "wyoming",
-    package: "all_in",
-    assignee: "Pedro Ramirez",
-  },
-  {
-    id: "cx-003",
-    subject: "Actualizacion de datos",
-    client_name: "Green Energy",
-    created_at: "2026-05-13T08:45:00",
-    first_response_at: null,
-    resolved_at: null,
-    status: "abierto",
-    priority: "baja",
-    state: "delaware",
-    package: "starter",
-    assignee: "Laura Fernandez",
-  },
-  {
-    id: "cx-004",
-    subject: "Solicitud de Annual Report",
-    client_name: "Sunset Investments",
-    created_at: "2026-05-11T14:20:00",
-    first_response_at: "2026-05-11T14:35:00",
-    resolved_at: "2026-05-11T16:00:00",
-    status: "resuelto",
-    priority: "media",
-    state: "florida",
-    package: "solo_llc",
-    assignee: "Pedro Ramirez",
-  },
-  {
-    id: "cx-005",
-    subject: "Error en facturacion",
-    client_name: "Blue Ocean",
-    created_at: "2026-05-14T10:00:00",
-    first_response_at: "2026-05-14T10:10:00",
-    resolved_at: null,
-    status: "en_progreso",
-    priority: "alta",
-    state: "texas",
-    package: "pro",
-    assignee: "Laura Fernandez",
-  },
-  {
-    id: "cx-006",
-    subject: "Cambio de agente registrado",
-    client_name: "Mountain Peak",
-    created_at: "2026-05-09T16:30:00",
-    first_response_at: "2026-05-09T16:45:00",
-    resolved_at: "2026-05-10T09:00:00",
-    status: "cerrado",
-    priority: "media",
-    state: "new_mexico",
-    package: "all_in",
-    assignee: "Pedro Ramirez",
-  },
-  {
-    id: "cx-007",
-    subject: "Consulta sobre renovacion",
-    client_name: "Coastal Properties",
-    created_at: "2026-05-14T09:15:00",
-    first_response_at: null,
-    resolved_at: null,
-    status: "abierto",
-    priority: "media",
-    state: "wyoming",
-    package: "starter",
-    assignee: "Laura Fernandez",
-  },
-  {
-    id: "cx-008",
-    subject: "Urgente: Documento faltante",
-    client_name: "Digital Nomads",
-    created_at: "2026-05-14T08:00:00",
-    first_response_at: "2026-05-14T08:05:00",
-    resolved_at: null,
-    status: "en_progreso",
-    priority: "alta",
-    state: "delaware",
-    package: "pro",
-    assignee: "Pedro Ramirez",
-  },
-  {
-    id: "cx-009",
-    subject: "Informacion de cuenta bancaria",
-    client_name: "River Valley",
-    created_at: "2026-05-13T13:00:00",
-    first_response_at: "2026-05-13T13:30:00",
-    resolved_at: "2026-05-13T15:00:00",
-    status: "resuelto",
-    priority: "baja",
-    state: "florida",
-    package: "solo_llc",
-    assignee: "Laura Fernandez",
-  },
-  {
-    id: "cx-010",
-    subject: "Pregunta sobre paquetes",
-    client_name: "Urban Dev",
-    created_at: "2026-05-14T11:30:00",
-    first_response_at: null,
-    resolved_at: null,
-    status: "abierto",
-    priority: "baja",
-    state: "texas",
-    package: "starter",
-    assignee: "Pedro Ramirez",
-  },
-  {
-    id: "cx-011",
-    subject: "Reenvio de certificados",
-    client_name: "Pacific Traders",
-    created_at: "2026-05-12T15:00:00",
-    first_response_at: "2026-05-12T15:10:00",
-    resolved_at: "2026-05-12T17:00:00",
-    status: "cerrado",
-    priority: "media",
-    state: "new_mexico",
-    package: "all_in",
-    assignee: "Laura Fernandez",
-  },
-  {
-    id: "cx-012",
-    subject: "Cancelacion de servicio",
-    client_name: "Sunshine Rentals",
-    created_at: "2026-05-13T10:45:00",
-    first_response_at: "2026-05-13T11:00:00",
-    resolved_at: null,
-    status: "en_progreso",
-    priority: "alta",
-    state: "wyoming",
-    package: "pro",
-    assignee: "Pedro Ramirez",
-  },
-];
-
-// Filter interface for all filters
 export interface FilterOptions {
   state?: StateType | "all";
   package?: PackageType | "all";
@@ -1736,17 +1558,6 @@ export function getFilteredAgentesRegistrados(
   return filtered;
 }
 
-// Filter CX Tickets by state and package
-export function getFilteredCXTickets(
-  state?: StateType | "all",
-  pkg?: PackageType | "all",
-): CXTicket[] {
-  let filtered = CX_TICKETS_DATA;
-  if (state && state !== "all") filtered = filtered.filter((t) => t.state === state);
-  if (pkg && pkg !== "all") filtered = filtered.filter((t) => t.package === pkg);
-  return filtered;
-}
-
 // Calculate Annual Reports KPIs - Only 3 statuses
 export function calculateAnnualReportsKPIs(tasks: AnnualReportTask[]) {
   const total = tasks.length;
@@ -1792,58 +1603,4 @@ export function getAgentesStatusChartData(tasks: AgenteRegistradoTask[]) {
     { status: "Esperando Invoice", count: esperandoInvoice, fill: "#f59e0b" },
     { status: "Completado", count: completado, fill: "#22c55e" },
   ];
-}
-
-// Calculate CX Tickets KPIs - Priority counts and avg resolution time
-export function calculateCXTicketsKPIs(tickets: CXTicket[]) {
-  const totalTickets = tickets.length;
-  const abiertos = tickets.filter(
-    (t) => t.status === "abierto" || t.status === "en_progreso",
-  ).length;
-  const resueltos = tickets.filter((t) => t.status === "resuelto" || t.status === "cerrado").length;
-
-  // Priority counts
-  const prioridadAlta = tickets.filter((t) => t.priority === "alta").length;
-  const prioridadMedia = tickets.filter((t) => t.priority === "media").length;
-  const prioridadBaja = tickets.filter((t) => t.priority === "baja").length;
-
-  // Calculate average resolution time (difference between created_at and resolved_at for closed tickets)
-  const closedTickets = tickets.filter((t) => t.resolved_at !== null);
-  const avgResolutionTime =
-    closedTickets.length > 0
-      ? Math.round(
-          closedTickets.reduce((sum, t) => {
-            const created = new Date(t.created_at);
-            const resolved = new Date(t.resolved_at!);
-            return sum + (resolved.getTime() - created.getTime()) / (1000 * 60); // minutes
-          }, 0) / closedTickets.length,
-        )
-      : 0;
-
-  // Calculate average first response time
-  const ticketsWithResponse = tickets.filter((t) => t.first_response_at !== null);
-  const avgResponseTime =
-    ticketsWithResponse.length > 0
-      ? Math.round(
-          ticketsWithResponse.reduce((sum, t) => {
-            const created = new Date(t.created_at);
-            const responded = new Date(t.first_response_at!);
-            return sum + (responded.getTime() - created.getTime()) / (1000 * 60); // minutes
-          }, 0) / ticketsWithResponse.length,
-        )
-      : 0;
-
-  const resolutionRate = totalTickets > 0 ? Math.round((resueltos / totalTickets) * 100) : 0;
-
-  return {
-    totalTickets,
-    abiertos,
-    resueltos,
-    prioridadAlta,
-    prioridadMedia,
-    prioridadBaja,
-    avgResolutionTime,
-    avgResponseTime,
-    resolutionRate,
-  };
 }
