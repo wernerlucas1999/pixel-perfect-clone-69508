@@ -29,7 +29,7 @@ import {
   calculateAgentesKPIs,
   getAgentesStatusChartData,
   calculateTaxReturnKPIs,
-  getTaxReturnByAssignee,
+  getPeopleBreakdown,
   getTaxReturnTaskExtremes,
   type ProcessType,
   type StateType,
@@ -42,6 +42,7 @@ import {
   type AgenteRegistradoTask,
   type TaxReturnTask,
 } from "@/lib/clickup-api";
+import { getMe, type Me } from "@/lib/session-api";
 import { Spinner } from "@/components/ui/spinner";
 
 export const Route = createFileRoute("/")({
@@ -169,6 +170,18 @@ function DashboardPage() {
     slowest: TaskRecord | null;
   }>({ fastest: null, slowest: null });
 
+  // Solo para mostrar u ocultar; el servidor igual responde 403 sin permiso.
+  const [me, setMe] = useState<Me | null>(null);
+  useEffect(() => {
+    getMe()
+      .then(setMe)
+      .catch((err) => {
+        console.error("Error fetching getMe:", err);
+        setMe(null);
+      });
+  }, []);
+  const canSeeTaxReturnPeople = me?.peopleProcesses.includes("tax_return") ?? false;
+
   const fetchLLCData = useCallback(async () => {
     try {
       const tasks = await getFilteredTasks({
@@ -243,20 +256,44 @@ function DashboardPage() {
       });
       setFilteredTaxReturns(items);
       setTaxReturnKPIs(calculateTaxReturnKPIs(items));
-      setTaxReturnByAssignee(getTaxReturnByAssignee(items));
       setTaxReturnExtremes(getTaxReturnTaskExtremes(items));
     } catch (err) {
       console.error("Error fetching Tax Return:", err);
       // No bloquear el dashboard: dejar KPIs en cero y mostrar aviso.
       setFilteredTaxReturns([]);
       setTaxReturnKPIs(defaultTaxReturnKPIs);
-      setTaxReturnByAssignee([]);
       setTaxReturnExtremes({ fastest: null, slowest: null });
       setError(
         "No se pudo cargar Tax Return (verifica que el ID de lista/vista de ClickUp sea correcto y tenga acceso).",
       );
     }
   }, [dateRange, selectedTipoLLC]);
+
+  // Rendimiento por colaborador: sale de getPeopleBreakdown, el único camino
+  // con datos de personas. Sin permiso ni se pide.
+  useEffect(() => {
+    if (selectedProcess !== "tax_return" || !canSeeTaxReturnPeople) {
+      setTaxReturnByAssignee([]);
+      return;
+    }
+    let cancelled = false;
+    getPeopleBreakdown({
+      data: { process: "tax_return", dateRange, filters: { tipoLLC: selectedTipoLLC } },
+    })
+      .then((breakdown) => {
+        if (cancelled) return;
+        setTaxReturnByAssignee(
+          breakdown.people.map((p) => ({ assignee: p.name, count: p.metrics.closedCount })),
+        );
+      })
+      .catch((err) => {
+        console.error("Error fetching Tax Return por colaborador:", err);
+        if (!cancelled) setTaxReturnByAssignee([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProcess, canSeeTaxReturnPeople, dateRange, selectedTipoLLC]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -391,6 +428,7 @@ function DashboardPage() {
             <TaxReturnView
               kpis={taxReturnKPIs}
               byAssignee={taxReturnByAssignee}
+              showByAssignee={canSeeTaxReturnPeople}
               tipoLLC={selectedTipoLLC}
               onTipoLLCChange={setSelectedTipoLLC}
             />

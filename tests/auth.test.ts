@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 process.env.BETTER_AUTH_SECRET = "test-secret-".padEnd(44, "x");
 process.env.GOOGLE_CLIENT_ID = "test-client-id.apps.googleusercontent.com";
 process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
+process.env.PEOPLE_DATA_PERMISSIONS = "{}";
 
 type AuthModule = typeof import("../src/lib/auth.server");
 let A: AuthModule;

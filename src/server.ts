@@ -11,6 +11,7 @@ import {
   isAllowedAuthRequest,
   resolveAllowedOrigin,
 } from "./lib/auth.server";
+import { getPeoplePermissions, PermissionsConfigError } from "./lib/permissions.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -83,7 +84,8 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 //   /login        → pública; con sesión redirige a /
 //   /_serverFn/*  → 401 sin sesión
 //   todo lo demás → 302 a /login sin sesión
-// Si falta config de auth: 503 en todo, incluido /login (falla cerrada).
+// Si falta config de auth o de permisos: 503 en todo, incluido /login (falla
+// cerrada).
 const SERVER_FN_PREFIX = "/_serverFn/";
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -144,6 +146,21 @@ export async function authGate(request: Request): Promise<Response | null> {
           );
     }
     throw error;
+  }
+
+  // FALLA CERRADA también si la config de permisos falta o está mal escrita.
+  try {
+    getPeoplePermissions();
+  } catch (error) {
+    if (!(error instanceof PermissionsConfigError)) throw error;
+    console.error(error.message);
+    return isServerFn
+      ? jsonResponse(503, { error: "permissions_not_configured" })
+      : htmlResponse(
+          503,
+          "Permisos no configurados",
+          "El dashboard no está disponible hasta que se corrija la configuración de permisos.",
+        );
   }
 
   if (path === AUTH_BASE_PATH || path.startsWith(`${AUTH_BASE_PATH}/`)) {

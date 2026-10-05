@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSession } from "./auth-middleware";
+import { isDashboardProcess, type DashboardProcess } from "./processes";
 
 // ============================================================
 // clickup-api.ts
@@ -145,7 +146,6 @@ export interface Task {
   name: string;
   status: LLCStatus;
   process_type: ProcessType;
-  assignee: string;
   created_at: string;
   closed_at: string | null;
   custom_fields: CustomFields;
@@ -161,7 +161,6 @@ export interface BankTask {
   name: string;
   status: BankStatus;
   process_type: "bank_application";
-  assignee: string;
   created_at: string;
   closed_at: string | null;
   custom_fields: BankCustomFields;
@@ -245,7 +244,6 @@ export interface AnnualReportTask {
   status: AnnualReportStatus;
   state: StateType;
   package: PackageType;
-  assignee: string;
 }
 export type AgenteStatus = "pendiente" | "esperando_invoice" | "completado";
 export interface AgenteRegistradoTask {
@@ -259,8 +257,37 @@ export interface AgenteRegistradoTask {
   date_created_ms: number | null;
   date_closed_ms: number | null;
   status: AgenteStatus;
-  assignee: string;
 }
+
+// ─── DATOS DE PERSONAS ─────────────────────────────────────
+// Los registros en caché llevan `assignees` (lo usa getPeopleBreakdown), pero
+// los tipos públicos de arriba no: las funciones de lista lo sacan SIEMPRE con
+// redactPeople, tenga o no permiso quien pide. Los datos por persona viajan
+// solo por getPeopleBreakdown, que verifica el permiso para ese proceso.
+// Cualquier campo nuevo con datos de personas (emails, usernames, avatares)
+// va dentro de `assignees` o se agrega a PEOPLE_FIELDS.
+export type WithPeople<T> = T & { assignees: string[] };
+
+const PEOPLE_FIELDS = ["assignees"] as const;
+
+// Nombres de los asignados de una tarea cruda de ClickUp (username, o email si
+// no tiene).
+export function extractAssignees(raw: any): string[] {
+  return Array.isArray(raw?.assignees)
+    ? raw.assignees.map((a: any) => a?.username ?? a?.email).filter(Boolean)
+    : [];
+}
+
+// Devuelve copias sin los campos de personas. Nunca modifica `items`: son los
+// objetos del caché, compartidos entre todos los usuarios.
+export function redactPeople<T extends object>(items: readonly WithPeople<T>[]): T[] {
+  return items.map((item) => {
+    const copy: Record<string, unknown> = { ...item };
+    for (const field of PEOPLE_FIELDS) delete copy[field];
+    return copy as T;
+  });
+}
+
 // ─── HELPERS ───────────────────────────────────────────────
 
 function msToDate(ms: number | string | null): string | null {
@@ -546,7 +573,7 @@ function minutesInStatus(entry: any, statusName: string): number {
 
 // ─── MAPPERS ───────────────────────────────────────────────
 
-function mapToTask(raw: any): Task | null {
+export function mapToTask(raw: any): WithPeople<Task> | null {
   const cf = raw.custom_fields ?? [];
   const statusRaw = raw.status?.status ?? "";
   const statusType = String(raw.status?.type ?? "").toLowerCase();
@@ -648,7 +675,7 @@ function mapToTask(raw: any): Task | null {
     name: raw.name,
     status, // Ya validado arriba, no es null aquí
     process_type: "llc_formation",
-    assignee: raw.assignees?.[0]?.username ?? raw.assignees?.[0]?.email ?? "—",
+    assignees: extractAssignees(raw),
     created_at: fechaCreacion,
     closed_at: closedAt,
     custom_fields: {
@@ -667,7 +694,7 @@ function mapToTask(raw: any): Task | null {
   };
 }
 
-function mapToBankTask(raw: any): BankTask | null {
+export function mapToBankTask(raw: any): WithPeople<BankTask> | null {
   const cf = raw.custom_fields ?? [];
   const statusRaw = raw.status?.status ?? "";
   const statusType = String(raw.status?.type ?? "").toLowerCase();
@@ -871,7 +898,7 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
     name: raw.name,
     status,
     process_type: "bank_application",
-    assignee: raw.assignees?.[0]?.username ?? raw.assignees?.[0]?.email ?? "—",
+    assignees: extractAssignees(raw),
     created_at: fechaCreacion,
     closed_at: closedAt,
     custom_fields: {
@@ -900,16 +927,16 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
 }
 
 // ─── CACHE EN MEMORIA (evita re-fetch en cada render) ──────
-let _llcCache: { data: Task[]; ts: number } | null = null;
-let _bankCacheV4: { data: BankTask[]; ts: number } | null = null;
+let _llcCache: { data: WithPeople<Task>[]; ts: number } | null = null;
+let _bankCacheV4: { data: WithPeople<BankTask>[]; ts: number } | null = null;
 // Vista "Métricas 2.0" de ClickUp — fuente de verdad para Aplicación Bancaria
 const BANK_VIEW_ID = "8c901jk-6274";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
-export async function fetchLLCTasks(): Promise<Task[]> {
+export async function fetchLLCTasks(): Promise<WithPeople<Task>[]> {
   if (_llcCache && Date.now() - _llcCache.ts < CACHE_TTL_MS) return _llcCache.data;
   const raw = await fetchAllTasks(LIST_IDS.llc_formation);
-  const data = raw.map(mapToTask).filter((t): t is Task => t !== null);
+  const data = raw.map(mapToTask).filter((t): t is WithPeople<Task> => t !== null);
 
   // ── EIN real: tiempo transcurrido en "ESPERANDO EIN" desde el status_history
   try {
@@ -929,84 +956,99 @@ export async function fetchLLCTasks(): Promise<Task[]> {
   return data;
 }
 
-export async function fetchBankTasks(): Promise<BankTask[]> {
+export async function fetchBankTasks(): Promise<WithPeople<BankTask>[]> {
   if (_bankCacheV4 && Date.now() - _bankCacheV4.ts < CACHE_TTL_MS) return _bankCacheV4.data;
 // Fuente: lista completa "Aplicaciones 2.0" (todas las tareas, sin filtro de vista).
   const raw = await fetchAllTasks(LIST_IDS.bank_application);
-  const data = raw.map(mapToBankTask).filter((t): t is BankTask => t !== null);
+  const data = raw.map(mapToBankTask).filter((t): t is WithPeople<BankTask> => t !== null);
   _bankCacheV4 = { data, ts: Date.now() };
   return data;
 }
 
 // ─── FUNCIONES DE FILTRO (misma firma que mock-data.ts) ────
+// Cada server function de lista delega en una función list* que recibe el
+// loader como parámetro (los tests pasan datos fijos) y SIEMPRE termina en
+// redactPeople.
+
+type DateRangeInput = { from: Date | null; to: Date | null };
+
+export interface LLCTasksInput {
+  processType: ProcessType | "all";
+  dateRange?: DateRangeInput;
+  state?: StateType | "all";
+  pkg?: PackageType | "all";
+}
+
+export async function listLLCTasks(
+  { processType, dateRange, state, pkg }: LLCTasksInput,
+  load: () => Promise<WithPeople<Task>[]> = fetchLLCTasks,
+): Promise<Task[]> {
+  let tasks = await load();
+  if (processType !== "all") tasks = tasks.filter((t) => t.process_type === processType);
+  if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
+  if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
+  if (dateRange?.from || dateRange?.to) {
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+    tasks = tasks.filter((t) => {
+      // Cerrada → usar date_closed; Abierta → usar date_created (proxy de actividad).
+      const refStr = t.closed_at ?? t.created_at;
+      if (!refStr) return false;
+      const refMs = new Date(refStr).getTime();
+      if (isNaN(refMs)) return false;
+      if (fromMs !== null && refMs < fromMs) return false;
+      if (toMs !== null && refMs > toMs) return false;
+      return true;
+    });
+  }
+  return redactPeople(tasks);
+}
 
 export const getFilteredTasks = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator(
-    (data: {
-      processType: ProcessType | "all";
-      dateRange?: { from: Date | null; to: Date | null };
-      state?: StateType | "all";
-      pkg?: PackageType | "all";
-    }) => data,
-  )
-  .handler(async ({ data: { processType, dateRange, state, pkg } }): Promise<Task[]> => {
-    let tasks = await fetchLLCTasks();
-    if (processType !== "all") tasks = tasks.filter((t) => t.process_type === processType);
-    if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
-    if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
-    if (dateRange?.from || dateRange?.to) {
-      const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-      const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-      tasks = tasks.filter((t) => {
-        // Cerrada → usar date_closed; Abierta → usar date_created (proxy de actividad).
-        const refStr = t.closed_at ?? t.created_at;
-        if (!refStr) return false;
-        const refMs = new Date(refStr).getTime();
-        if (isNaN(refMs)) return false;
-        if (fromMs !== null && refMs < fromMs) return false;
-        if (toMs !== null && refMs > toMs) return false;
-        return true;
-      });
-    }
-    return tasks;
-  });
+  .inputValidator((data: LLCTasksInput) => data)
+  .handler(({ data }) => listLLCTasks(data));
+
+export interface BankTasksInput {
+  dateRange?: DateRangeInput;
+  state?: StateType | "all";
+  pkg?: PackageType | "all";
+  bank?: BankType | "all";
+}
 
 export const getFilteredBankTasks = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator(
-    (data: {
-      dateRange?: { from: Date | null; to: Date | null };
-      state?: StateType | "all";
-      pkg?: PackageType | "all";
-      bank?: BankType | "all";
-    }) => data,
-  )
-  .handler(async ({ data: { dateRange, state, pkg, bank } }): Promise<BankTask[]> => {
-    let tasks = await fetchBankTasks();
-    if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
-    if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
-    if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
-    if (dateRange?.from || dateRange?.to) {
-      const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-      const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-      tasks = tasks.filter((t) => {
-        // Filtro estricto por Fecha de Cierre real (date_closed), igual que Agentes Registrados.
-        if (!t.closed_at) return false;
-        const refMs = new Date(t.closed_at).getTime();
-        if (isNaN(refMs)) return false;
-        if (fromMs !== null && refMs < fromMs) return false;
-        if (toMs !== null && refMs > toMs) return false;
-        return true;
-      });
-    }
-    return tasks;
-  });
+  .inputValidator((data: BankTasksInput) => data)
+  .handler(({ data }) => listBankTasks(data));
+
+export async function listBankTasks(
+  { dateRange, state, pkg, bank }: BankTasksInput,
+  load: () => Promise<WithPeople<BankTask>[]> = fetchBankTasks,
+): Promise<BankTask[]> {
+  let tasks = await load();
+  if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
+  if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
+  if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
+  if (dateRange?.from || dateRange?.to) {
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+    tasks = tasks.filter((t) => {
+      // Filtro estricto por Fecha de Cierre real (date_closed), igual que Agentes Registrados.
+      if (!t.closed_at) return false;
+      const refMs = new Date(t.closed_at).getTime();
+      if (isNaN(refMs)) return false;
+      if (fromMs !== null && refMs < fromMs) return false;
+      if (toMs !== null && refMs > toMs) return false;
+      return true;
+    });
+  }
+  return redactPeople(tasks);
+}
 
 
 // Stubs para las listas aún no conectadas
 const ANNUAL_REPORTS_LIST_ID = "901406624812";
-let annualReportsCache: AnnualReportTask[] | null = null;
+let annualReportsCache: WithPeople<AnnualReportTask>[] | null = null;
 
 function mapAnnualStatus(raw: string): AnnualReportStatus {
   const s = (raw || "").toLowerCase().trim();
@@ -1018,45 +1060,52 @@ function mapAnnualStatus(raw: string): AnnualReportStatus {
   return "pendiente";
 }
 
-export async function fetchAnnualReportsTasks(): Promise<AnnualReportTask[]> {
+export function mapAnnualReportTask(t: any): WithPeople<AnnualReportTask> {
+  const ms = t.date_created ? Number(t.date_created) : null;
+  return {
+    id: String(t.id),
+    name: t.name ?? "",
+    entity_name: t.name ?? "",
+    due_date: t.due_date ?? "",
+    filed_date: t.date_closed ?? null,
+    date_created: msToDate(ms),
+    date_created_ms: ms && isFinite(ms) ? ms : null,
+    status: mapAnnualStatus(t?.status?.status ?? ""),
+    state: "new_mexico" as StateType,
+    package: "solo_llc" as PackageType,
+    assignees: extractAssignees(t),
+  };
+}
+
+export async function fetchAnnualReportsTasks(): Promise<WithPeople<AnnualReportTask>[]> {
   if (annualReportsCache) return annualReportsCache;
   const raw = await fetchAllTasks(ANNUAL_REPORTS_LIST_ID);
-  annualReportsCache = raw.map((t: any) => {
-    const ms = t.date_created ? Number(t.date_created) : null;
-    return {
-      id: String(t.id),
-      name: t.name ?? "",
-      entity_name: t.name ?? "",
-      due_date: t.due_date ?? "",
-      filed_date: t.date_closed ?? null,
-      date_created: msToDate(ms),
-      date_created_ms: ms && isFinite(ms) ? ms : null,
-      status: mapAnnualStatus(t?.status?.status ?? ""),
-      state: "new_mexico" as StateType,
-      package: "solo_llc" as PackageType,
-      assignee: t?.assignees?.[0]?.username ?? "",
-    };
-  });
+  annualReportsCache = raw.map(mapAnnualReportTask);
   return annualReportsCache!;
+}
+
+export interface AnnualReportsInput {
+  state?: StateType | "all";
+  pkg?: PackageType | "all";
+  dateRange?: DateRangeInput;
+}
+
+export async function listAnnualReports(
+  { dateRange }: AnnualReportsInput,
+  load: () => Promise<WithPeople<AnnualReportTask>[]> = fetchAnnualReportsTasks,
+): Promise<AnnualReportTask[]> {
+  const all = await load();
+  return redactPeople(filterByDateRange(all, dateRange));
 }
 
 export const getFilteredAnnualReports = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator(
-    (data: {
-      state?: StateType | "all";
-      pkg?: PackageType | "all";
-      dateRange?: { from: Date | null; to: Date | null };
-    }) => data,
-  )
-  .handler(async ({ data: { dateRange } }): Promise<AnnualReportTask[]> => {
-    const all = await fetchAnnualReportsTasks();
-    return filterByDateRange(all, dateRange);
-  });
+  .inputValidator((data: AnnualReportsInput) => data)
+  .handler(({ data }) => listAnnualReports(data));
 
 // ─── AGENTES REGISTRADOS (ClickUp list real) ───────────────
 const REGISTERED_AGENTS_LIST_ID = "901406624813";
-let registeredAgentsCache: AgenteRegistradoTask[] | null = null;
+let registeredAgentsCache: WithPeople<AgenteRegistradoTask>[] | null = null;
 
 function mapAgenteStatus(raw: string): AgenteStatus {
   const s = (raw || "").toLowerCase().trim();
@@ -1067,47 +1116,54 @@ function mapAgenteStatus(raw: string): AgenteStatus {
   return "esperando_invoice";
 }
 
-export async function fetchRegisteredAgentsTasks(): Promise<AgenteRegistradoTask[]> {
+export function mapRegisteredAgentTask(t: any): WithPeople<AgenteRegistradoTask> {
+  const ms = t.date_created ? Number(t.date_created) : null;
+  const closedMs = t.date_closed ? Number(t.date_closed) : null;
+  const cf = t.custom_fields ?? [];
+  const stateLabel = getDropdownLabel(cf, ["State", "Estado"]);
+  const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
+  return {
+    id: String(t.id),
+    name: t.name ?? "",
+    entity_name: t.name ?? "",
+    state: normalizeState(stateLabel) ?? inferStateFromName(t.name ?? ""),
+    package: normalizePackage(packageLabel) ?? inferPackageFromName(t.name ?? ""),
+    renewal_date: t.due_date ?? "",
+    date_created: msToDate(ms),
+    date_created_ms: ms && isFinite(ms) ? ms : null,
+    date_closed_ms: closedMs && isFinite(closedMs) ? closedMs : null,
+    status: mapAgenteStatus(t?.status?.status ?? ""),
+    assignees: extractAssignees(t),
+  };
+}
+
+export async function fetchRegisteredAgentsTasks(): Promise<WithPeople<AgenteRegistradoTask>[]> {
   if (registeredAgentsCache) return registeredAgentsCache;
   const raw = await fetchAllTasks(REGISTERED_AGENTS_LIST_ID);
-  registeredAgentsCache = raw.map((t: any) => {
-    const ms = t.date_created ? Number(t.date_created) : null;
-    const closedMs = t.date_closed ? Number(t.date_closed) : null;
-    const cf = t.custom_fields ?? [];
-    const stateLabel = getDropdownLabel(cf, ["State", "Estado"]);
-    const packageLabel = getDropdownLabel(cf, ["Paquete", "Package"]);
-    return {
-      id: String(t.id),
-      name: t.name ?? "",
-      entity_name: t.name ?? "",
-      state: normalizeState(stateLabel) ?? inferStateFromName(t.name ?? ""),
-      package: normalizePackage(packageLabel) ?? inferPackageFromName(t.name ?? ""),
-      renewal_date: t.due_date ?? "",
-      date_created: msToDate(ms),
-      date_created_ms: ms && isFinite(ms) ? ms : null,
-      date_closed_ms: closedMs && isFinite(closedMs) ? closedMs : null,
-      status: mapAgenteStatus(t?.status?.status ?? ""),
-      assignee: t?.assignees?.[0]?.username ?? "",
-    };
-  });
+  registeredAgentsCache = raw.map(mapRegisteredAgentTask);
   return registeredAgentsCache!;
+}
+
+export interface AgentesRegistradosInput {
+  state?: StateType | "all";
+  pkg?: PackageType | "all";
+  dateRange?: DateRangeInput;
+}
+
+export async function listAgentesRegistrados(
+  { state, pkg, dateRange }: AgentesRegistradosInput,
+  load: () => Promise<WithPeople<AgenteRegistradoTask>[]> = fetchRegisteredAgentsTasks,
+): Promise<AgenteRegistradoTask[]> {
+  let all = await load();
+  if (state && state !== "all") all = all.filter((t) => t.state === state);
+  if (pkg && pkg !== "all") all = all.filter((t) => t.package === pkg);
+  return redactPeople(filterByClosedDateRange(all, dateRange));
 }
 
 export const getFilteredAgentesRegistrados = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator(
-    (data: {
-      state?: StateType | "all";
-      pkg?: PackageType | "all";
-      dateRange?: { from: Date | null; to: Date | null };
-    }) => data,
-  )
-  .handler(async ({ data: { state, pkg, dateRange } }): Promise<AgenteRegistradoTask[]> => {
-    let all = await fetchRegisteredAgentsTasks();
-    if (state && state !== "all") all = all.filter((t) => t.state === state);
-    if (pkg && pkg !== "all") all = all.filter((t) => t.package === pkg);
-    return filterByClosedDateRange(all, dateRange);
-  });
+  .inputValidator((data: AgentesRegistradosInput) => data)
+  .handler(({ data }) => listAgentesRegistrados(data));
 
 function filterByClosedDateRange<T extends { date_closed_ms: number | null }>(
   items: T[],
@@ -1518,7 +1574,6 @@ export interface TaxReturnTask {
   name: string;
   status: string;
   isClosed: boolean;
-  assignees: string[];
   tipoLLC: string | null;
   created_at_ms: number | null;
   closed_at_ms: number | null;
@@ -1537,7 +1592,7 @@ const TAX_RETURN_FIELD_IDS = {
   reciboFirma: "bad02203-2935-483d-9c1d-a8523cae7aa1",
 };
 
-let _taxReturnCache: { data: TaxReturnTask[]; ts: number } | null = null;
+let _taxReturnCache: { data: WithPeople<TaxReturnTask>[]; ts: number } | null = null;
 
 // Tope de páginas (0..50) para no quedar en loop si ClickUp nunca marca el fin.
 const TAX_RETURN_MAX_PAGE = 50;
@@ -1582,7 +1637,7 @@ function getCustomFieldDropdownLabel(fields: any[], name: string): string | null
 
 const TIPO_LLC_FIELD_NAMES = ["tipo llc", "tipo de llc"];
 
-function mapTaxReturnTask(raw: any): TaxReturnTask | null {
+export function mapTaxReturnTask(raw: any): WithPeople<TaxReturnTask> | null {
   const cf = raw?.custom_fields ?? [];
   const statusRaw = String(raw?.status?.status ?? "");
   const statusType = String(raw?.status?.type ?? "").toLowerCase();
@@ -1593,10 +1648,6 @@ function mapTaxReturnTask(raw: any): TaxReturnTask | null {
     tipoLLC = getCustomFieldDropdownLabel(cf, n);
     if (tipoLLC) break;
   }
-
-  const assignees: string[] = Array.isArray(raw?.assignees)
-    ? raw.assignees.map((a: any) => a?.username ?? a?.email ?? "Sin asignar").filter(Boolean)
-    : [];
 
   const createdMs = raw?.date_created ? Number(raw.date_created) : null;
   const closedMs = raw?.date_closed ? Number(raw.date_closed) : null;
@@ -1613,7 +1664,9 @@ function mapTaxReturnTask(raw: any): TaxReturnTask | null {
     name: raw?.name ?? "",
     status: statusRaw,
     isClosed,
-    assignees: assignees.length > 0 ? assignees : ["Sin asignar"],
+    // Sin el "Sin asignar" de relleno que había antes: el conteo por
+    // colaborador lo descartaba igual, así que los números no cambian.
+    assignees: extractAssignees(raw),
     tipoLLC,
     created_at_ms: createdMs && isFinite(createdMs) ? createdMs : null,
     closed_at_ms: closedMs && isFinite(closedMs) ? closedMs : null,
@@ -1630,41 +1683,54 @@ function mapTaxReturnTask(raw: any): TaxReturnTask | null {
   };
 }
 
-export async function fetchTaxReturnTasks(): Promise<TaxReturnTask[]> {
+export async function fetchTaxReturnTasks(): Promise<WithPeople<TaxReturnTask>[]> {
   if (_taxReturnCache && Date.now() - _taxReturnCache.ts < CACHE_TTL_MS) return _taxReturnCache.data;
   const raw = await fetchAllTasksByList(TAX_RETURN_LIST_ID);
-  const data = raw.map(mapTaxReturnTask).filter((t): t is TaxReturnTask => t !== null);
+  const data = raw.map(mapTaxReturnTask).filter((t): t is WithPeople<TaxReturnTask> => t !== null);
   _taxReturnCache = { data, ts: Date.now() };
   return data;
 }
 
+export interface TaxReturnsInput {
+  dateRange?: DateRangeInput;
+  tipoLLC?: TipoLLC | "all";
+}
+
+// Filtro compartido por la lista y por getPeopleBreakdown, para que los dos
+// cuenten exactamente las mismas tareas.
+function filterTaxReturns<T extends TaxReturnTask>(
+  all: T[],
+  { dateRange, tipoLLC }: TaxReturnsInput,
+): T[] {
+  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+
+  return all.filter((t) => {
+    if (tipoLLC && tipoLLC !== "all") {
+      const tl = (t.tipoLLC ?? "").toLowerCase().trim();
+      if (tl !== tipoLLC.toLowerCase().trim()) return false;
+    }
+    if (from === null && to === null) return true;
+    // Cerrada → date_closed; Abierta → date_created
+    const ref = t.isClosed ? t.closed_at_ms : t.created_at_ms;
+    if (typeof ref !== "number" || !isFinite(ref)) return false;
+    if (from !== null && ref < from) return false;
+    if (to !== null && ref > to) return false;
+    return true;
+  });
+}
+
+export async function listTaxReturns(
+  input: TaxReturnsInput,
+  load: () => Promise<WithPeople<TaxReturnTask>[]> = fetchTaxReturnTasks,
+): Promise<TaxReturnTask[]> {
+  return redactPeople(filterTaxReturns(await load(), input));
+}
+
 export const getFilteredTaxReturns = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator(
-    (data: {
-      dateRange?: { from: Date | null; to: Date | null };
-      tipoLLC?: TipoLLC | "all";
-    }) => data,
-  )
-  .handler(async ({ data: { dateRange, tipoLLC } }): Promise<TaxReturnTask[]> => {
-    const all = await fetchTaxReturnTasks();
-    const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-    const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-
-    return all.filter((t) => {
-      if (tipoLLC && tipoLLC !== "all") {
-        const tl = (t.tipoLLC ?? "").toLowerCase().trim();
-        if (tl !== tipoLLC.toLowerCase().trim()) return false;
-      }
-      if (from === null && to === null) return true;
-      // Cerrada → date_closed; Abierta → date_created
-      const ref = t.isClosed ? t.closed_at_ms : t.created_at_ms;
-      if (typeof ref !== "number" || !isFinite(ref)) return false;
-      if (from !== null && ref < from) return false;
-      if (to !== null && ref > to) return false;
-      return true;
-    });
-  });
+  .inputValidator((data: TaxReturnsInput) => data)
+  .handler(({ data }) => listTaxReturns(data));
 
 export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
   const closed = tasks.filter((t) => t.isClosed);
@@ -1724,9 +1790,44 @@ export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
   };
 }
 
-export function getTaxReturnByAssignee(
-  tasks: TaxReturnTask[],
-): { assignee: string; count: number }[] {
+// ─── DATOS POR PERSONA ─────────────────────────────────────
+// Único camino por el que viajan datos de personas al navegador. Genérico por
+// proceso: verifica el permiso para ESE proceso (PEOPLE_DATA_PERMISSIONS) y
+// responde 403 si no lo tiene. Hoy solo está implementado tax_return.
+
+export interface PeopleBreakdownInput {
+  process: DashboardProcess;
+  dateRange?: DateRangeInput;
+  // Filtros propios de cada proceso (hoy solo Tax Return usa tipoLLC).
+  filters?: { tipoLLC?: TipoLLC | "all" };
+}
+
+// Pensado para crecer: más métricas dentro de `metrics` y, para la vista de
+// resumen, las tareas de cada persona en el período.
+export interface PeopleBreakdown {
+  process: DashboardProcess;
+  period: { from: string | null; to: string | null };
+  people: { name: string; metrics: { closedCount: number } }[];
+}
+
+export class UnsupportedPeopleProcessError extends Error {}
+
+export async function buildPeopleBreakdown(
+  { process, dateRange, filters }: PeopleBreakdownInput,
+  load: { tax_return: () => Promise<WithPeople<TaxReturnTask>[]> } = {
+    tax_return: fetchTaxReturnTasks,
+  },
+): Promise<PeopleBreakdown> {
+  if (process !== "tax_return") {
+    throw new UnsupportedPeopleProcessError(
+      `Datos por persona todavía no implementados para ${process}`,
+    );
+  }
+  const tasks = filterTaxReturns(await load.tax_return(), {
+    dateRange,
+    tipoLLC: filters?.tipoLLC,
+  });
+  // Mismo conteo que hacía antes getTaxReturnByAssignee en el navegador.
   const counts = new Map<string, number>();
   for (const t of tasks) {
     if (!t.isClosed) continue;
@@ -1735,10 +1836,63 @@ export function getTaxReturnByAssignee(
       counts.set(a, (counts.get(a) ?? 0) + 1);
     }
   }
-  return Array.from(counts.entries())
-    .map(([assignee, count]) => ({ assignee, count }))
-    .sort((a, b) => b.count - a.count);
+  return {
+    process,
+    period: {
+      from: dateRange?.from ? new Date(dateRange.from).toISOString() : null,
+      to: dateRange?.to ? new Date(dateRange.to).toISOString() : null,
+    },
+    people: Array.from(counts.entries())
+      .map(([name, closedCount]) => ({ name, metrics: { closedCount } }))
+      .sort((a, b) => b.metrics.closedCount - a.metrics.closedCount),
+  };
 }
+
+export class InvalidPeopleProcessError extends Error {}
+export class ForbiddenPeopleError extends Error {}
+
+// La decisión de permiso, separada del handler para poder testearla.
+// `canSee` es canSeePeople de permissions.server.ts (se pasa como parámetro
+// para no importar ese módulo desde acá, que también carga el cliente).
+export async function peopleBreakdownFor(
+  email: string,
+  input: PeopleBreakdownInput,
+  canSee: (email: string, process: DashboardProcess) => boolean,
+  load?: Parameters<typeof buildPeopleBreakdown>[1],
+): Promise<PeopleBreakdown> {
+  if (!isDashboardProcess(input?.process)) throw new InvalidPeopleProcessError("Proceso inválido");
+  if (!canSee(email, input.process)) {
+    throw new ForbiddenPeopleError("Sin permiso para ver datos por persona de este proceso");
+  }
+  return buildPeopleBreakdown(input, load);
+}
+
+export const getPeopleBreakdown = createServerFn({ method: "GET" })
+  .middleware([requireSession])
+  .inputValidator((data: PeopleBreakdownInput) => data)
+  .handler(async ({ data }): Promise<PeopleBreakdown> => {
+    const [{ getRequest, setResponseStatus }, { assertValidSession }, { canSeePeople }] =
+      await Promise.all([
+        import("@tanstack/react-start/server"),
+        import("./auth.server"),
+        import("./permissions.server"),
+      ]);
+    // El email sale de la cookie de este request y no de `context`, porque
+    // TanStack mezcla en `context` lo que manda el cliente.
+    const session = await assertValidSession(getRequest());
+    try {
+      return await peopleBreakdownFor(session.user.email, data, canSeePeople);
+    } catch (error) {
+      if (error instanceof ForbiddenPeopleError) setResponseStatus(403);
+      else if (
+        error instanceof InvalidPeopleProcessError ||
+        error instanceof UnsupportedPeopleProcessError
+      ) {
+        setResponseStatus(400);
+      }
+      throw error;
+    }
+  });
 
 // Tarea más rápida / más lenta según el mismo criterio que "Lead Time desde
 // Compra" (diasLeadTime: businessDays sobre fecha de creación ajustada por
