@@ -5,6 +5,7 @@ import { renderErrorPage } from "./lib/error-page";
 import {
   AUTH_BASE_PATH,
   AuthConfigError,
+  AuthUnavailableError,
   getAuth,
   getValidSession,
   isAllowedAuthRequest,
@@ -118,18 +119,31 @@ export async function authGate(request: Request): Promise<Response | null> {
 
   let auth;
   try {
-    auth = getAuth(origin);
+    auth = await getAuth(origin);
   } catch (error) {
-    if (!(error instanceof AuthConfigError)) throw error;
-    // FALLA CERRADA: sin config de auth no se sirve nada.
-    console.error(error.message);
-    return isServerFn
-      ? jsonResponse(503, { error: "auth_not_configured" })
-      : htmlResponse(
-          503,
-          "Autenticación no configurada",
-          "El dashboard no está disponible hasta que se configure el login.",
-        );
+    // FALLA CERRADA: sin auth (falta config o better-auth no carga) no se
+    // sirve nada.
+    if (error instanceof AuthConfigError) {
+      console.error(error.message);
+      return isServerFn
+        ? jsonResponse(503, { error: "auth_not_configured" })
+        : htmlResponse(
+            503,
+            "Autenticación no configurada",
+            "El dashboard no está disponible hasta que se configure el login.",
+          );
+    }
+    if (error instanceof AuthUnavailableError) {
+      console.error(error.message, error.cause);
+      return isServerFn
+        ? jsonResponse(503, { error: "auth_unavailable" })
+        : htmlResponse(
+            503,
+            "Autenticación no disponible",
+            "El login no está funcionando en este momento. Probá de nuevo en unos minutos.",
+          );
+    }
+    throw error;
   }
 
   if (path === AUTH_BASE_PATH || path.startsWith(`${AUTH_BASE_PATH}/`)) {

@@ -1,4 +1,6 @@
-import { betterAuth } from "better-auth";
+// Solo el tipo: better-auth se carga con import() dentro de getAuth() (ver
+// AuthUnavailableError).
+import type { betterAuth as BetterAuth } from "better-auth";
 
 // ============================================================
 // auth.server.ts
@@ -33,6 +35,13 @@ export function resolveAllowedOrigin(request: Request): AllowedOrigin | null {
 // login": better-auth incluso tiene un secret por defecto fuera de producción,
 // por eso el secret se valida acá y se pasa siempre explícito.
 export class AuthConfigError extends Error {}
+
+// better-auth no se pudo cargar (p. ej. el bundle de producción resolvió mal
+// una dependencia, como pasó con zod 3 vs 4 el 2026-10-05). Con un import
+// estático eso tiraba abajo el módulo entero al arrancar y Vercel respondía
+// 500 sin pasar por src/server.ts; así se atrapa y responde 503 igual que
+// AuthConfigError.
+export class AuthUnavailableError extends Error {}
 
 interface AuthEnv {
   secret: string;
@@ -180,7 +189,7 @@ export async function googleGetUserInfo(tokens: { idToken?: string }) {
   };
 }
 
-function createAuth(origin: AllowedOrigin, env: AuthEnv) {
+function createAuth(betterAuth: typeof BetterAuth, origin: AllowedOrigin, env: AuthEnv) {
   return betterAuth({
     appName: "Firmaway KPI",
     baseURL: origin,
@@ -226,11 +235,21 @@ export type Auth = ReturnType<typeof createAuth>;
 
 const instances = new Map<AllowedOrigin, Auth>();
 
-// Tira AuthConfigError si falta configuración (ver loadAuthEnv).
-export function getAuth(origin: AllowedOrigin): Auth {
+// Tira AuthConfigError si falta configuración (ver loadAuthEnv) y
+// AuthUnavailableError si better-auth no se puede cargar.
+export async function getAuth(origin: AllowedOrigin): Promise<Auth> {
   let auth = instances.get(origin);
   if (!auth) {
-    auth = createAuth(origin, loadAuthEnv());
+    const env = loadAuthEnv();
+    let betterAuth: typeof BetterAuth;
+    try {
+      ({ betterAuth } = await import("better-auth"));
+    } catch (error) {
+      throw new AuthUnavailableError(`No se pudo cargar better-auth: ${String(error)}`, {
+        cause: error,
+      });
+    }
+    auth = createAuth(betterAuth, origin, env);
     instances.set(origin, auth);
   }
   return auth;
@@ -260,7 +279,7 @@ export async function getValidSession(
 export async function assertValidSession(request: Request): Promise<ValidSession> {
   const origin = resolveAllowedOrigin(request);
   if (!origin) throw new Error("No autorizado");
-  const session = await getValidSession(getAuth(origin), request);
+  const session = await getValidSession(await getAuth(origin), request);
   if (!session) throw new Error("No autorizado");
   return session;
 }

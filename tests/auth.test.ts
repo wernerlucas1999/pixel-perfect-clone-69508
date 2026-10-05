@@ -140,8 +140,8 @@ describe("getValidSession con la sesión real que produce better-auth", () => {
 
 // ─── Riesgo futuro: un camino de login que no pase por la validación ─
 describe("solo se puede iniciar sesión por googleGetUserInfo", () => {
-  test("better-auth no expone endpoints sin revisar", () => {
-    const auth = A.getAuth(ORIGIN);
+  test("better-auth no expone endpoints sin revisar", async () => {
+    const auth = await A.getAuth(ORIGIN);
     const exposed = Object.values(auth.api)
       .map((e) => (e as { path?: string }).path)
       .filter((p): p is string => typeof p === "string");
@@ -165,8 +165,8 @@ describe("solo se puede iniciar sesión por googleGetUserInfo", () => {
     ]);
   });
 
-  test("la config apaga explícitamente todo lo que no es Google", () => {
-    const o = A.getAuth(ORIGIN).options;
+  test("la config apaga explícitamente todo lo que no es Google", async () => {
+    const o = (await A.getAuth(ORIGIN)).options;
     expect(o.emailAndPassword?.enabled).toBe(false);
     expect(o.emailAndPassword?.disableSignUp).toBe(true);
     expect(o.account?.accountLinking?.enabled).toBe(false);
@@ -204,7 +204,7 @@ describe("solo se puede iniciar sesión por googleGetUserInfo", () => {
   });
 
   test("better-auth rechaza email/contraseña aunque se saltee el bloqueo", async () => {
-    const auth = A.getAuth(ORIGIN);
+    const auth = await A.getAuth(ORIGIN);
     for (const path of ["/sign-up/email", "/sign-in/email"]) {
       const res = await auth.handler(
         new Request(`${ORIGIN}/api/auth${path}`, {
