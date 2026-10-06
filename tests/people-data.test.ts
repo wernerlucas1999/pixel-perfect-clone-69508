@@ -340,10 +340,142 @@ describe("peopleBreakdownFor", () => {
     ).rejects.toBeInstanceOf(C.InvalidPeopleProcessError);
   });
 
-  test("proceso permitido pero sin vista todavía → Unsupported (400)", async () => {
-    await expect(
-      C.peopleBreakdownFor("lucas@firmaway.us", { process: "llc_formation" }, canSee),
-    ).rejects.toBeInstanceOf(C.UnsupportedPeopleProcessError);
+  test.each([
+    [
+      "lucas@firmaway.us",
+      ["llc_formation", "bank_application", "annual_reports", "agentes_registrados"],
+    ],
+    ["ezequiel@firmaway.us", ALL],
+  ])("%s ve sus procesos permitidos", async (email, processes) => {
+    for (const process of processes) {
+      const internal = PROCESSES()
+        .find((x) => x.id === process)!
+        .internal();
+      const r = await C.peopleBreakdownFor(email, { process: process as never }, canSee, {
+        [process]: async () => internal,
+      });
+      expect(r.process).toBe(process as never);
+      expect(JSON.stringify(r)).toContain("Colaboradora Alfa");
+    }
+  });
+});
+
+// ─── Breakdown de los 5 procesos: qué cuenta ───────────────
+// Tareas cerradas con fecha de cierre en el período, agrupadas por asignado
+// actual; las compartidas suman a cada participante y las sin asignado van
+// aparte.
+describe("buildPeopleBreakdown en los 5 procesos", () => {
+  const STATUSES: Record<string, { open: string; closed: string }> = {
+    llc_formation: { open: "PENDIENTE", closed: "ENTREGA COMPLETADA" },
+    bank_application: { open: "PENDIENTE", closed: "completada" },
+    annual_reports: { open: "pendiente", closed: "complete" },
+    agentes_registrados: { open: "pendiente", closed: "complete" },
+    tax_return: { open: "en proceso", closed: "complete" },
+  };
+  const MAPPERS: Record<string, (raw: any) => any> = {
+    llc_formation: (r) => C.mapToTask(r),
+    bank_application: (r) => C.mapToBankTask(r),
+    annual_reports: (r) => C.mapAnnualReportTask(r),
+    agentes_registrados: (r) => C.mapRegisteredAgentTask(r),
+    tax_return: (r) => C.mapTaxReturnTask(r),
+  };
+  const day = (d: number) => Date.UTC(2026, 0, d, 15);
+  // [creada, cerrada (null = abierta), asignados]
+  const SCENARIO: [number, number | null, any[]][] = [
+    [1, 15, [ALICE]], // propia de Alfa
+    [2, 16, [ALICE]], // propia de Alfa
+    [3, 17, [BETO]], // propia de Beto
+    [4, 18, [ALICE, BETO]], // compartida
+    [5, 19, []], // sin asignar
+    [6, null, [ALICE]], // abierta: no cuenta
+    [7, null, []], // abierta sin asignar: no cuenta
+    [8, 25, [BETO]], // cerrada fuera del rango del 10 al 20
+    [12, 5, [ALICE]], // creada dentro del rango pero cerrada antes: no cuenta con rango
+  ];
+  const internalFor = (process: string) =>
+    SCENARIO.map(([created, closed, people], i) =>
+      MAPPERS[process]({
+        id: `b${i}`,
+        name: `Cliente ${i} LLC`,
+        status:
+          closed === null
+            ? { status: STATUSES[process].open, type: "open" }
+            : { status: STATUSES[process].closed, type: "closed" },
+        date_created: String(day(created)),
+        date_closed: closed === null ? null : String(day(closed)),
+        due_date: String(day(28)),
+        assignees: people,
+        custom_fields: [],
+      }),
+    ).filter(Boolean);
+  const pick = (r: any) => ({
+    closedTotal: r.closedTotal,
+    unassignedCount: r.unassignedCount,
+    people: Object.fromEntries(r.people.map((p: any) => [p.name, p.metrics])),
+  });
+
+  for (const process of ALL) {
+    test(`${process}: sin rango de fechas`, async () => {
+      const internal = internalFor(process);
+      expect(internal).toHaveLength(SCENARIO.length);
+      const r = await C.buildPeopleBreakdown(
+        { process: process as never },
+        {
+          [process]: async () => internal,
+        },
+      );
+      expect(pick(r)).toEqual({
+        closedTotal: 7,
+        unassignedCount: 1,
+        people: {
+          "Colaboradora Alfa": { closedCount: 4, ownCount: 3, sharedCount: 1 },
+          "beto@firmaway.us": { closedCount: 3, ownCount: 2, sharedCount: 1 },
+        },
+      });
+      expect(r.period).toEqual({ from: null, to: null, basis: "closed_at" });
+      // La persona con más tareas va primero; "Sin asignar" no es una persona.
+      expect(r.people.map((p: any) => p.name)).toEqual(["Colaboradora Alfa", "beto@firmaway.us"]);
+    });
+
+    test(`${process}: con rango, por fecha de cierre`, async () => {
+      const internal = internalFor(process);
+      const r = await C.buildPeopleBreakdown(
+        {
+          process: process as never,
+          dateRange: { from: new Date(2026, 0, 10), to: new Date(2026, 0, 20) },
+        },
+        { [process]: async () => internal },
+      );
+      // Entran solo las cerradas del 15 al 19; la cerrada el 25 y la creada el
+      // 12 pero cerrada el 5 quedan afuera (también en Annual Reports, cuya
+      // pantalla filtra por creación).
+      expect(pick(r)).toEqual({
+        closedTotal: 5,
+        unassignedCount: 1,
+        people: {
+          "Colaboradora Alfa": { closedCount: 3, ownCount: 2, sharedCount: 1 },
+          "beto@firmaway.us": { closedCount: 2, ownCount: 1, sharedCount: 1 },
+        },
+      });
+    });
+  }
+
+  test("aplica los mismos filtros que la pantalla (Bancaria por banco)", async () => {
+    const internal = internalFor("bank_application").map((t: any, i: number) => ({
+      ...t,
+      bank: i % 2 === 0 ? "mercury" : "relay",
+    }));
+    const all = await C.buildPeopleBreakdown(
+      { process: "bank_application" },
+      { bank_application: async () => internal },
+    );
+    const mercury = await C.buildPeopleBreakdown(
+      { process: "bank_application", filters: { bank: "mercury" } },
+      { bank_application: async () => internal },
+    );
+    const listMercury = await C.listBankTasks({ bank: "mercury" }, async () => internal);
+    expect(mercury.closedTotal).toBeLessThan(all.closedTotal);
+    expect(mercury.closedTotal).toBe(listMercury.filter((t) => t.closed_at).length);
   });
 });
 

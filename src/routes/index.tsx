@@ -41,8 +41,12 @@ import {
   type AnnualReportTask,
   type AgenteRegistradoTask,
   type TaxReturnTask,
+  type PeopleBreakdown,
+  type PeopleBreakdownInput,
 } from "@/lib/clickup-api";
 import { getMe, type Me } from "@/lib/session-api";
+import { isDashboardProcess } from "@/lib/processes";
+import { PeopleBreakdownCard, PeopleTabs } from "@/components/dashboard/people-breakdown-card";
 import { Spinner } from "@/components/ui/spinner";
 
 export const Route = createFileRoute("/")({
@@ -116,8 +120,14 @@ function DashboardPage() {
   const [funnelData, setFunnelData] = useState<{ status: string; count: number; fill: string }[]>(
     [],
   );
-  const [llcExtremes, setLlcExtremes] = useState<{ fastest: TaskRecord | null; slowest: TaskRecord | null }>({ fastest: null, slowest: null });
-  const [bankExtremes, setBankExtremes] = useState<{ fastest: TaskRecord | null; slowest: TaskRecord | null }>({ fastest: null, slowest: null });
+  const [llcExtremes, setLlcExtremes] = useState<{
+    fastest: TaskRecord | null;
+    slowest: TaskRecord | null;
+  }>({ fastest: null, slowest: null });
+  const [bankExtremes, setBankExtremes] = useState<{
+    fastest: TaskRecord | null;
+    slowest: TaskRecord | null;
+  }>({ fastest: null, slowest: null });
 
   const [, setFilteredBankTasks] = useState<BankTask[]>([]);
   const [bankKpis, setBankKpis] = useState(defaultBankKPIs);
@@ -162,9 +172,6 @@ function DashboardPage() {
 
   const [, setFilteredTaxReturns] = useState<TaxReturnTask[]>([]);
   const [taxReturnKPIs, setTaxReturnKPIs] = useState(defaultTaxReturnKPIs);
-  const [taxReturnByAssignee, setTaxReturnByAssignee] = useState<
-    { assignee: string; count: number }[]
-  >([]);
   const [taxReturnExtremes, setTaxReturnExtremes] = useState<{
     fastest: TaskRecord | null;
     slowest: TaskRecord | null;
@@ -180,7 +187,9 @@ function DashboardPage() {
         setMe(null);
       });
   }, []);
-  const canSeeTaxReturnPeople = me?.peopleProcesses.includes("tax_return") ?? false;
+  const canSeePeople =
+    isDashboardProcess(selectedProcess) && (me?.peopleProcesses.includes(selectedProcess) ?? false);
+  const [peopleBreakdown, setPeopleBreakdown] = useState<PeopleBreakdown | null>(null);
 
   const fetchLLCData = useCallback(async () => {
     try {
@@ -270,30 +279,48 @@ function DashboardPage() {
   }, [dateRange, selectedTipoLLC]);
 
   // Rendimiento por colaborador: sale de getPeopleBreakdown, el único camino
-  // con datos de personas. Sin permiso ni se pide.
+  // con datos de personas. Sin permiso ni se pide. Le pasa los mismos filtros
+  // que usa la lista de cada pantalla.
   useEffect(() => {
-    if (selectedProcess !== "tax_return" || !canSeeTaxReturnPeople) {
-      setTaxReturnByAssignee([]);
-      return;
-    }
+    setPeopleBreakdown(null);
+    if (!canSeePeople || !isDashboardProcess(selectedProcess)) return;
+    const filters: PeopleBreakdownInput["filters"] = {
+      llc_formation: { processType: selectedProcess, state: selectedState, pkg: selectedPackage },
+      bank_application: { state: selectedState, pkg: selectedPackage, bank: selectedBank },
+      annual_reports: {},
+      agentes_registrados: { state: selectedState, pkg: selectedPackage },
+      tax_return: { tipoLLC: selectedTipoLLC },
+    }[selectedProcess];
     let cancelled = false;
-    getPeopleBreakdown({
-      data: { process: "tax_return", dateRange, filters: { tipoLLC: selectedTipoLLC } },
-    })
+    getPeopleBreakdown({ data: { process: selectedProcess, dateRange, filters } })
       .then((breakdown) => {
-        if (cancelled) return;
-        setTaxReturnByAssignee(
-          breakdown.people.map((p) => ({ assignee: p.name, count: p.metrics.closedCount })),
-        );
+        if (!cancelled) setPeopleBreakdown(breakdown);
       })
       .catch((err) => {
-        console.error("Error fetching Tax Return por colaborador:", err);
-        if (!cancelled) setTaxReturnByAssignee([]);
+        console.error("Error fetching rendimiento por colaborador:", err);
       });
     return () => {
       cancelled = true;
     };
-  }, [selectedProcess, canSeeTaxReturnPeople, dateRange, selectedTipoLLC]);
+  }, [
+    selectedProcess,
+    canSeePeople,
+    dateRange,
+    selectedState,
+    selectedPackage,
+    selectedBank,
+    selectedTipoLLC,
+  ]);
+  const peopleCard = (
+    <PeopleBreakdownCard
+      breakdown={peopleBreakdown}
+      periodWarning={
+        selectedProcess === "annual_reports"
+          ? "Este gráfico cuenta por fecha de cierre. El resto de esta pantalla filtra por fecha de creación, así que sus números no son comparables con este."
+          : undefined
+      }
+    />
+  );
 
   useEffect(() => {
     const loadData = async () => {
@@ -366,60 +393,82 @@ function DashboardPage() {
     switch (selectedProcess) {
       case "bank_application":
         return (
-          <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-              <div className="bg-card border border-border rounded-lg p-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Aplicaciones</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{bankKpis.totalTasks}</p>
-              </div>
-              <div className="bg-card border border-border rounded-lg p-4">
-                <p className="text-sm font-medium text-muted-foreground">Pendientes</p>
-                <p className="text-2xl font-bold text-chart-1 mt-1">{bankKpis.pendingTasks}</p>
-              </div>
-              <div className="bg-card border border-border rounded-lg p-4">
-                <p className="text-sm font-medium text-muted-foreground">En Progreso</p>
-                <p className="text-2xl font-bold text-warning mt-1">{bankKpis.inProgressTasks}</p>
-              </div>
-              <div className="bg-card border border-border rounded-lg p-4">
-                <p className="text-sm font-medium text-muted-foreground">Completadas</p>
-                <p className="text-2xl font-bold text-success mt-1">{bankKpis.completedTasks}</p>
-              </div>
-              <div className="bg-card border border-border rounded-lg p-4">
-                <p className="text-sm font-medium text-muted-foreground">Lead Time Promedio</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {bankKpis.avgLeadTime} dias
-                </p>
-              </div>
-            </div>
-            <BankStatusCards data={bankStatusCounts} />
-            <TaskRecordsCard
-              fastest={bankExtremes.fastest}
-              slowest={bankExtremes.slowest}
-              title="Récords de Ciclo — Aplicación Bancaria"
-              description="Aplicaciones cerradas con menor y mayor tiempo total de proceso"
-            />
-            <BottleneckAnalysis
-              comparisonData={bottleneckData.comparisonData}
-              clientResponsibilityRatio={bottleneckData.clientResponsibilityRatio}
-              totalClientDays={bottleneckData.avgClientDays}
-              totalBankDays={bottleneckData.avgBankDays}
-              avgDemoraCliente={bottleneckData.avgDemoraCliente}
-              avgTiempoInterno={bottleneckData.avgTiempoInterno}
-              avgDemoraIRS={bottleneckData.avgDemoraIRS}
-              ratioCliente={bottleneckData.ratioCliente}
-              ratioBanco={bottleneckData.ratioBanco}
-              ratioInterno={bottleneckData.ratioInterno}
-              ratioIRS={bottleneckData.ratioIRS}
-            />
-          </>
+          <PeopleTabs
+            showPeople={canSeePeople}
+            people={peopleCard}
+            summary={
+              <>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-sm font-medium text-muted-foreground">Total Aplicaciones</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{bankKpis.totalTasks}</p>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-sm font-medium text-muted-foreground">Pendientes</p>
+                    <p className="text-2xl font-bold text-chart-1 mt-1">{bankKpis.pendingTasks}</p>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-sm font-medium text-muted-foreground">En Progreso</p>
+                    <p className="text-2xl font-bold text-warning mt-1">
+                      {bankKpis.inProgressTasks}
+                    </p>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-sm font-medium text-muted-foreground">Completadas</p>
+                    <p className="text-2xl font-bold text-success mt-1">
+                      {bankKpis.completedTasks}
+                    </p>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-sm font-medium text-muted-foreground">Lead Time Promedio</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">
+                      {bankKpis.avgLeadTime} dias
+                    </p>
+                  </div>
+                </div>
+                <BankStatusCards data={bankStatusCounts} />
+                <TaskRecordsCard
+                  fastest={bankExtremes.fastest}
+                  slowest={bankExtremes.slowest}
+                  title="Récords de Ciclo — Aplicación Bancaria"
+                  description="Aplicaciones cerradas con menor y mayor tiempo total de proceso"
+                />
+                <BottleneckAnalysis
+                  comparisonData={bottleneckData.comparisonData}
+                  clientResponsibilityRatio={bottleneckData.clientResponsibilityRatio}
+                  totalClientDays={bottleneckData.avgClientDays}
+                  totalBankDays={bottleneckData.avgBankDays}
+                  avgDemoraCliente={bottleneckData.avgDemoraCliente}
+                  avgTiempoInterno={bottleneckData.avgTiempoInterno}
+                  avgDemoraIRS={bottleneckData.avgDemoraIRS}
+                  ratioCliente={bottleneckData.ratioCliente}
+                  ratioBanco={bottleneckData.ratioBanco}
+                  ratioInterno={bottleneckData.ratioInterno}
+                  ratioIRS={bottleneckData.ratioIRS}
+                />
+              </>
+            }
+          />
         );
 
       case "annual_reports":
-        return <AnnualReportsView pieData={annualReportsPieData} kpis={annualReportsKPIs} />;
+        return (
+          <PeopleTabs
+            showPeople={canSeePeople}
+            people={peopleCard}
+            summary={<AnnualReportsView pieData={annualReportsPieData} kpis={annualReportsKPIs} />}
+          />
+        );
 
       case "agentes_registrados":
         return (
-          <AgentesRegistradosView kpis={agentesKPIs} statusChartData={agentesStatusChartData} />
+          <PeopleTabs
+            showPeople={canSeePeople}
+            people={peopleCard}
+            summary={
+              <AgentesRegistradosView kpis={agentesKPIs} statusChartData={agentesStatusChartData} />
+            }
+          />
         );
 
       case "tax_return":
@@ -427,8 +476,8 @@ function DashboardPage() {
           <>
             <TaxReturnView
               kpis={taxReturnKPIs}
-              byAssignee={taxReturnByAssignee}
-              showByAssignee={canSeeTaxReturnPeople}
+              peopleCard={peopleCard}
+              showByAssignee={canSeePeople}
               tipoLLC={selectedTipoLLC}
               onTipoLLCChange={setSelectedTipoLLC}
             />
@@ -444,49 +493,53 @@ function DashboardPage() {
       case "llc_formation":
       default:
         return (
-          <>
-            <KPICards
-              totalTasks={kpis.totalTasks}
-              completedTasks={kpis.completedTasks}
-              cancelledTasks={kpis.cancelledTasks}
-              inProgressTasks={kpis.inProgressTasks}
-              avgLeadTime={kpis.avgLeadTime}
-              avgEINWait={kpis.avgEINWait}
-              
-            />
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-chart-3/40 bg-chart-3/5 p-5">
-                <p className="text-sm font-medium text-muted-foreground">Demora del Cliente</p>
-                <p className="text-3xl font-bold text-chart-3 mt-2">
-                  {kpis.avgDemoraCliente.toFixed(2)} d
-                </p>
-              </div>
-              <div className="rounded-lg border border-chart-1/40 bg-chart-1/5 p-5">
-                <p className="text-sm font-medium text-muted-foreground">
-                  Demora Interna de Filings
-                </p>
-                <p className="text-3xl font-bold text-chart-1 mt-2">
-                  {kpis.avgTiempoInterno.toFixed(2)} d
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-6 lg:grid-cols-2">
-              <FunnelChart data={funnelData} />
-              <TaskRecordsCard
-                fastest={llcExtremes.fastest}
-                slowest={llcExtremes.slowest}
-                title="Récords de Ciclo — Formación LLC"
-                description="Tareas cerradas con menor y mayor tiempo total de proceso"
-              />
-            </div>
-          </>
+          <PeopleTabs
+            showPeople={canSeePeople}
+            people={peopleCard}
+            summary={
+              <>
+                <KPICards
+                  totalTasks={kpis.totalTasks}
+                  completedTasks={kpis.completedTasks}
+                  cancelledTasks={kpis.cancelledTasks}
+                  inProgressTasks={kpis.inProgressTasks}
+                  avgLeadTime={kpis.avgLeadTime}
+                  avgEINWait={kpis.avgEINWait}
+                />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-lg border border-chart-3/40 bg-chart-3/5 p-5">
+                    <p className="text-sm font-medium text-muted-foreground">Demora del Cliente</p>
+                    <p className="text-3xl font-bold text-chart-3 mt-2">
+                      {kpis.avgDemoraCliente.toFixed(2)} d
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-chart-1/40 bg-chart-1/5 p-5">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Demora Interna de Filings
+                    </p>
+                    <p className="text-3xl font-bold text-chart-1 mt-2">
+                      {kpis.avgTiempoInterno.toFixed(2)} d
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <FunnelChart data={funnelData} />
+                  <TaskRecordsCard
+                    fastest={llcExtremes.fastest}
+                    slowest={llcExtremes.slowest}
+                    title="Récords de Ciclo — Formación LLC"
+                    description="Tareas cerradas con menor y mayor tiempo total de proceso"
+                  />
+                </div>
+              </>
+            }
+          />
         );
     }
   };
 
   return (
     <div className="min-h-screen bg-background dark">
-     
       <Sidebar selectedProcess={selectedProcess} onProcessChange={setSelectedProcess} />
       <div className="lg:pl-64">
         <Header

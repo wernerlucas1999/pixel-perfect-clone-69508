@@ -7,11 +7,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
+import type { ReactNode } from "react";
 import {
   CheckCircle2,
   ListChecks,
-  Users,
   FileText,
   CalendarCheck,
   Send,
@@ -42,9 +41,9 @@ interface TaxReturnViewProps {
     ratioCliente: number;
     ratioInterno: number;
   };
-  byAssignee: { assignee: string; count: number }[];
-  // Sin permiso para ver datos por persona de Tax Return no se muestra la
-  // pestaña de rendimiento por colaborador (el servidor igual no los manda).
+  // PeopleBreakdownCard. Sin permiso para ver datos por persona de Tax Return
+  // no se muestra la pestaña (el servidor igual no los manda).
+  peopleCard: ReactNode;
   showByAssignee: boolean;
   tipoLLC: TipoLLC | "all";
   onTipoLLCChange: (v: TipoLLC | "all") => void;
@@ -59,7 +58,7 @@ function formatDays(n: number) {
 
 export function TaxReturnView({
   kpis,
-  byAssignee,
+  peopleCard,
   showByAssignee,
   tipoLLC,
   onTipoLLCChange,
@@ -282,78 +281,7 @@ export function TaxReturnView({
 
         {showByAssignee && (
           <TabsContent value="analisis" className="mt-4">
-            <Card className="border-border bg-card">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <CardTitle className="text-foreground">Rendimiento por Colaborador</CardTitle>
-                </div>
-                <CardDescription className="text-muted-foreground">
-                  Cantidad de Taxes completados por persona asignada
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {byAssignee.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No hay taxes completados en el rango seleccionado.
-                  </p>
-                ) : (
-                  <div style={{ height: Math.max(280, byAssignee.length * 60) }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={byAssignee}
-                        layout="vertical"
-                        margin={{ top: 10, right: 80, left: 10, bottom: 5 }}
-                        barCategoryGap="25%"
-                      >
-                        <XAxis
-                          type="number"
-                          allowDecimals={false}
-                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                          axisLine={{ stroke: "hsl(var(--border))" }}
-                          tickLine={{ stroke: "hsl(var(--border))" }}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="assignee"
-                          width={200}
-                          interval={0}
-                          tick={{ fill: "#e5e7eb", fontSize: 13, fontWeight: 600 }}
-                          axisLine={{ stroke: "hsl(var(--border))" }}
-                          tickLine={false}
-                        />
-                        <Tooltip
-                          cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "6px",
-                          }}
-                          labelStyle={{ color: "hsl(var(--foreground))" }}
-                          formatter={(value: number) => [`${value} taxes`, "Completados"]}
-                        />
-                        <Bar
-                          dataKey="count"
-                          radius={[0, 6, 6, 0]}
-                          label={{
-                            position: "insideRight",
-                            fill: "#ffffff",
-                            fontSize: 14,
-                            fontWeight: 700,
-                            offset: 12,
-                            formatter: (v: number) => `${v} taxes`,
-                          }}
-                        >
-                          {byAssignee.map((_, i) => (
-                            <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {peopleCard}
           </TabsContent>
         )}
 

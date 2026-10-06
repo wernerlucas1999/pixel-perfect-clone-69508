@@ -979,14 +979,24 @@ export interface LLCTasksInput {
   pkg?: PackageType | "all";
 }
 
+// Filtros de la pantalla que no son de fecha; los usa también getPeopleBreakdown.
+function filterLLCTasks<T extends Task>(
+  tasks: T[],
+  { processType, state, pkg }: Partial<Omit<LLCTasksInput, "dateRange">>,
+): T[] {
+  if (processType && processType !== "all") {
+    tasks = tasks.filter((t) => t.process_type === processType);
+  }
+  if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
+  if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
+  return tasks;
+}
+
 export async function listLLCTasks(
   { processType, dateRange, state, pkg }: LLCTasksInput,
   load: () => Promise<WithPeople<Task>[]> = fetchLLCTasks,
 ): Promise<Task[]> {
-  let tasks = await load();
-  if (processType !== "all") tasks = tasks.filter((t) => t.process_type === processType);
-  if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
-  if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
+  let tasks = filterLLCTasks(await load(), { processType, state, pkg });
   if (dateRange?.from || dateRange?.to) {
     const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
     const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
@@ -1021,14 +1031,21 @@ export const getFilteredBankTasks = createServerFn({ method: "GET" })
   .inputValidator((data: BankTasksInput) => data)
   .handler(({ data }) => listBankTasks(data));
 
+function filterBankTasks<T extends BankTask>(
+  tasks: T[],
+  { state, pkg, bank }: Omit<BankTasksInput, "dateRange">,
+): T[] {
+  if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
+  if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
+  if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
+  return tasks;
+}
+
 export async function listBankTasks(
   { dateRange, state, pkg, bank }: BankTasksInput,
   load: () => Promise<WithPeople<BankTask>[]> = fetchBankTasks,
 ): Promise<BankTask[]> {
-  let tasks = await load();
-  if (state && state !== "all") tasks = tasks.filter((t) => t.state === state);
-  if (pkg && pkg !== "all") tasks = tasks.filter((t) => t.package === pkg);
-  if (bank && bank !== "all") tasks = tasks.filter((t) => t.bank === bank);
+  let tasks = filterBankTasks(await load(), { state, pkg, bank });
   if (dateRange?.from || dateRange?.to) {
     const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
     const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
@@ -1150,13 +1167,20 @@ export interface AgentesRegistradosInput {
   dateRange?: DateRangeInput;
 }
 
+function filterAgentesRegistrados<T extends AgenteRegistradoTask>(
+  all: T[],
+  { state, pkg }: Omit<AgentesRegistradosInput, "dateRange">,
+): T[] {
+  if (state && state !== "all") all = all.filter((t) => t.state === state);
+  if (pkg && pkg !== "all") all = all.filter((t) => t.package === pkg);
+  return all;
+}
+
 export async function listAgentesRegistrados(
   { state, pkg, dateRange }: AgentesRegistradosInput,
   load: () => Promise<WithPeople<AgenteRegistradoTask>[]> = fetchRegisteredAgentsTasks,
 ): Promise<AgenteRegistradoTask[]> {
-  let all = await load();
-  if (state && state !== "all") all = all.filter((t) => t.state === state);
-  if (pkg && pkg !== "all") all = all.filter((t) => t.package === pkg);
+  const all = filterAgentesRegistrados(await load(), { state, pkg });
   return redactPeople(filterByClosedDateRange(all, dateRange));
 }
 
@@ -1696,8 +1720,11 @@ export interface TaxReturnsInput {
   tipoLLC?: TipoLLC | "all";
 }
 
-// Filtro compartido por la lista y por getPeopleBreakdown, para que los dos
-// cuenten exactamente las mismas tareas.
+function matchesTipoLLC(t: TaxReturnTask, tipoLLC: TipoLLC | "all" | undefined): boolean {
+  if (!tipoLLC || tipoLLC === "all") return true;
+  return (t.tipoLLC ?? "").toLowerCase().trim() === tipoLLC.toLowerCase().trim();
+}
+
 function filterTaxReturns<T extends TaxReturnTask>(
   all: T[],
   { dateRange, tipoLLC }: TaxReturnsInput,
@@ -1706,10 +1733,7 @@ function filterTaxReturns<T extends TaxReturnTask>(
   const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
 
   return all.filter((t) => {
-    if (tipoLLC && tipoLLC !== "all") {
-      const tl = (t.tipoLLC ?? "").toLowerCase().trim();
-      if (tl !== tipoLLC.toLowerCase().trim()) return false;
-    }
+    if (!matchesTipoLLC(t, tipoLLC)) return false;
     if (from === null && to === null) return true;
     // Cerrada → date_closed; Abierta → date_created
     const ref = t.isClosed ? t.closed_at_ms : t.created_at_ms;
@@ -1793,57 +1817,154 @@ export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
 // ─── DATOS POR PERSONA ─────────────────────────────────────
 // Único camino por el que viajan datos de personas al navegador. Genérico por
 // proceso: verifica el permiso para ESE proceso (PEOPLE_DATA_PERMISSIONS) y
-// responde 403 si no lo tiene. Hoy solo está implementado tax_return.
+// responde 403 si no lo tiene.
+
+// Qué cuenta, igual para los 5 procesos: tareas CERRADAS cuya fecha de cierre
+// cae en el período, agrupadas por el asignado ACTUAL en ClickUp (no por quien
+// la cerró). Una tarea compartida suma 1 a cada participante (ownCount /
+// sharedCount lo distinguen) y las cerradas sin asignado van aparte, en
+// unassignedCount, no como una persona más.
 
 export interface PeopleBreakdownInput {
   process: DashboardProcess;
   dateRange?: DateRangeInput;
-  // Filtros propios de cada proceso (hoy solo Tax Return usa tipoLLC).
-  filters?: { tipoLLC?: TipoLLC | "all" };
+  // Los filtros de la pantalla que no son de fecha; cada proceso usa los suyos.
+  filters?: {
+    processType?: ProcessType | "all";
+    state?: StateType | "all";
+    pkg?: PackageType | "all";
+    bank?: BankType | "all";
+    tipoLLC?: TipoLLC | "all";
+  };
 }
 
 // Pensado para crecer: más métricas dentro de `metrics` y, para la vista de
 // resumen, las tareas de cada persona en el período.
 export interface PeopleBreakdown {
   process: DashboardProcess;
-  period: { from: string | null; to: string | null };
-  people: { name: string; metrics: { closedCount: number } }[];
+  period: { from: string | null; to: string | null; basis: "closed_at" };
+  // Tareas cerradas en el período, cada una contada una sola vez.
+  closedTotal: number;
+  // De esas, las que no tienen ningún asignado.
+  unassignedCount: number;
+  people: {
+    name: string;
+    metrics: { closedCount: number; ownCount: number; sharedCount: number };
+  }[];
 }
 
-export class UnsupportedPeopleProcessError extends Error {}
+type PeopleFilters = NonNullable<PeopleBreakdownInput["filters"]>;
+
+interface PeopleSource<T> {
+  load: () => Promise<WithPeople<T>[]>;
+  // Los mismos filtros que la lista de la pantalla.
+  filter: (items: WithPeople<T>[], filters: PeopleFilters) => WithPeople<T>[];
+  isClosed: (t: T) => boolean;
+  closedAtMs: (t: T) => number | null;
+}
+
+const msOrNull = (v: number | null) => (typeof v === "number" && isFinite(v) ? v : null);
+const dateStrMs = (s: string | null) => (s ? msOrNull(new Date(s).getTime()) : null);
+
+// La fecha de cierre es la misma que usa el filtro de cada lista, salvo
+// Annual Reports, cuya pantalla filtra por creación: acá usa date_closed para
+// que los 5 gráficos sean comparables (la interfaz lo aclara).
+type ProcessRecord = {
+  llc_formation: Task;
+  bank_application: BankTask;
+  annual_reports: AnnualReportTask;
+  agentes_registrados: AgenteRegistradoTask;
+  tax_return: TaxReturnTask;
+};
+
+const arClosedMs = (t: AnnualReportTask) => (t.filed_date ? msOrNull(Number(t.filed_date)) : null);
+
+const PEOPLE_SOURCES: { [P in DashboardProcess]: PeopleSource<ProcessRecord[P]> } = {
+  llc_formation: {
+    load: fetchLLCTasks,
+    filter: (items, f) => filterLLCTasks(items, f),
+    isClosed: (t) => dateStrMs(t.closed_at) !== null,
+    closedAtMs: (t) => dateStrMs(t.closed_at),
+  },
+  bank_application: {
+    load: fetchBankTasks,
+    filter: (items, f) => filterBankTasks(items, f),
+    isClosed: (t) => dateStrMs(t.closed_at) !== null,
+    closedAtMs: (t) => dateStrMs(t.closed_at),
+  },
+  annual_reports: {
+    load: fetchAnnualReportsTasks,
+    filter: (items) => items,
+    isClosed: (t) => arClosedMs(t) !== null,
+    closedAtMs: arClosedMs,
+  },
+  agentes_registrados: {
+    load: fetchRegisteredAgentsTasks,
+    filter: (items, f) => filterAgentesRegistrados(items, f),
+    isClosed: (t) => msOrNull(t.date_closed_ms) !== null,
+    closedAtMs: (t) => msOrNull(t.date_closed_ms),
+  },
+  tax_return: {
+    load: fetchTaxReturnTasks,
+    filter: (items, f) => items.filter((t) => matchesTipoLLC(t, f.tipoLLC)),
+    // Igual que antes: cerrada = estado de tipo "closed" en ClickUp.
+    isClosed: (t) => t.isClosed,
+    closedAtMs: (t) => msOrNull(t.closed_at_ms),
+  },
+};
+
+export type PeopleLoaders = {
+  [P in DashboardProcess]?: () => Promise<WithPeople<ProcessRecord[P]>[]>;
+};
 
 export async function buildPeopleBreakdown(
   { process, dateRange, filters }: PeopleBreakdownInput,
-  load: { tax_return: () => Promise<WithPeople<TaxReturnTask>[]> } = {
-    tax_return: fetchTaxReturnTasks,
-  },
+  load: PeopleLoaders = {},
 ): Promise<PeopleBreakdown> {
-  if (process !== "tax_return") {
-    throw new UnsupportedPeopleProcessError(
-      `Datos por persona todavía no implementados para ${process}`,
-    );
-  }
-  const tasks = filterTaxReturns(await load.tax_return(), {
-    dateRange,
-    tipoLLC: filters?.tipoLLC,
+  // TypeScript no correlaciona process con su tipo de tarea; acá solo se usan
+  // los campos comunes (assignees) y las funciones del propio source.
+  const source = PEOPLE_SOURCES[process] as unknown as PeopleSource<object>;
+  const loader = (load[process] ?? source.load) as () => Promise<WithPeople<object>[]>;
+  const items = source.filter(await loader(), filters ?? {});
+
+  // Mismos límites de día que los filtros de las listas.
+  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+  const closed = items.filter((t) => {
+    if (!source.isClosed(t)) return false;
+    if (from === null && to === null) return true;
+    const ms = source.closedAtMs(t);
+    if (ms === null) return false;
+    if (from !== null && ms < from) return false;
+    if (to !== null && ms > to) return false;
+    return true;
   });
-  // Mismo conteo que hacía antes getTaxReturnByAssignee en el navegador.
-  const counts = new Map<string, number>();
-  for (const t of tasks) {
-    if (!t.isClosed) continue;
-    for (const a of t.assignees) {
-      if (!a || a === "Sin asignar") continue;
-      counts.set(a, (counts.get(a) ?? 0) + 1);
+
+  const people = new Map<string, { closedCount: number; ownCount: number; sharedCount: number }>();
+  let unassignedCount = 0;
+  for (const t of closed) {
+    const names = [...new Set(t.assignees.filter((a) => a && a !== "Sin asignar"))];
+    if (names.length === 0) unassignedCount++;
+    for (const name of names) {
+      const m = people.get(name) ?? { closedCount: 0, ownCount: 0, sharedCount: 0 };
+      m.closedCount++;
+      if (names.length > 1) m.sharedCount++;
+      else m.ownCount++;
+      people.set(name, m);
     }
   }
+
   return {
     process,
     period: {
       from: dateRange?.from ? new Date(dateRange.from).toISOString() : null,
       to: dateRange?.to ? new Date(dateRange.to).toISOString() : null,
+      basis: "closed_at",
     },
-    people: Array.from(counts.entries())
-      .map(([name, closedCount]) => ({ name, metrics: { closedCount } }))
+    closedTotal: closed.length,
+    unassignedCount,
+    people: Array.from(people.entries())
+      .map(([name, metrics]) => ({ name, metrics }))
       .sort((a, b) => b.metrics.closedCount - a.metrics.closedCount),
   };
 }
@@ -1884,12 +2005,7 @@ export const getPeopleBreakdown = createServerFn({ method: "GET" })
       return await peopleBreakdownFor(session.user.email, data, canSeePeople);
     } catch (error) {
       if (error instanceof ForbiddenPeopleError) setResponseStatus(403);
-      else if (
-        error instanceof InvalidPeopleProcessError ||
-        error instanceof UnsupportedPeopleProcessError
-      ) {
-        setResponseStatus(400);
-      }
+      else if (error instanceof InvalidPeopleProcessError) setResponseStatus(400);
       throw error;
     }
   });
