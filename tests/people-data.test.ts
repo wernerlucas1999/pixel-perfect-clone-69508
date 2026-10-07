@@ -187,7 +187,6 @@ const PROCESSES: () => ProcessCase[] = () => [
     list: (load) => C.listLLCTasks({ processType: "all" }, load),
     kpis: (t) => [
       C.getFunnelData(t),
-      C.getAverageTimeByStatus(t),
       C.calculateLeadTime(t),
       C.calculateCycleTimeKPIs(t),
       C.getLLCTaskExtremes(t),

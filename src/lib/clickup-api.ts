@@ -530,47 +530,6 @@ async function fetchAllTasks(listId: string): Promise<any[]> {
   return tasks.filter((t) => !t.parent);
 }
 
-// Bulk time-in-status: { taskId: { status_history: [{status, total_time:{by_minute, since}}], current_status: {...} } }
-async function fetchBulkTimeInStatus(taskIds: string[]): Promise<Record<string, any>> {
-  const out: Record<string, any> = {};
-  const batches: string[][] = [];
-  for (let i = 0; i < taskIds.length; i += 100) batches.push(taskIds.slice(i, i + 100));
-  await Promise.all(
-    batches.map(async (batch) => {
-      const qs = batch.map((id) => `task_ids=${encodeURIComponent(id)}`).join("&");
-      try {
-        const res = await clickUpFetch(`${BASE_URL}/task/bulk_time_in_status/task_ids/?${qs}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        Object.assign(out, data ?? {});
-      } catch {
-        // batch error: continuamos con datos parciales
-      }
-    }),
-  );
-  return out;
-}
-
-// Suma minutos en un status específico (case-insensitive) recorriendo todo el historial
-function minutesInStatus(entry: any, statusName: string): number {
-  if (!entry) return 0;
-  const target = statusName.trim().toUpperCase();
-  let total = 0;
-  const history = Array.isArray(entry.status_history) ? entry.status_history : [];
-  for (const h of history) {
-    if (String(h.status ?? "").trim().toUpperCase() === target) {
-      total += Number(h.total_time?.by_minute ?? 0);
-    }
-  }
-  if (
-    entry.current_status &&
-    String(entry.current_status.status ?? "").trim().toUpperCase() === target
-  ) {
-    total += Number(entry.current_status.total_time?.by_minute ?? 0);
-  }
-  return total;
-}
-
 // ─── MAPPERS ───────────────────────────────────────────────
 
 export function mapToTask(raw: any): WithPeople<Task> | null {
@@ -938,20 +897,6 @@ export async function fetchLLCTasks(): Promise<WithPeople<Task>[]> {
   const raw = await fetchAllTasks(LIST_IDS.llc_formation);
   const data = raw.map(mapToTask).filter((t): t is WithPeople<Task> => t !== null);
 
-  // ── EIN real: tiempo transcurrido en "ESPERANDO EIN" desde el status_history
-  try {
-    const tis = await fetchBulkTimeInStatus(data.map((t) => t.id));
-    for (const t of data) {
-      const entry = tis[t.id];
-      const mins = minutesInStatus(entry, "ESPERANDO EIN");
-      if (mins > 0) {
-        t.time_in_status["ESPERANDO EIN"] = Math.round((mins / (60 * 24)) * 10) / 10;
-      }
-    }
-  } catch {
-    // si falla, mantenemos el aprox por custom fields
-  }
-
   _llcCache = { data, ts: Date.now() };
   return data;
 }
@@ -1246,32 +1191,6 @@ return LLC_STATUS_FLOW
     .map((s) => ({ status: s, count: counts[s], fill: STATUS_COLORS[s] }));
 }
 
-export function getAverageTimeByStatus(tasks: Task[]) {
-  const times: Record<LLCStatus, number[]> = {
-    PENDIENTE: [],
-    "NO INICIAR": [],
-    "ESPERANDO INPUT CLIENTE": [],
-    "ESPERANDO APROB": [],
-    "APROBADA EN ESTADO": [],
-    "1º ENTREGA DOCS": [],
-    FAXEADO: [],
-    "ESPERANDO EIN": [],
-    "EIN LISTO": [],
-    CANCELADO: [],
-    "ENTREGA COMPLETADA": [],
-  };
-  tasks.forEach((t) =>
-    Object.entries(t.time_in_status).forEach(([s, d]) => {
-      if (times[s as LLCStatus] && s !== "NO INICIAR") times[s as LLCStatus].push(d);
-    }),
-  );
-  return LLC_STATUS_FLOW.map((s) => {
-    const arr = times[s];
-    const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-    return { status: s, avgDays: Math.round(avg * 10) / 10, fill: STATUS_COLORS[s] };
-  });
-}
-
 export function calculateLeadTime(tasks: Task[]) {
   const done = tasks.filter((t) => t.closed_at);
   if (!done.length) return 0;
@@ -1317,12 +1236,6 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
           10,
       ) / 10
     : 0;
-  const delayedTasks = tasks.filter((t) =>
-    (
-      ["ESPERANDO INPUT CLIENTE", "ESPERANDO APROB", "FAXEADO", "ESPERANDO EIN"] as LLCStatus[]
-    ).some((st) => (t.time_in_status[st] ?? 0) > 5),
-  ).length;
-
   // Promedios de demora (días) desde custom fields ya calculados por ClickUp.
   let sumDemoraCliente = 0;
   let countDemoraCliente = 0;
@@ -1350,7 +1263,6 @@ export function calculateCycleTimeKPIs(tasks: Task[]) {
     inProgressTasks,
     avgLeadTime,
     avgEINWait,
-    delayedTasks,
     avgDemoraCliente,
     avgTiempoInterno,
   };

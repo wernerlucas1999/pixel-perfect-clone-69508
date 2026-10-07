@@ -65,7 +65,6 @@ const defaultLLCKPIs = {
   inProgressTasks: 0,
   avgLeadTime: 0,
   avgEINWait: 0,
-  delayedTasks: 0,
   avgDemoraCliente: 0,
   avgTiempoInterno: 0,
 };
