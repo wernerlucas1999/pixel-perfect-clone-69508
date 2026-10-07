@@ -546,6 +546,20 @@ async function clickUpFetch(url: string, deadline: number): Promise<Response> {
   }
 }
 
+// ─── PEDIDO COMPARTIDO ─────────────────────────────────────
+// Varias personas que abren la misma pantalla a la vez con el caché vacío
+// comparten una sola carga desde ClickUp (en esta instancia). Si falla, falla
+// para todas y no queda nada en curso ni en caché.
+export function singleFlight<T>(load: () => Promise<T>): () => Promise<T> {
+  let inflight: Promise<T> | null = null;
+  return () => {
+    inflight ??= load().finally(() => {
+      inflight = null;
+    });
+    return inflight;
+  };
+}
+
 // ─── FETCHER GENÉRICO ──────────────────────────────────────
 
 // Pide las páginas en tandas de CLICKUP_MAX_CONCURRENCY. Dentro de cada tanda
@@ -553,17 +567,36 @@ async function clickUpFetch(url: string, deadline: number): Promise<Response> {
 // cumple isLastPage: las páginas posteriores de esa tanda se descartan, así
 // el resultado es idéntico al de la paginación secuencial. Un error solo se
 // propaga si ocurre en una página anterior o igual a la última.
-async function fetchPagesConcurrently(
+//
+// Para no pedir páginas que no existen, recuerda (por lista, en la memoria de la
+// instancia) cuántas páginas hicieron falta la vez anterior y la próxima pide
+// exactamente esas. Si la última planeada viene llena, la lista creció: sigue
+// pidiendo en tandas como antes, así que el resultado es siempre el mismo. En
+// frío (sin dato previo) se pide en tandas completas, como siempre: ClickUp no
+// expone el total de tareas (task_count de la lista cuenta solo las abiertas).
+const knownPageCount = new Map<string, number>();
+
+export async function fetchPagesConcurrently(
   pageUrl: (page: number) => string,
   isLastPage: (data: any, batch: any[]) => boolean,
   errorLabel: string,
   maxPage = Infinity,
   deadline = Date.now() + CLICKUP_LOAD_BUDGET_MS,
+  pageCountKey?: string,
 ): Promise<any[]> {
   const tasks: any[] = [];
+  const planned = pageCountKey ? knownPageCount.get(pageCountKey) : undefined;
+  // Última página a pedir mientras dure el plan (las páginas van de 0 a planned-1).
+  let limit = planned !== undefined ? Math.min(planned - 1, maxPage) : maxPage;
   for (let start = 0; start <= maxPage; start += CLICKUP_MAX_CONCURRENCY) {
     const pages: number[] = [];
-    for (let p = start; p < start + CLICKUP_MAX_CONCURRENCY && p <= maxPage; p++) pages.push(p);
+    for (let p = start; p < start + CLICKUP_MAX_CONCURRENCY && p <= limit; p++) pages.push(p);
+    if (pages.length === 0) {
+      // Se terminó el plan y la última página vino llena: seguir sin plan.
+      limit = maxPage;
+      start -= CLICKUP_MAX_CONCURRENCY;
+      continue;
+    }
     const results = await Promise.allSettled(
       pages.map(async (p) => {
         const res = await clickUpFetch(pageUrl(p), deadline);
@@ -571,12 +604,19 @@ async function fetchPagesConcurrently(
         return res.json();
       }),
     );
-    for (const r of results) {
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
       if (r.status === "rejected") throw r.reason;
       const batch: any[] = r.value?.tasks ?? [];
       tasks.push(...batch);
-      if (isLastPage(r.value, batch)) return tasks;
+      if (isLastPage(r.value, batch)) {
+        if (pageCountKey) knownPageCount.set(pageCountKey, pages[i] + 1);
+        return tasks;
+      }
     }
+    // Si esta tanda terminó el plan sin llegar a la última página, la próxima
+    // vuelta arranca después de la última pedida.
+    start = pages[pages.length - 1] + 1 - CLICKUP_MAX_CONCURRENCY;
   }
   return tasks;
 }
@@ -587,6 +627,9 @@ async function fetchAllTasks(listId: string): Promise<any[]> {
       `${BASE_URL}/list/${listId}/task?include_closed=true&subtasks=false&page=${page}&limit=100`,
     (_data, batch) => batch.length < 100,
     "ClickUp API error",
+    Infinity,
+    undefined,
+    `list:${listId}`,
   );
   // FILTRO RADICAL: garantizar 100% que ninguna subtarea pase
   return tasks.filter((t) => !t.parent);
@@ -962,22 +1005,29 @@ let _bankCacheV4: { data: WithPeople<BankTask>[]; ts: number } | null = null;
 const BANK_VIEW_ID = "8c901jk-6274";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
-export async function fetchLLCTasks(): Promise<WithPeople<Task>[]> {
-  if (_llcCache && Date.now() - _llcCache.ts < CACHE_TTL_MS) return _llcCache.data;
+const loadLLCTasks = singleFlight(async () => {
   const raw = await fetchAllTasks(LIST_IDS.llc_formation);
   const data = raw.map(mapToTask).filter((t): t is WithPeople<Task> => t !== null);
-
   _llcCache = { data, ts: Date.now() };
   return data;
+});
+
+export async function fetchLLCTasks(): Promise<WithPeople<Task>[]> {
+  if (_llcCache && Date.now() - _llcCache.ts < CACHE_TTL_MS) return _llcCache.data;
+  return loadLLCTasks();
 }
 
-export async function fetchBankTasks(): Promise<WithPeople<BankTask>[]> {
-  if (_bankCacheV4 && Date.now() - _bankCacheV4.ts < CACHE_TTL_MS) return _bankCacheV4.data;
 // Fuente: lista completa "Aplicaciones 2.0" (todas las tareas, sin filtro de vista).
+const loadBankTasks = singleFlight(async () => {
   const raw = await fetchAllTasks(LIST_IDS.bank_application);
   const data = raw.map(mapToBankTask).filter((t): t is WithPeople<BankTask> => t !== null);
   _bankCacheV4 = { data, ts: Date.now() };
   return data;
+});
+
+export async function fetchBankTasks(): Promise<WithPeople<BankTask>[]> {
+  if (_bankCacheV4 && Date.now() - _bankCacheV4.ts < CACHE_TTL_MS) return _bankCacheV4.data;
+  return loadBankTasks();
 }
 
 // ─── ERRORES DE CARGA → PANTALLA ───────────────────────────
@@ -1107,11 +1157,15 @@ export function mapAnnualReportTask(t: any): WithPeople<AnnualReportTask> {
   };
 }
 
-export async function fetchAnnualReportsTasks(): Promise<WithPeople<AnnualReportTask>[]> {
-  if (annualReportsCache) return annualReportsCache;
+const loadAnnualReportsTasks = singleFlight(async () => {
   const raw = await fetchAllTasks(ANNUAL_REPORTS_LIST_ID);
   annualReportsCache = raw.map(mapAnnualReportTask);
-  return annualReportsCache!;
+  return annualReportsCache;
+});
+
+export async function fetchAnnualReportsTasks(): Promise<WithPeople<AnnualReportTask>[]> {
+  if (annualReportsCache) return annualReportsCache;
+  return loadAnnualReportsTasks();
 }
 
 export interface AnnualReportsInput {
@@ -1167,11 +1221,15 @@ export function mapRegisteredAgentTask(t: any): WithPeople<AgenteRegistradoTask>
   };
 }
 
-export async function fetchRegisteredAgentsTasks(): Promise<WithPeople<AgenteRegistradoTask>[]> {
-  if (registeredAgentsCache) return registeredAgentsCache;
+const loadRegisteredAgentsTasks = singleFlight(async () => {
   const raw = await fetchAllTasks(REGISTERED_AGENTS_LIST_ID);
   registeredAgentsCache = raw.map(mapRegisteredAgentTask);
-  return registeredAgentsCache!;
+  return registeredAgentsCache;
+});
+
+export async function fetchRegisteredAgentsTasks(): Promise<WithPeople<AgenteRegistradoTask>[]> {
+  if (registeredAgentsCache) return registeredAgentsCache;
+  return loadRegisteredAgentsTasks();
 }
 
 export interface AgentesRegistradosInput {
@@ -1593,6 +1651,8 @@ async function fetchAllTasksByList(listId: string): Promise<any[]> {
     (data, batch) => data?.last_page === true || batch.length < 100,
     "ClickUp List API error",
     TAX_RETURN_MAX_PAGE,
+    undefined,
+    `tax:${listId}`,
   );
   return tasks.filter((t) => !t.parent);
 }
@@ -1673,12 +1733,16 @@ export function mapTaxReturnTask(raw: any): WithPeople<TaxReturnTask> | null {
   };
 }
 
-export async function fetchTaxReturnTasks(): Promise<WithPeople<TaxReturnTask>[]> {
-  if (_taxReturnCache && Date.now() - _taxReturnCache.ts < CACHE_TTL_MS) return _taxReturnCache.data;
+const loadTaxReturnTasks = singleFlight(async () => {
   const raw = await fetchAllTasksByList(TAX_RETURN_LIST_ID);
   const data = raw.map(mapTaxReturnTask).filter((t): t is WithPeople<TaxReturnTask> => t !== null);
   _taxReturnCache = { data, ts: Date.now() };
   return data;
+});
+
+export async function fetchTaxReturnTasks(): Promise<WithPeople<TaxReturnTask>[]> {
+  if (_taxReturnCache && Date.now() - _taxReturnCache.ts < CACHE_TTL_MS) return _taxReturnCache.data;
+  return loadTaxReturnTasks();
 }
 
 export interface TaxReturnsInput {
