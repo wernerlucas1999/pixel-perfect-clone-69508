@@ -47,6 +47,7 @@ import {
 import { getMe, type Me } from "@/lib/session-api";
 import { isDashboardProcess } from "@/lib/processes";
 import { toDayRange } from "@/lib/periods";
+import { loadErrorMessage } from "@/lib/load-errors";
 import { PeopleBreakdownCard, PeopleTabs } from "@/components/dashboard/people-breakdown-card";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -192,6 +193,7 @@ function DashboardPage() {
   const canSeePeople =
     isDashboardProcess(selectedProcess) && (me?.peopleProcesses.includes(selectedProcess) ?? false);
   const [peopleBreakdown, setPeopleBreakdown] = useState<PeopleBreakdown | null>(null);
+  const [peopleError, setPeopleError] = useState<string | null>(null);
 
   const fetchLLCData = useCallback(async () => {
     try {
@@ -209,7 +211,7 @@ function DashboardPage() {
       setLlcExtremes(getLLCTaskExtremes(tasks));
     } catch (err) {
       console.error("Error fetching LLC tasks:", err);
-      setError("Error al cargar datos de LLC");
+      setError(loadErrorMessage(err, "Formación de LLC"));
     }
   }, [selectedProcess, dayRange, selectedState, selectedPackage]);
 
@@ -230,7 +232,7 @@ function DashboardPage() {
       setBankStatusCounts(getBankStatusCounts(tasks));
     } catch (err) {
       console.error("Error fetching Bank tasks:", err);
-      setError("Error al cargar datos bancarios");
+      setError(loadErrorMessage(err, "Aplicación Bancaria"));
     }
   }, [dayRange, selectedState, selectedPackage, selectedBank]);
 
@@ -244,6 +246,8 @@ function DashboardPage() {
       setAnnualReportsPieData(getAnnualReportsPieData(reports));
     } catch (err) {
       console.error("Error fetching Annual Reports:", err);
+      // Antes se tragaba el error y quedaban en pantalla los datos anteriores.
+      setError(loadErrorMessage(err, "Annual Reports"));
     }
   }, [selectedState, selectedPackage, dayRange]);
 
@@ -257,6 +261,8 @@ function DashboardPage() {
       setAgentesStatusChartData(getAgentesStatusChartData(agentes));
     } catch (err) {
       console.error("Error fetching Agentes:", err);
+      // Antes se tragaba el error y quedaban en pantalla los datos anteriores.
+      setError(loadErrorMessage(err, "Agentes Registrados"));
     }
   }, [selectedState, selectedPackage, dayRange]);
 
@@ -270,13 +276,11 @@ function DashboardPage() {
       setTaxReturnExtremes(getTaxReturnTaskExtremes(items));
     } catch (err) {
       console.error("Error fetching Tax Return:", err);
-      // No bloquear el dashboard: dejar KPIs en cero y mostrar aviso.
+      // Se limpian los datos y la pantalla muestra el error en vez de los KPIs.
       setFilteredTaxReturns([]);
       setTaxReturnKPIs(defaultTaxReturnKPIs);
       setTaxReturnExtremes({ fastest: null, slowest: null });
-      setError(
-        "No se pudo cargar Tax Return (verifica que el ID de lista/vista de ClickUp sea correcto y tenga acceso).",
-      );
+      setError(loadErrorMessage(err, "Tax Return"));
     }
   }, [dayRange, selectedTipoLLC]);
 
@@ -285,6 +289,7 @@ function DashboardPage() {
   // que usa la lista de cada pantalla.
   useEffect(() => {
     setPeopleBreakdown(null);
+    setPeopleError(null);
     if (!canSeePeople || !isDashboardProcess(selectedProcess)) return;
     const filters: PeopleBreakdownInput["filters"] = {
       llc_formation: { processType: selectedProcess, state: selectedState, pkg: selectedPackage },
@@ -300,6 +305,7 @@ function DashboardPage() {
       })
       .catch((err) => {
         console.error("Error fetching rendimiento por colaborador:", err);
+        if (!cancelled) setPeopleError(loadErrorMessage(err, "rendimiento por colaborador"));
       });
     return () => {
       cancelled = true;
@@ -316,6 +322,7 @@ function DashboardPage() {
   const peopleCard = (
     <PeopleBreakdownCard
       breakdown={peopleBreakdown}
+      error={peopleError}
       periodWarning={
         selectedProcess === "annual_reports"
           ? "Este gráfico cuenta por fecha de cierre. El resto de esta pantalla filtra por fecha de creación, así que sus números no son comparables con este."

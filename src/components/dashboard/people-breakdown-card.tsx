@@ -37,9 +37,11 @@ interface PeopleBreakdownCardProps {
   breakdown: PeopleBreakdown | null;
   // Aviso extra cuando el resto de la pantalla filtra por otra fecha.
   periodWarning?: string;
+  // Si la carga falló: se muestra el error, nunca datos anteriores.
+  error?: string | null;
 }
 
-export function PeopleBreakdownCard({ breakdown, periodWarning }: PeopleBreakdownCardProps) {
+export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleBreakdownCardProps) {
   const data = (breakdown?.people ?? []).map((p) => ({
     name: p.name,
     own: p.metrics.ownCount,
@@ -59,7 +61,12 @@ export function PeopleBreakdownCard({ breakdown, periodWarning }: PeopleBreakdow
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!breakdown ? (
+        {error ? (
+          <p className="flex items-start gap-2 text-sm text-destructive">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </p>
+        ) : !breakdown ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
         ) : (
           <>

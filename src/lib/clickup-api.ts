@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSession } from "./auth-middleware";
 import { isDashboardProcess, type DashboardProcess } from "./processes";
 import { inPeriod, periodBoundsMs, type DayRange } from "./periods";
+import { CLICKUP_NO_RESPONDE, CLICKUP_SATURADO } from "./load-errors";
 
 // ============================================================
 // clickup-api.ts
@@ -449,6 +450,25 @@ function calcCurrentStatusDays(task: any): number {
 const CLICKUP_MAX_CONCURRENCY = 6;
 const CLICKUP_MAX_RETRIES_429 = 5;
 
+// ─── TOPE DE ESPERA ────────────────────────────────────────
+// Cada carga de una pantalla tiene 40 s en total desde que empieza: una carga
+// normal tarda 2-12 s y quedan 20 s de margen bajo el límite de 60 s de la
+// función en Vercel (maxDuration). Un 429 solo se reintenta si la espera que
+// pide ClickUp entra en lo que queda; si no, se corta en el momento con
+// ClickUpUnavailableError y la pantalla muestra "ClickUp está saturado" en vez
+// de colgarse un minuto y morir con un error genérico. Una carga cortada no
+// deja nada en caché: nunca hay datos parciales.
+export const CLICKUP_LOAD_BUDGET_MS = 40_000;
+
+export class ClickUpUnavailableError extends Error {
+  constructor(
+    readonly reason: "saturado" | "sin_respuesta",
+    detail: string,
+  ) {
+    super(`ClickUp ${reason === "saturado" ? "saturado" : "sin respuesta"}: ${detail}`);
+  }
+}
+
 let clickUpActive = 0;
 const clickUpQueue: (() => void)[] = [];
 // Si un request recibe 429, todos los siguientes esperan hasta este instante.
@@ -481,21 +501,47 @@ function rateLimitWaitMs(res: Response, attempt: number): number {
   return Math.min(2000 * 2 ** attempt, 60_000);
 }
 
-async function clickUpFetch(url: string): Promise<Response> {
+// deadline: instante (ms) en que vence el tope de la carga a la que pertenece
+// este pedido. Ninguna espera ni pedido puede pasarse de ahí.
+async function clickUpFetch(url: string, deadline: number): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
     await acquireClickUpSlot();
     let res: Response;
     try {
       const pause = clickUpPausedUntil - Date.now();
+      if (Date.now() + Math.max(pause, 0) >= deadline) {
+        throw new ClickUpUnavailableError("saturado", "la espera por 429 no entra en el tope");
+      }
       if (pause > 0) await sleep(pause);
-      res = await fetch(url, { headers: { Authorization: getClickUpToken() } });
+      const left = deadline - Date.now();
+      if (left <= 0) {
+        throw new ClickUpUnavailableError("sin_respuesta", "se agotó el tope de la carga");
+      }
+      try {
+        res = await fetch(url, {
+          headers: { Authorization: getClickUpToken() },
+          signal: AbortSignal.timeout(left),
+        });
+      } catch (error) {
+        // Sin respuesta dentro del tope, o falla de red.
+        throw new ClickUpUnavailableError("sin_respuesta", String(error));
+      }
     } finally {
       releaseClickUpSlot();
     }
-    if (res.status !== 429 || attempt >= CLICKUP_MAX_RETRIES_429) return res;
+    if (res.status !== 429) return res;
     await res.body?.cancel();
+    if (attempt >= CLICKUP_MAX_RETRIES_429) {
+      throw new ClickUpUnavailableError("saturado", `429 después de ${attempt} reintentos`);
+    }
     const waitMs = rateLimitWaitMs(res, attempt);
     clickUpPausedUntil = Math.max(clickUpPausedUntil, Date.now() + waitMs);
+    if (Date.now() + waitMs >= deadline) {
+      throw new ClickUpUnavailableError(
+        "saturado",
+        `ClickUp pide esperar ${Math.round(waitMs / 1000)}s`,
+      );
+    }
     console.warn(`[ClickUp] 429 rate limit, reintento ${attempt + 1} en ${Math.round(waitMs / 1000)}s`);
   }
 }
@@ -512,6 +558,7 @@ async function fetchPagesConcurrently(
   isLastPage: (data: any, batch: any[]) => boolean,
   errorLabel: string,
   maxPage = Infinity,
+  deadline = Date.now() + CLICKUP_LOAD_BUDGET_MS,
 ): Promise<any[]> {
   const tasks: any[] = [];
   for (let start = 0; start <= maxPage; start += CLICKUP_MAX_CONCURRENCY) {
@@ -519,7 +566,7 @@ async function fetchPagesConcurrently(
     for (let p = start; p < start + CLICKUP_MAX_CONCURRENCY && p <= maxPage; p++) pages.push(p);
     const results = await Promise.allSettled(
       pages.map(async (p) => {
-        const res = await clickUpFetch(pageUrl(p));
+        const res = await clickUpFetch(pageUrl(p), deadline);
         if (!res.ok) throw new Error(`${errorLabel} ${res.status}: ${await res.text()}`);
         return res.json();
       }),
@@ -933,6 +980,21 @@ export async function fetchBankTasks(): Promise<WithPeople<BankTask>[]> {
   return data;
 }
 
+// ─── ERRORES DE CARGA → PANTALLA ───────────────────────────
+// Si ClickUp no responde dentro del tope, la server function responde 503 con
+// un código (load-errors.ts) para que la pantalla muestre un mensaje claro.
+async function clickUpGuard<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (!(error instanceof ClickUpUnavailableError)) throw error;
+    console.error(error.message);
+    const { setResponseStatus } = await import("@tanstack/react-start/server");
+    setResponseStatus(503);
+    throw new Error(error.reason === "saturado" ? CLICKUP_SATURADO : CLICKUP_NO_RESPONDE);
+  }
+}
+
 // ─── FUNCIONES DE FILTRO (misma firma que mock-data.ts) ────
 // Cada server function de lista delega en una función list* que recibe el
 // loader como parámetro (los tests pasan datos fijos) y SIEMPRE termina en
@@ -976,7 +1038,7 @@ export async function listLLCTasks(
 export const getFilteredTasks = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: LLCTasksInput) => data)
-  .handler(({ data }) => listLLCTasks(data));
+  .handler(({ data }) => clickUpGuard(() => listLLCTasks(data)));
 
 export interface BankTasksInput {
   dateRange?: DateRangeInput;
@@ -988,7 +1050,7 @@ export interface BankTasksInput {
 export const getFilteredBankTasks = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: BankTasksInput) => data)
-  .handler(({ data }) => listBankTasks(data));
+  .handler(({ data }) => clickUpGuard(() => listBankTasks(data)));
 
 function filterBankTasks<T extends BankTask>(
   tasks: T[],
@@ -1069,7 +1131,7 @@ export async function listAnnualReports(
 export const getFilteredAnnualReports = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: AnnualReportsInput) => data)
-  .handler(({ data }) => listAnnualReports(data));
+  .handler(({ data }) => clickUpGuard(() => listAnnualReports(data)));
 
 // ─── AGENTES REGISTRADOS (ClickUp list real) ───────────────
 const REGISTERED_AGENTS_LIST_ID = "901406624813";
@@ -1138,7 +1200,7 @@ export async function listAgentesRegistrados(
 export const getFilteredAgentesRegistrados = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: AgentesRegistradosInput) => data)
-  .handler(({ data }) => listAgentesRegistrados(data));
+  .handler(({ data }) => clickUpGuard(() => listAgentesRegistrados(data)));
 
 function filterByClosedDateRange<T extends { date_closed_ms: number | null }>(
   items: T[],
@@ -1652,7 +1714,7 @@ export async function listTaxReturns(
 export const getFilteredTaxReturns = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: TaxReturnsInput) => data)
-  .handler(({ data }) => listTaxReturns(data));
+  .handler(({ data }) => clickUpGuard(() => listTaxReturns(data)));
 
 export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
   const closed = tasks.filter((t) => t.isClosed);
@@ -1891,7 +1953,7 @@ export const getPeopleBreakdown = createServerFn({ method: "GET" })
     // TanStack mezcla en `context` lo que manda el cliente.
     const session = await assertValidSession(getRequest());
     try {
-      return await peopleBreakdownFor(session.user.email, data, canSeePeople);
+      return await clickUpGuard(() => peopleBreakdownFor(session.user.email, data, canSeePeople));
     } catch (error) {
       if (error instanceof ForbiddenPeopleError) setResponseStatus(403);
       else if (error instanceof InvalidPeopleProcessError) setResponseStatus(400);
