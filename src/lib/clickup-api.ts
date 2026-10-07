@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSession } from "./auth-middleware";
 import { isDashboardProcess, type DashboardProcess } from "./processes";
+import { inPeriod, periodBoundsMs, type DayRange } from "./periods";
 
 // ============================================================
 // clickup-api.ts
@@ -148,6 +149,10 @@ export interface Task {
   process_type: ProcessType;
   created_at: string;
   closed_at: string | null;
+  // Instantes originales de ClickUp (ms). Los usan los filtros de período;
+  // created_at/closed_at (día UTC) siguen alimentando las duraciones.
+  created_at_ms: number | null;
+  closed_at_ms: number | null;
   custom_fields: CustomFields;
   time_in_status: TimeInStatus;
   ein_status: EINStatus;
@@ -163,6 +168,9 @@ export interface BankTask {
   process_type: "bank_application";
   created_at: string;
   closed_at: string | null;
+  // Instantes originales de ClickUp (ms), para los filtros de período.
+  created_at_ms: number | null;
+  closed_at_ms: number | null;
   custom_fields: BankCustomFields;
   time_in_status: TimeInStatus;
   current_status_days: number;
@@ -289,6 +297,13 @@ export function redactPeople<T extends object>(items: readonly WithPeople<T>[]):
 }
 
 // ─── HELPERS ───────────────────────────────────────────────
+
+// Instante de ClickUp (string o número de ms) → ms, o null si no hay.
+function rawMs(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return isFinite(n) && n > 0 ? n : null;
+}
 
 function msToDate(ms: number | string | null): string | null {
   if (!ms) return null;
@@ -637,6 +652,10 @@ export function mapToTask(raw: any): WithPeople<Task> | null {
     assignees: extractAssignees(raw),
     created_at: fechaCreacion,
     closed_at: closedAt,
+    // date_created de ClickUp, no un campo personalizado: en estas listas no
+    // existe "Fecha de creación" (verificado 2026-10-07).
+    created_at_ms: rawMs(raw.date_created),
+    closed_at_ms: rawMs(raw.date_closed),
     custom_fields: {
       fecha_creacion: fechaCreacion,
       envio_tramite: envioTramite,
@@ -860,6 +879,10 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
     assignees: extractAssignees(raw),
     created_at: fechaCreacion,
     closed_at: closedAt,
+    // date_created de ClickUp, no un campo personalizado: en estas listas no
+    // existe "Fecha de creación" (verificado 2026-10-07).
+    created_at_ms: rawMs(raw.date_created),
+    closed_at_ms: rawMs(raw.date_closed),
     custom_fields: {
       fecha_creacion: fechaCreacion,
       solicitud_info: solicitudInfo,
@@ -915,7 +938,7 @@ export async function fetchBankTasks(): Promise<WithPeople<BankTask>[]> {
 // loader como parámetro (los tests pasan datos fijos) y SIEMPRE termina en
 // redactPeople.
 
-type DateRangeInput = { from: Date | null; to: Date | null };
+type DateRangeInput = DayRange;
 
 export interface LLCTasksInput {
   processType: ProcessType | "all";
@@ -943,18 +966,9 @@ export async function listLLCTasks(
 ): Promise<Task[]> {
   let tasks = filterLLCTasks(await load(), { processType, state, pkg });
   if (dateRange?.from || dateRange?.to) {
-    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-    tasks = tasks.filter((t) => {
-      // Cerrada → usar date_closed; Abierta → usar date_created (proxy de actividad).
-      const refStr = t.closed_at ?? t.created_at;
-      if (!refStr) return false;
-      const refMs = new Date(refStr).getTime();
-      if (isNaN(refMs)) return false;
-      if (fromMs !== null && refMs < fromMs) return false;
-      if (toMs !== null && refMs > toMs) return false;
-      return true;
-    });
+    const bounds = periodBoundsMs(dateRange);
+    // Cerrada → usar date_closed; Abierta → usar date_created (proxy de actividad).
+    tasks = tasks.filter((t) => inPeriod(t.closed_at_ms ?? t.created_at_ms, bounds));
   }
   return redactPeople(tasks);
 }
@@ -992,17 +1006,9 @@ export async function listBankTasks(
 ): Promise<BankTask[]> {
   let tasks = filterBankTasks(await load(), { state, pkg, bank });
   if (dateRange?.from || dateRange?.to) {
-    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-    const toMs = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-    tasks = tasks.filter((t) => {
-      // Filtro estricto por Fecha de Cierre real (date_closed), igual que Agentes Registrados.
-      if (!t.closed_at) return false;
-      const refMs = new Date(t.closed_at).getTime();
-      if (isNaN(refMs)) return false;
-      if (fromMs !== null && refMs < fromMs) return false;
-      if (toMs !== null && refMs > toMs) return false;
-      return true;
-    });
+    const bounds = periodBoundsMs(dateRange);
+    // Filtro estricto por Fecha de Cierre real (date_closed), igual que Agentes Registrados.
+    tasks = tasks.filter((t) => inPeriod(t.closed_at_ms, bounds));
   }
   return redactPeople(tasks);
 }
@@ -1136,35 +1142,21 @@ export const getFilteredAgentesRegistrados = createServerFn({ method: "GET" })
 
 function filterByClosedDateRange<T extends { date_closed_ms: number | null }>(
   items: T[],
-  dateRange?: { from: Date | null; to: Date | null },
+  dateRange?: DateRangeInput,
 ): T[] {
-  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-  if (from === null && to === null) return items;
-  return items.filter((t) => {
-    const ms = t.date_closed_ms;
-    if (typeof ms !== "number" || !isFinite(ms)) return false;
-    if (from !== null && ms < from) return false;
-    if (to !== null && ms > to) return false;
-    return true;
-  });
+  const bounds = periodBoundsMs(dateRange);
+  if (bounds.from === null && bounds.to === null) return items;
+  return items.filter((t) => inPeriod(t.date_closed_ms, bounds));
 }
 
 
 function filterByDateRange<T extends { date_created_ms: number | null }>(
   items: T[],
-  dateRange?: { from: Date | null; to: Date | null },
+  dateRange?: DateRangeInput,
 ): T[] {
-  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-  if (from === null && to === null) return items;
-  return items.filter((t) => {
-    const ms = t.date_created_ms;
-    if (typeof ms !== "number" || !isFinite(ms)) return false;
-    if (from !== null && ms < from) return false;
-    if (to !== null && ms > to) return false;
-    return true;
-  });
+  const bounds = periodBoundsMs(dateRange);
+  if (bounds.from === null && bounds.to === null) return items;
+  return items.filter((t) => inPeriod(t.date_created_ms, bounds));
 }
 
 // ─── KPI CALCULATORS (idénticos a mock-data.ts) ────────────
@@ -1641,18 +1633,12 @@ function filterTaxReturns<T extends TaxReturnTask>(
   all: T[],
   { dateRange, tipoLLC }: TaxReturnsInput,
 ): T[] {
-  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+  const bounds = periodBoundsMs(dateRange);
 
   return all.filter((t) => {
     if (!matchesTipoLLC(t, tipoLLC)) return false;
-    if (from === null && to === null) return true;
     // Cerrada → date_closed; Abierta → date_created
-    const ref = t.isClosed ? t.closed_at_ms : t.created_at_ms;
-    if (typeof ref !== "number" || !isFinite(ref)) return false;
-    if (from !== null && ref < from) return false;
-    if (to !== null && ref > to) return false;
-    return true;
+    return inPeriod(t.isClosed ? t.closed_at_ms : t.created_at_ms, bounds);
   });
 }
 
@@ -1754,6 +1740,7 @@ export interface PeopleBreakdownInput {
 // resumen, las tareas de cada persona en el período.
 export interface PeopleBreakdown {
   process: DashboardProcess;
+  // Días de calendario "YYYY-MM-DD", cortados en hora argentina.
   period: { from: string | null; to: string | null; basis: "closed_at" };
   // Tareas cerradas en el período, cada una contada una sola vez.
   closedTotal: number;
@@ -1776,7 +1763,6 @@ interface PeopleSource<T> {
 }
 
 const msOrNull = (v: number | null) => (typeof v === "number" && isFinite(v) ? v : null);
-const dateStrMs = (s: string | null) => (s ? msOrNull(new Date(s).getTime()) : null);
 
 // La fecha de cierre es la misma que usa el filtro de cada lista, salvo
 // Annual Reports, cuya pantalla filtra por creación: acá usa date_closed para
@@ -1795,14 +1781,14 @@ const PEOPLE_SOURCES: { [P in DashboardProcess]: PeopleSource<ProcessRecord[P]> 
   llc_formation: {
     load: fetchLLCTasks,
     filter: (items, f) => filterLLCTasks(items, f),
-    isClosed: (t) => dateStrMs(t.closed_at) !== null,
-    closedAtMs: (t) => dateStrMs(t.closed_at),
+    isClosed: (t) => t.closed_at_ms !== null,
+    closedAtMs: (t) => t.closed_at_ms,
   },
   bank_application: {
     load: fetchBankTasks,
     filter: (items, f) => filterBankTasks(items, f),
-    isClosed: (t) => dateStrMs(t.closed_at) !== null,
-    closedAtMs: (t) => dateStrMs(t.closed_at),
+    isClosed: (t) => t.closed_at_ms !== null,
+    closedAtMs: (t) => t.closed_at_ms,
   },
   annual_reports: {
     load: fetchAnnualReportsTasks,
@@ -1839,18 +1825,9 @@ export async function buildPeopleBreakdown(
   const loader = (load[process] ?? source.load) as () => Promise<WithPeople<object>[]>;
   const items = source.filter(await loader(), filters ?? {});
 
-  // Mismos límites de día que los filtros de las listas.
-  const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
-  const to = dateRange?.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-  const closed = items.filter((t) => {
-    if (!source.isClosed(t)) return false;
-    if (from === null && to === null) return true;
-    const ms = source.closedAtMs(t);
-    if (ms === null) return false;
-    if (from !== null && ms < from) return false;
-    if (to !== null && ms > to) return false;
-    return true;
-  });
+  // Mismos límites de día que los filtros de las listas (medianoche argentina).
+  const bounds = periodBoundsMs(dateRange);
+  const closed = items.filter((t) => source.isClosed(t) && inPeriod(source.closedAtMs(t), bounds));
 
   const people = new Map<string, { closedCount: number; ownCount: number; sharedCount: number }>();
   let unassignedCount = 0;
@@ -1869,8 +1846,8 @@ export async function buildPeopleBreakdown(
   return {
     process,
     period: {
-      from: dateRange?.from ? new Date(dateRange.from).toISOString() : null,
-      to: dateRange?.to ? new Date(dateRange.to).toISOString() : null,
+      from: dateRange?.from ?? null,
+      to: dateRange?.to ?? null,
       basis: "closed_at",
     },
     closedTotal: closed.length,

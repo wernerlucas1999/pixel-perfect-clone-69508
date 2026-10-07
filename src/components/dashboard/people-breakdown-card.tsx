@@ -1,6 +1,4 @@
 import type { ReactNode } from "react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import {
   BarChart,
   Bar,
@@ -21,8 +19,11 @@ import type { PeopleBreakdown } from "@/lib/clickup-api";
 
 const PALETTE = ["#14b8a6", "#22c55e", "#3b82f6", "#ec4899", "#f97316", "#a855f7", "#eab308"];
 
-function formatDay(iso: string) {
-  return format(new Date(iso), "dd/MM/yyyy", { locale: es });
+// "YYYY-MM-DD" (día de calendario) → "DD/MM/YYYY", sin pasar por Date: un Date
+// lo leería como medianoche UTC y en Argentina mostraría el día anterior.
+function formatDay(day: string) {
+  const [y, m, d] = day.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 function periodText(period: PeopleBreakdown["period"]) {

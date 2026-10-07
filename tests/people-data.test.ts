@@ -441,7 +441,7 @@ describe("buildPeopleBreakdown en los 5 procesos", () => {
       const r = await C.buildPeopleBreakdown(
         {
           process: process as never,
-          dateRange: { from: new Date(2026, 0, 10), to: new Date(2026, 0, 20) },
+          dateRange: { from: "2026-01-10", to: "2026-01-20" },
         },
         { [process]: async () => internal },
       );

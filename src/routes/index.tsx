@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { KPICards } from "@/components/dashboard/kpi-cards";
@@ -46,6 +46,7 @@ import {
 } from "@/lib/clickup-api";
 import { getMe, type Me } from "@/lib/session-api";
 import { isDashboardProcess } from "@/lib/processes";
+import { toDayRange } from "@/lib/periods";
 import { PeopleBreakdownCard, PeopleTabs } from "@/components/dashboard/people-breakdown-card";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -106,6 +107,8 @@ const defaultTaxReturnKPIs = {
 function DashboardPage() {
   const [selectedProcess, setSelectedProcess] = useState<ProcessType>("llc_formation");
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
+  // Al servidor va el día de calendario elegido ("YYYY-MM-DD"); él corta en hora argentina.
+  const dayRange = useMemo(() => toDayRange(dateRange), [dateRange]);
   const [selectedState, setSelectedState] = useState<StateType | "all">("all");
   const [selectedPackage, setSelectedPackage] = useState<PackageType | "all">("all");
   const [selectedBank, setSelectedBank] = useState<BankType | "all">("all");
@@ -195,7 +198,7 @@ function DashboardPage() {
       const tasks = await getFilteredTasks({
         data: {
           processType: selectedProcess,
-          dateRange,
+          dateRange: dayRange,
           state: selectedState,
           pkg: selectedPackage,
         },
@@ -208,13 +211,13 @@ function DashboardPage() {
       console.error("Error fetching LLC tasks:", err);
       setError("Error al cargar datos de LLC");
     }
-  }, [selectedProcess, dateRange, selectedState, selectedPackage]);
+  }, [selectedProcess, dayRange, selectedState, selectedPackage]);
 
   const fetchBankData = useCallback(async () => {
     try {
       const tasks = await getFilteredBankTasks({
         data: {
-          dateRange,
+          dateRange: dayRange,
           state: selectedState,
           pkg: selectedPackage,
           bank: selectedBank,
@@ -229,12 +232,12 @@ function DashboardPage() {
       console.error("Error fetching Bank tasks:", err);
       setError("Error al cargar datos bancarios");
     }
-  }, [dateRange, selectedState, selectedPackage, selectedBank]);
+  }, [dayRange, selectedState, selectedPackage, selectedBank]);
 
   const fetchAnnualReportsData = useCallback(async () => {
     try {
       const reports = await getFilteredAnnualReports({
-        data: { state: selectedState, pkg: selectedPackage, dateRange },
+        data: { state: selectedState, pkg: selectedPackage, dateRange: dayRange },
       });
       setFilteredAnnualReports(reports);
       setAnnualReportsKPIs(calculateAnnualReportsKPIs(reports));
@@ -242,12 +245,12 @@ function DashboardPage() {
     } catch (err) {
       console.error("Error fetching Annual Reports:", err);
     }
-  }, [selectedState, selectedPackage, dateRange]);
+  }, [selectedState, selectedPackage, dayRange]);
 
   const fetchAgentesData = useCallback(async () => {
     try {
       const agentes = await getFilteredAgentesRegistrados({
-        data: { state: selectedState, pkg: selectedPackage, dateRange },
+        data: { state: selectedState, pkg: selectedPackage, dateRange: dayRange },
       });
       setFilteredAgentes(agentes);
       setAgentesKPIs(calculateAgentesKPIs(agentes));
@@ -255,12 +258,12 @@ function DashboardPage() {
     } catch (err) {
       console.error("Error fetching Agentes:", err);
     }
-  }, [selectedState, selectedPackage, dateRange]);
+  }, [selectedState, selectedPackage, dayRange]);
 
   const fetchTaxReturnData = useCallback(async () => {
     try {
       const items = await getFilteredTaxReturns({
-        data: { dateRange, tipoLLC: selectedTipoLLC },
+        data: { dateRange: dayRange, tipoLLC: selectedTipoLLC },
       });
       setFilteredTaxReturns(items);
       setTaxReturnKPIs(calculateTaxReturnKPIs(items));
@@ -275,7 +278,7 @@ function DashboardPage() {
         "No se pudo cargar Tax Return (verifica que el ID de lista/vista de ClickUp sea correcto y tenga acceso).",
       );
     }
-  }, [dateRange, selectedTipoLLC]);
+  }, [dayRange, selectedTipoLLC]);
 
   // Rendimiento por colaborador: sale de getPeopleBreakdown, el único camino
   // con datos de personas. Sin permiso ni se pide. Le pasa los mismos filtros
@@ -291,7 +294,7 @@ function DashboardPage() {
       tax_return: { tipoLLC: selectedTipoLLC },
     }[selectedProcess];
     let cancelled = false;
-    getPeopleBreakdown({ data: { process: selectedProcess, dateRange, filters } })
+    getPeopleBreakdown({ data: { process: selectedProcess, dateRange: dayRange, filters } })
       .then((breakdown) => {
         if (!cancelled) setPeopleBreakdown(breakdown);
       })
@@ -304,7 +307,7 @@ function DashboardPage() {
   }, [
     selectedProcess,
     canSeePeople,
-    dateRange,
+    dayRange,
     selectedState,
     selectedPackage,
     selectedBank,
