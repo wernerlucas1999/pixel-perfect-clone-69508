@@ -671,10 +671,11 @@ export async function fetchPagesConcurrently(
   deadline = Date.now() + CLICKUP_LOAD_BUDGET_MS,
   pageCountKey?: string,
 ): Promise<any[]> {
-  // Cuenta los pedidos de esta carga para el registro de cortes.
+  // Cuenta los pedidos de esta carga para los registros de carga y de cortes.
   const load = { requests: 0 };
+  const startedAt = Date.now();
   try {
-    return await fetchPagesCounted(
+    const tasks = await fetchPagesCounted(
       load,
       pageUrl,
       isLastPage,
@@ -683,10 +684,52 @@ export async function fetchPagesConcurrently(
       deadline,
       pageCountKey,
     );
+    logClickUpLoad(pageCountKey, load.requests, startedAt, null);
+    return tasks;
   } catch (error) {
     if (error instanceof ClickUpUnavailableError) error.requestsInLoad ??= load.requests;
+    logClickUpLoad(pageCountKey, load.requests, startedAt, error);
     throw error;
   }
+}
+
+// Una línea "[clickup-carga] {json}" por cada carga real desde ClickUp (las
+// que salen del caché no llegan acá), con el id de la instancia: sirve para
+// medir cuántas instancias abre Vercel y cuánto pide cada una. Sin datos de
+// personas.
+function logClickUpLoad(
+  pageCountKey: string | undefined,
+  requests: number,
+  startedAt: number,
+  error: unknown,
+): void {
+  const listId = pageCountKey?.split(":")[1];
+  const names: Record<string, string> = {
+    [LIST_IDS.llc_formation]: "Formación LLC",
+    [LIST_IDS.bank_application]: "Aplicación Bancaria",
+    [ANNUAL_REPORTS_LIST_ID]: "Annual Reports",
+    [REGISTERED_AGENTS_LIST_ID]: "Agentes Registrados",
+    [TAX_RETURN_LIST_ID]: "Tax Return",
+  };
+  // Mismo reloj que el autolímite (Date.now), para no desordenar su ventana.
+  const now = new Date(Date.now());
+  const rate = clickUpRateState();
+  const event = {
+    evento: "clickup_carga",
+    lista: (listId && names[listId]) ?? listId ?? "desconocida",
+    ok: error === null,
+    motivo:
+      error === null ? null : error instanceof ClickUpUnavailableError ? error.reason : "error",
+    pedidos: requests,
+    ms: now.getTime() - startedAt,
+    pedidos_ultimo_minuto_instancia: clickUpRequestsLastMinute(now.getTime()),
+    clickup_restantes: rate.remaining,
+    hora_utc: now.toISOString(),
+    hora_ar: AR_TIME.format(now),
+    instancia: INSTANCE.id,
+    instancia_desde: INSTANCE.since,
+  };
+  console.log(`[clickup-carga] ${JSON.stringify(event)}`);
 }
 
 type PageArgs = Parameters<typeof fetchPagesConcurrently>;
@@ -1166,7 +1209,11 @@ const AR_TIME = new Intl.DateTimeFormat("es-AR", {
   second: "2-digit",
 });
 
-export function clickUpCutEvent(screen: string, error: ClickUpUnavailableError, now = new Date()) {
+export function clickUpCutEvent(
+  screen: string,
+  error: ClickUpUnavailableError,
+  now = new Date(Date.now()),
+) {
   const rate = clickUpRateState();
   return {
     evento: "clickup_corte",

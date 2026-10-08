@@ -185,3 +185,51 @@ describe("las 5 pantallas vencen el caché a los 5 minutos, igual", () => {
     });
   }
 });
+
+describe("registro de cada carga desde ClickUp", () => {
+  test("una línea [clickup-carga] por carga real, con lista, pedidos e instancia, sin personas", async () => {
+    advance(60 * 60_000);
+    const lines: string[] = [];
+    const realLog = console.log;
+    console.log = (...a: unknown[]) => {
+      const l = a.map(String).join(" ");
+      if (l.startsWith("[clickup-carga]")) lines.push(l);
+    };
+    try {
+      globalThis.fetch = (async () =>
+        new Response(
+          JSON.stringify({
+            tasks: [
+              {
+                id: "x",
+                assignees: [{ username: "Colaboradora Alfa", email: "alfa@firmaway.us" }],
+              },
+            ],
+          }),
+          { status: 200 },
+        )) as any;
+      await C.fetchPagesConcurrently(
+        (page) => `https://api.clickup.com/api/v2/list/901406624812/task?page=${page}`,
+        (_d, batch) => batch.length < 100,
+        "test",
+        0,
+        undefined,
+        "list:901406624812",
+      );
+    } finally {
+      console.log = realLog;
+    }
+    expect(lines).toHaveLength(1);
+    const ev = JSON.parse(lines[0].slice("[clickup-carga] ".length));
+    expect(ev).toMatchObject({
+      evento: "clickup_carga",
+      lista: "Annual Reports",
+      ok: true,
+      pedidos: 1,
+    });
+    expect(typeof ev.instancia).toBe("string");
+    expect(typeof ev.instancia_desde).toBe("string");
+    expect(lines[0]).not.toContain("Colaboradora Alfa");
+    expect(lines[0]).not.toContain("@firmaway.us");
+  });
+});
