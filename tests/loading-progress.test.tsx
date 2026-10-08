@@ -47,3 +47,23 @@ describe("antigüedad de los datos", () => {
     expect(html).toContain("Actualizar");
   });
 });
+
+describe("aviso cuando Actualizar no vuelve a pedir", () => {
+  test("muestra que los datos ya están actualizados", () => {
+    const html = renderToString(
+      <DataFreshness
+        fetchedAt={Date.now() - 10_000}
+        refreshing={false}
+        upToDate
+        onRefresh={() => {}}
+      />,
+    ).replace(/<!-- -->/g, "");
+    expect(html).toContain("Los datos ya están actualizados: se cargaron hace menos de 30 s.");
+  });
+  test("sin el aviso, no aparece", () => {
+    const html = renderToString(
+      <DataFreshness fetchedAt={Date.now() - 10_000} refreshing={false} onRefresh={() => {}} />,
+    );
+    expect(html).not.toContain("ya están actualizados");
+  });
+});

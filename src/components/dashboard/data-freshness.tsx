@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { Check, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { dataAgeLabel } from "@/lib/data-age";
 
@@ -10,10 +10,13 @@ export function DataFreshness({
   fetchedAt,
   onRefresh,
   refreshing,
+  upToDate = false,
 }: {
   fetchedAt: number;
   onRefresh: () => void;
   refreshing: boolean;
+  // "Actualizar" no volvió a pedir porque los datos son de hace menos de 30 s.
+  upToDate?: boolean;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -29,6 +32,12 @@ export function DataFreshness({
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-3 text-sm text-muted-foreground">
+      {upToDate && (
+        <span role="status" className="flex items-center gap-1 text-foreground">
+          <Check className="h-4 w-4 text-success" />
+          Los datos ya están actualizados: se cargaron hace menos de 30 s.
+        </span>
+      )}
       <span>
         Datos de ClickUp de {dataAgeLabel(fetchedAt, now)} ({time})
       </span>

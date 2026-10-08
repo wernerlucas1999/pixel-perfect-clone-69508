@@ -187,9 +187,11 @@ describe("antigüedad declarada y botón Actualizar", () => {
     );
     expect(forced()).toBeGreaterThan(0);
     expect(c.fetchedAt!).toBeGreaterThan(a.fetchedAt!);
+    expect(c.refreshSkipped).toBe(false);
+    expect(b.refreshSkipped).toBe(false);
   });
 
-  test("Actualizar con datos de menos de 30 s no vuelve a pedir a ClickUp", async () => {
+  test("Actualizar con datos de menos de 30 s no vuelve a pedir a ClickUp y lo avisa", async () => {
     freshClock();
     fakeAnnualReports();
     await C.screenDataFor(
@@ -200,7 +202,7 @@ describe("antigüedad declarada y botón Actualizar", () => {
       canSee,
     );
     const again = fakeAnnualReports();
-    await C.screenDataFor(
+    const r = await C.screenDataFor(
       "otra@firmaway.us",
       "annual_reports",
       { refresh: true },
@@ -208,5 +210,6 @@ describe("antigüedad declarada y botón Actualizar", () => {
       canSee,
     );
     expect(again()).toBe(0);
+    expect(r.refreshSkipped).toBe(true); // la pantalla muestra "los datos ya están actualizados"
   });
 });

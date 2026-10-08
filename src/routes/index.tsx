@@ -121,6 +121,15 @@ function DashboardPage() {
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
   const refreshNext = useRef(false);
   const [reloadKey, setReloadKey] = useState(0);
+  // "Actualizar" con datos de hace menos de 30 s no vuelve a pedir a ClickUp:
+  // en vez de no hacer nada, se avisa unos segundos.
+  const [upToDateNotice, setUpToDateNotice] = useState(false);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showUpToDate = useCallback(() => {
+    setUpToDateNotice(true);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setUpToDateNotice(false), 5_000);
+  }, []);
   const [error, setError] = useState<string | null>(null);
 
   const [, setFilteredTasks] = useState<Task[]>([]);
@@ -205,7 +214,7 @@ function DashboardPage() {
 
   const fetchLLCData = useCallback(async () => {
     try {
-      const { tasks, people, fetchedAt } = await getFilteredTasks({
+      const { tasks, people, fetchedAt, refreshSkipped } = await getFilteredTasks({
         data: {
           processType: selectedProcess,
           dateRange: dayRange,
@@ -217,6 +226,7 @@ function DashboardPage() {
       });
       setPeopleBreakdown(people);
       setFetchedAt(fetchedAt);
+      if (refreshSkipped) showUpToDate();
       setFilteredTasks(tasks);
       setKpis(calculateCycleTimeKPIs(tasks));
       setFunnelData(getFunnelData(tasks));
@@ -225,11 +235,11 @@ function DashboardPage() {
       console.error("Error fetching LLC tasks:", err);
       setError(loadErrorMessage(err, "Formación de LLC"));
     }
-  }, [selectedProcess, dayRange, selectedState, selectedPackage, canSeePeople]);
+  }, [selectedProcess, dayRange, selectedState, selectedPackage, canSeePeople, showUpToDate]);
 
   const fetchBankData = useCallback(async () => {
     try {
-      const { tasks, people, fetchedAt } = await getFilteredBankTasks({
+      const { tasks, people, fetchedAt, refreshSkipped } = await getFilteredBankTasks({
         data: {
           dateRange: dayRange,
           state: selectedState,
@@ -241,6 +251,7 @@ function DashboardPage() {
       });
       setPeopleBreakdown(people);
       setFetchedAt(fetchedAt);
+      if (refreshSkipped) showUpToDate();
       setFilteredBankTasks(tasks);
       setBankKpis(calculateBankKPIs(tasks));
       setBottleneckData(calculateBottleneckAnalysis(tasks));
@@ -250,7 +261,7 @@ function DashboardPage() {
       console.error("Error fetching Bank tasks:", err);
       setError(loadErrorMessage(err, "Aplicación Bancaria"));
     }
-  }, [dayRange, selectedState, selectedPackage, selectedBank, canSeePeople]);
+  }, [dayRange, selectedState, selectedPackage, selectedBank, canSeePeople, showUpToDate]);
 
   const fetchAnnualReportsData = useCallback(async () => {
     try {
@@ -258,6 +269,7 @@ function DashboardPage() {
         tasks: reports,
         people,
         fetchedAt,
+        refreshSkipped,
       } = await getFilteredAnnualReports({
         data: {
           state: selectedState,
@@ -269,6 +281,7 @@ function DashboardPage() {
       });
       setPeopleBreakdown(people);
       setFetchedAt(fetchedAt);
+      if (refreshSkipped) showUpToDate();
       setFilteredAnnualReports(reports);
       setAnnualReportsKPIs(calculateAnnualReportsKPIs(reports));
       setAnnualReportsPieData(getAnnualReportsPieData(reports));
@@ -277,7 +290,7 @@ function DashboardPage() {
       // Antes se tragaba el error y quedaban en pantalla los datos anteriores.
       setError(loadErrorMessage(err, "Annual Reports"));
     }
-  }, [selectedState, selectedPackage, dayRange, canSeePeople]);
+  }, [selectedState, selectedPackage, dayRange, canSeePeople, showUpToDate]);
 
   const fetchAgentesData = useCallback(async () => {
     try {
@@ -285,6 +298,7 @@ function DashboardPage() {
         tasks: agentes,
         people,
         fetchedAt,
+        refreshSkipped,
       } = await getFilteredAgentesRegistrados({
         data: {
           state: selectedState,
@@ -296,6 +310,7 @@ function DashboardPage() {
       });
       setPeopleBreakdown(people);
       setFetchedAt(fetchedAt);
+      if (refreshSkipped) showUpToDate();
       setFilteredAgentes(agentes);
       setAgentesKPIs(calculateAgentesKPIs(agentes));
       setAgentesStatusChartData(getAgentesStatusChartData(agentes));
@@ -304,7 +319,7 @@ function DashboardPage() {
       // Antes se tragaba el error y quedaban en pantalla los datos anteriores.
       setError(loadErrorMessage(err, "Agentes Registrados"));
     }
-  }, [selectedState, selectedPackage, dayRange, canSeePeople]);
+  }, [selectedState, selectedPackage, dayRange, canSeePeople, showUpToDate]);
 
   const fetchTaxReturnData = useCallback(async () => {
     try {
@@ -312,6 +327,7 @@ function DashboardPage() {
         tasks: items,
         people,
         fetchedAt,
+        refreshSkipped,
       } = await getFilteredTaxReturns({
         data: {
           dateRange: dayRange,
@@ -322,6 +338,7 @@ function DashboardPage() {
       });
       setPeopleBreakdown(people);
       setFetchedAt(fetchedAt);
+      if (refreshSkipped) showUpToDate();
       setFilteredTaxReturns(items);
       setTaxReturnKPIs(calculateTaxReturnKPIs(items));
       setTaxReturnExtremes(getTaxReturnTaskExtremes(items));
@@ -333,7 +350,7 @@ function DashboardPage() {
       setTaxReturnExtremes({ fastest: null, slowest: null });
       setError(loadErrorMessage(err, "Tax Return"));
     }
-  }, [dayRange, selectedTipoLLC, canSeePeople]);
+  }, [dayRange, selectedTipoLLC, canSeePeople, showUpToDate]);
 
   const peopleCard = (
     <PeopleBreakdownCard
@@ -584,6 +601,7 @@ function DashboardPage() {
               <DataFreshness
                 fetchedAt={fetchedAt}
                 refreshing={isLoading}
+                upToDate={upToDateNotice}
                 onRefresh={() => {
                   refreshNext.current = true;
                   setReloadKey((k) => k + 1);

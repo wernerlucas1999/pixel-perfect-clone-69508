@@ -2272,6 +2272,9 @@ export interface ScreenData<T> {
   people: PeopleBreakdown | null;
   // Cuándo se cargaron estos datos desde ClickUp (ms), para mostrar su antigüedad.
   fetchedAt: number | null;
+  // Se pidió "Actualizar" pero los datos tenían menos de MIN_REFRESH_AGE_MS y no
+  // se volvió a pedir a ClickUp: la pantalla lo avisa en vez de no hacer nada.
+  refreshSkipped: boolean;
 }
 
 // Hora de carga del caché de cada pantalla, y cómo descartarlo.
@@ -2310,7 +2313,7 @@ export async function screenDataFor<T, I extends { dateRange?: DateRangeInput }>
   if (withPeople && (!email || !canSee(email, process))) {
     throw new ForbiddenPeopleError("Sin permiso para ver datos por persona de este proceso");
   }
-  if (input?.refresh === true) dropScreenCache(process);
+  const refreshSkipped = input?.refresh === true && !dropScreenCache(process);
   const tasks = await list(input);
   const people = withPeople
     ? await buildPeopleBreakdown(
@@ -2318,7 +2321,7 @@ export async function screenDataFor<T, I extends { dateRange?: DateRangeInput }>
         load,
       )
     : null;
-  return { tasks, people, fetchedAt: screenCacheLoadedAt(process) };
+  return { tasks, people, fetchedAt: screenCacheLoadedAt(process), refreshSkipped };
 }
 
 async function serveScreen<T, I extends { dateRange?: DateRangeInput }>(
