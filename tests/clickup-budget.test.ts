@@ -48,8 +48,9 @@ const rawTask = (id: string) => ({
 });
 
 describe("tope de espera por saturación de ClickUp", () => {
-  test("el tope es de 20 s, bien por debajo de los 60 s de Vercel", () => {
-    expect(C.CLICKUP_LOAD_BUDGET_MS).toBe(20_000);
+  test("dos topes: 45 s para una carga que recibe respuestas, 20 s para esperar cupo", () => {
+    expect(C.CLICKUP_LOAD_BUDGET_MS).toBe(45_000);
+    expect(C.CLICKUP_RATE_WAIT_BUDGET_MS).toBe(20_000);
   });
 
   test("429 que pide esperar 60 s → corta en el momento con 'saturado'", async () => {
@@ -218,5 +219,59 @@ describe("registro de cortes en los logs", () => {
     expect(ev.hora_ar).toBe("07/10/2026, 21:30:00"); // hora argentina
     expect(typeof ev.instancia).toBe("string");
     expect(JSON.stringify(ev)).not.toContain("@firmaway.us");
+  });
+});
+
+describe("los dos topes son independientes", () => {
+  test("una carga lenta que ya lleva 30 s recibiendo respuestas no se corta", async () => {
+    shiftClock(6 * 3600_000);
+    // Cada respuesta "tarda" 4 s (reloj adelantado), sin ningún 429: 12 páginas.
+    let fakeOffset = 0;
+    const base = Date.now;
+    Date.now = () => base() + fakeOffset;
+    globalThis.fetch = (async (url: string) => {
+      fakeOffset += 4_000;
+      const page = Number(new URL(url).searchParams.get("page"));
+      const n = Math.max(0, Math.min(100, 1150 - page * 100));
+      return new Response(
+        JSON.stringify({ tasks: Array.from({ length: n }, (_, i) => ({ id: `${page}-${i}` })) }),
+        { status: 200 },
+      );
+    }) as any;
+    const tasks = await C.fetchPagesConcurrently(
+      (page) => `https://api.clickup.com/api/v2/list/lenta/task?page=${page}`,
+      (_d, batch) => batch.length < 100,
+      "test",
+    );
+    expect(tasks).toHaveLength(1150);
+    expect(fakeOffset).toBeGreaterThan(20_000); // antes se habría cortado a los 20 s
+  });
+
+  test("una carga que lleva 30 s recibiendo respuestas todavía puede esperar cupo", () => {
+    const t0 = 1_000_000;
+    const load = C.newClickUpLoad(t0);
+    // Con el tope único de 20 s esto se cortaba; ahora entra (5 s de espera, 35 s de carga).
+    expect(C.reserveWait(load, t0 + 35_000, t0 + 30_000)).toBe(true);
+  });
+
+  test("esperar cupo: como máximo 20 s en total por carga", () => {
+    const t0 = 1_500_000;
+    const load = C.newClickUpLoad(t0);
+    expect(C.reserveWait(load, t0 + 13_000, t0 + 1_000)).toBe(true); // 12 s
+    expect(C.reserveWait(load, t0 + 21_000, t0 + 14_000)).toBe(true); // +7 s = 19 s
+    expect(C.reserveWait(load, t0 + 24_000, t0 + 22_000)).toBe(false); // +2 s = 21 s → "saturado"
+  });
+
+  test("varias páginas esperando la misma pausa la descuentan una sola vez", () => {
+    const t0 = 2_000_000;
+    const load = C.newClickUpLoad(t0);
+    for (let i = 0; i < 6; i++) expect(C.reserveWait(load, t0 + 15_000, t0)).toBe(true);
+    expect(load.waitLeft).toBe(5_000);
+  });
+
+  test("ninguna espera puede pasarse del tope total de 45 s", () => {
+    const t0 = 3_000_000;
+    const load = C.newClickUpLoad(t0);
+    expect(C.reserveWait(load, t0 + 46_000, t0 + 40_000)).toBe(false);
   });
 });

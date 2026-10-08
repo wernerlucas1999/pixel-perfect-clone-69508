@@ -47,7 +47,7 @@ import { isDashboardProcess } from "@/lib/processes";
 import { toDayRange } from "@/lib/periods";
 import { loadErrorMessage } from "@/lib/load-errors";
 import { PeopleBreakdownCard, PeopleTabs } from "@/components/dashboard/people-breakdown-card";
-import { Spinner } from "@/components/ui/spinner";
+import { LoadingProgress } from "@/components/dashboard/loading-progress";
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
@@ -114,6 +114,7 @@ function DashboardPage() {
   const [selectedTipoLLC, setSelectedTipoLLC] = useState<TipoLLC | "all">("all");
 
   const [isLoading, setIsLoading] = useState(true);
+  const [loadStartedAt, setLoadStartedAt] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
 
   const [, setFilteredTasks] = useState<Task[]>([]);
@@ -316,6 +317,7 @@ function DashboardPage() {
   useEffect(() => {
     if (!meLoaded) return;
     const loadData = async () => {
+      setLoadStartedAt(Date.now());
       setIsLoading(true);
       setError(null);
       setPeopleBreakdown(null);
@@ -358,14 +360,7 @@ function DashboardPage() {
 
   const renderProcessView = () => {
     if (isLoading) {
-      return (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <Spinner className="mx-auto mb-4 h-8 w-8" />
-            <p className="text-muted-foreground">Cargando datos desde ClickUp...</p>
-          </div>
-        </div>
-      );
+      return <LoadingProgress startedAt={loadStartedAt} />;
     }
 
     if (error) {

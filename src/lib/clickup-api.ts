@@ -450,15 +450,50 @@ function calcCurrentStatusDays(task: any): number {
 const CLICKUP_MAX_CONCURRENCY = 6;
 const CLICKUP_MAX_RETRIES_429 = 5;
 
-// ─── TOPE DE ESPERA ────────────────────────────────────────
-// Cada carga de una pantalla tiene 20 s en total desde que empieza: la carga
-// normal más lenta medida tarda 12 s, y 20 s queda muy por debajo del límite
-// de 60 s de la función en Vercel (maxDuration). Un 429 solo se reintenta si la espera que
-// pide ClickUp entra en lo que queda; si no, se corta en el momento con
-// ClickUpUnavailableError y la pantalla muestra "ClickUp está saturado" en vez
-// de colgarse un minuto y morir con un error genérico. Una carga cortada no
-// deja nada en caché: nunca hay datos parciales.
-export const CLICKUP_LOAD_BUDGET_MS = 20_000;
+// ─── TOPES DE CADA CARGA ───────────────────────────────────
+// Dos topes distintos, porque son dos cosas distintas:
+// - CLICKUP_LOAD_BUDGET_MS (45 s): cuánto puede durar una carga que está
+//   recibiendo respuestas, aunque ClickUp responda lento. Queda por debajo de
+//   los 60 s de la función en Vercel (maxDuration).
+// - CLICKUP_RATE_WAIT_BUDGET_MS (20 s): cuánto puede esperar, en total, a que
+//   ClickUp libere cupo (pausas por 429 y esperas del autolímite). Si la espera
+//   no entra, se corta en el momento como "saturado" en vez de dejar a la
+//   persona mirando la pantalla.
+// Antes había un solo tope de 20 s para todo, y una carga que avanzaba pero
+// lento terminaba en "ClickUp no responde" con ClickUp respondiendo bien.
+// Una carga cortada no deja nada en caché: nunca hay datos parciales.
+export const CLICKUP_LOAD_BUDGET_MS = 45_000;
+export const CLICKUP_RATE_WAIT_BUDGET_MS = 20_000;
+
+// Estado de una carga: pedidos hechos, tope total y espera por cupo restante.
+export interface ClickUpLoad {
+  requests: number;
+  deadline: number;
+  waitLeft: number;
+  // Hasta cuándo ya se contó espera: varias páginas de la misma carga que
+  // esperan la misma pausa la descuentan una sola vez.
+  waitedThrough: number;
+}
+
+export function newClickUpLoad(now = Date.now()): ClickUpLoad {
+  return {
+    requests: 0,
+    deadline: now + CLICKUP_LOAD_BUDGET_MS,
+    waitLeft: CLICKUP_RATE_WAIT_BUDGET_MS,
+    waitedThrough: now,
+  };
+}
+
+// true (y descuenta) si la carga puede esperar a que ClickUp libere cupo hasta
+// `until` sin pasarse de los 20 s de espera ni del tope total.
+export function reserveWait(load: ClickUpLoad, until: number, now = Date.now()): boolean {
+  if (until >= load.deadline) return false;
+  const extra = Math.max(0, until - Math.max(now, load.waitedThrough));
+  if (extra > load.waitLeft) return false;
+  load.waitLeft -= extra;
+  load.waitedThrough = Math.max(load.waitedThrough, until);
+  return true;
+}
 
 // ─── AUTOLÍMITE ────────────────────────────────────────────
 // ClickUp permite 100 pedidos por minuto por token (plan actual). En vez de
@@ -504,7 +539,7 @@ function noteRateHeaders(res: Response): void {
   if (reset > 0) clickUpRateResetAt = reset * 1000;
 }
 
-async function waitForRateSlot(deadline: number): Promise<void> {
+async function waitForRateSlot(load: ClickUpLoad): Promise<void> {
   for (;;) {
     const now = Date.now();
     let until = 0;
@@ -526,7 +561,7 @@ async function waitForRateSlot(deadline: number): Promise<void> {
       if (clickUpRateRemaining !== null) clickUpRateRemaining--;
       return;
     }
-    if (until >= deadline) {
+    if (!reserveWait(load, until, now)) {
       throw new ClickUpUnavailableError(
         "saturado",
         `autolímite: el cupo se libera en ${Math.round((until - now) / 1000)}s`,
@@ -579,31 +614,26 @@ function rateLimitWaitMs(res: Response, attempt: number): number {
   return Math.min(2000 * 2 ** attempt, 60_000);
 }
 
-// deadline: instante (ms) en que vence el tope de la carga a la que pertenece
-// este pedido. Ninguna espera ni pedido puede pasarse de ahí.
-async function clickUpFetch(
-  url: string,
-  deadline: number,
-  load?: { requests: number },
-): Promise<Response> {
+// load: la carga a la que pertenece este pedido (topes y pedidos hechos).
+async function clickUpFetch(url: string, load: ClickUpLoad): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
-    await waitForRateSlot(deadline);
+    await waitForRateSlot(load);
     await acquireClickUpSlot();
     let res: Response;
     try {
       // ClickUp reinicia el cupo cada minuto: una pausa más larga que 65 s es un
       // dato viejo o un salto de reloj, y no se espera por ella.
       const pause = clickUpPausedUntil - Date.now() > 65_000 ? 0 : clickUpPausedUntil - Date.now();
-      if (Date.now() + Math.max(pause, 0) >= deadline) {
+      if (pause > 0 && !reserveWait(load, Date.now() + pause)) {
         throw new ClickUpUnavailableError("saturado", "la espera por 429 no entra en el tope");
       }
       if (pause > 0) await sleep(pause);
-      const left = deadline - Date.now();
+      const left = load.deadline - Date.now();
       if (left <= 0) {
         throw new ClickUpUnavailableError("sin_respuesta", "se agotó el tope de la carga");
       }
       try {
-        if (load) load.requests++;
+        load.requests++;
         res = await fetch(url, {
           headers: { Authorization: getClickUpToken() },
           signal: AbortSignal.timeout(left),
@@ -623,7 +653,7 @@ async function clickUpFetch(
     }
     const waitMs = rateLimitWaitMs(res, attempt);
     clickUpPausedUntil = Math.max(clickUpPausedUntil, Date.now() + waitMs);
-    if (Date.now() + waitMs >= deadline) {
+    if (!reserveWait(load, Date.now() + waitMs)) {
       throw new ClickUpUnavailableError(
         "saturado",
         `ClickUp pide esperar ${Math.round(waitMs / 1000)}s`,
@@ -671,9 +701,10 @@ export async function fetchPagesConcurrently(
   deadline = Date.now() + CLICKUP_LOAD_BUDGET_MS,
   pageCountKey?: string,
 ): Promise<any[]> {
-  // Cuenta los pedidos de esta carga para los registros de carga y de cortes.
-  const load = { requests: 0 };
+  // Topes y pedidos de esta carga (también para los registros de carga y cortes).
   const startedAt = Date.now();
+  const load = newClickUpLoad(startedAt);
+  load.deadline = deadline;
   try {
     const tasks = await fetchPagesCounted(
       load,
@@ -681,7 +712,6 @@ export async function fetchPagesConcurrently(
       isLastPage,
       errorLabel,
       maxPage,
-      deadline,
       pageCountKey,
     );
     logClickUpLoad(pageCountKey, load.requests, startedAt, null);
@@ -735,12 +765,11 @@ function logClickUpLoad(
 type PageArgs = Parameters<typeof fetchPagesConcurrently>;
 
 async function fetchPagesCounted(
-  load: { requests: number },
+  load: ClickUpLoad,
   pageUrl: PageArgs[0],
   isLastPage: PageArgs[1],
   errorLabel: string,
   maxPage: number,
-  deadline: number,
   pageCountKey?: string,
 ): ReturnType<typeof fetchPagesConcurrently> {
   const tasks: Awaited<ReturnType<typeof fetchPagesConcurrently>> = [];
@@ -758,7 +787,7 @@ async function fetchPagesCounted(
     }
     const results = await Promise.allSettled(
       pages.map(async (p) => {
-        const res = await clickUpFetch(pageUrl(p), deadline, load);
+        const res = await clickUpFetch(pageUrl(p), load);
         if (!res.ok) throw new Error(`${errorLabel} ${res.status}: ${await res.text()}`);
         return res.json();
       }),
