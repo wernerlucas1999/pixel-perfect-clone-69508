@@ -1280,7 +1280,10 @@ export async function listBankTasks(
 
 // Stubs para las listas aún no conectadas
 const ANNUAL_REPORTS_LIST_ID = "901406624812";
-let annualReportsCache: WithPeople<AnnualReportTask>[] | null = null;
+// Mismo caché de 5 minutos que las otras pantallas. Antes no vencía nunca: se
+// refrescaba recién cuando reiniciaba la instancia, y podía mostrar datos de
+// hace horas sin avisar.
+let annualReportsCache: { data: WithPeople<AnnualReportTask>[]; ts: number } | null = null;
 
 function mapAnnualStatus(raw: string): AnnualReportStatus {
   const s = (raw || "").toLowerCase().trim();
@@ -1311,12 +1314,15 @@ export function mapAnnualReportTask(t: any): WithPeople<AnnualReportTask> {
 
 const loadAnnualReportsTasks = singleFlight(async () => {
   const raw = await fetchAllTasks(ANNUAL_REPORTS_LIST_ID);
-  annualReportsCache = raw.map(mapAnnualReportTask);
-  return annualReportsCache;
+  const data = raw.map(mapAnnualReportTask);
+  annualReportsCache = { data, ts: Date.now() };
+  return data;
 });
 
 export async function fetchAnnualReportsTasks(): Promise<WithPeople<AnnualReportTask>[]> {
-  if (annualReportsCache) return annualReportsCache;
+  if (annualReportsCache && Date.now() - annualReportsCache.ts < CACHE_TTL_MS) {
+    return annualReportsCache.data;
+  }
   return loadAnnualReportsTasks();
 }
 
@@ -1341,7 +1347,8 @@ export const getFilteredAnnualReports = createServerFn({ method: "GET" })
 
 // ─── AGENTES REGISTRADOS (ClickUp list real) ───────────────
 const REGISTERED_AGENTS_LIST_ID = "901406624813";
-let registeredAgentsCache: WithPeople<AgenteRegistradoTask>[] | null = null;
+// Mismo caché de 5 minutos que las otras pantallas (antes no vencía nunca).
+let registeredAgentsCache: { data: WithPeople<AgenteRegistradoTask>[]; ts: number } | null = null;
 
 function mapAgenteStatus(raw: string): AgenteStatus {
   const s = (raw || "").toLowerCase().trim();
@@ -1375,12 +1382,15 @@ export function mapRegisteredAgentTask(t: any): WithPeople<AgenteRegistradoTask>
 
 const loadRegisteredAgentsTasks = singleFlight(async () => {
   const raw = await fetchAllTasks(REGISTERED_AGENTS_LIST_ID);
-  registeredAgentsCache = raw.map(mapRegisteredAgentTask);
-  return registeredAgentsCache;
+  const data = raw.map(mapRegisteredAgentTask);
+  registeredAgentsCache = { data, ts: Date.now() };
+  return data;
 });
 
 export async function fetchRegisteredAgentsTasks(): Promise<WithPeople<AgenteRegistradoTask>[]> {
-  if (registeredAgentsCache) return registeredAgentsCache;
+  if (registeredAgentsCache && Date.now() - registeredAgentsCache.ts < CACHE_TTL_MS) {
+    return registeredAgentsCache.data;
+  }
   return loadRegisteredAgentsTasks();
 }
 
