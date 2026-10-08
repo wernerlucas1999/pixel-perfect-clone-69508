@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { KPICards } from "@/components/dashboard/kpi-cards";
@@ -48,6 +48,7 @@ import { toDayRange } from "@/lib/periods";
 import { loadErrorMessage } from "@/lib/load-errors";
 import { PeopleBreakdownCard, PeopleTabs } from "@/components/dashboard/people-breakdown-card";
 import { LoadingProgress } from "@/components/dashboard/loading-progress";
+import { DataFreshness } from "@/components/dashboard/data-freshness";
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
@@ -115,6 +116,11 @@ function DashboardPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadStartedAt, setLoadStartedAt] = useState(() => Date.now());
+  // De cuándo son los datos que se ven (los manda el servidor) y el botón
+  // "Actualizar", que fuerza la carga desde ClickUp en el próximo pedido.
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
+  const refreshNext = useRef(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const [, setFilteredTasks] = useState<Task[]>([]);
@@ -199,16 +205,18 @@ function DashboardPage() {
 
   const fetchLLCData = useCallback(async () => {
     try {
-      const { tasks, people } = await getFilteredTasks({
+      const { tasks, people, fetchedAt } = await getFilteredTasks({
         data: {
           processType: selectedProcess,
           dateRange: dayRange,
           state: selectedState,
           pkg: selectedPackage,
           withPeople: canSeePeople,
+          refresh: refreshNext.current,
         },
       });
       setPeopleBreakdown(people);
+      setFetchedAt(fetchedAt);
       setFilteredTasks(tasks);
       setKpis(calculateCycleTimeKPIs(tasks));
       setFunnelData(getFunnelData(tasks));
@@ -221,16 +229,18 @@ function DashboardPage() {
 
   const fetchBankData = useCallback(async () => {
     try {
-      const { tasks, people } = await getFilteredBankTasks({
+      const { tasks, people, fetchedAt } = await getFilteredBankTasks({
         data: {
           dateRange: dayRange,
           state: selectedState,
           pkg: selectedPackage,
           bank: selectedBank,
           withPeople: canSeePeople,
+          refresh: refreshNext.current,
         },
       });
       setPeopleBreakdown(people);
+      setFetchedAt(fetchedAt);
       setFilteredBankTasks(tasks);
       setBankKpis(calculateBankKPIs(tasks));
       setBottleneckData(calculateBottleneckAnalysis(tasks));
@@ -244,15 +254,21 @@ function DashboardPage() {
 
   const fetchAnnualReportsData = useCallback(async () => {
     try {
-      const { tasks: reports, people } = await getFilteredAnnualReports({
+      const {
+        tasks: reports,
+        people,
+        fetchedAt,
+      } = await getFilteredAnnualReports({
         data: {
           state: selectedState,
           pkg: selectedPackage,
           dateRange: dayRange,
           withPeople: canSeePeople,
+          refresh: refreshNext.current,
         },
       });
       setPeopleBreakdown(people);
+      setFetchedAt(fetchedAt);
       setFilteredAnnualReports(reports);
       setAnnualReportsKPIs(calculateAnnualReportsKPIs(reports));
       setAnnualReportsPieData(getAnnualReportsPieData(reports));
@@ -265,15 +281,21 @@ function DashboardPage() {
 
   const fetchAgentesData = useCallback(async () => {
     try {
-      const { tasks: agentes, people } = await getFilteredAgentesRegistrados({
+      const {
+        tasks: agentes,
+        people,
+        fetchedAt,
+      } = await getFilteredAgentesRegistrados({
         data: {
           state: selectedState,
           pkg: selectedPackage,
           dateRange: dayRange,
           withPeople: canSeePeople,
+          refresh: refreshNext.current,
         },
       });
       setPeopleBreakdown(people);
+      setFetchedAt(fetchedAt);
       setFilteredAgentes(agentes);
       setAgentesKPIs(calculateAgentesKPIs(agentes));
       setAgentesStatusChartData(getAgentesStatusChartData(agentes));
@@ -286,10 +308,20 @@ function DashboardPage() {
 
   const fetchTaxReturnData = useCallback(async () => {
     try {
-      const { tasks: items, people } = await getFilteredTaxReturns({
-        data: { dateRange: dayRange, tipoLLC: selectedTipoLLC, withPeople: canSeePeople },
+      const {
+        tasks: items,
+        people,
+        fetchedAt,
+      } = await getFilteredTaxReturns({
+        data: {
+          dateRange: dayRange,
+          tipoLLC: selectedTipoLLC,
+          withPeople: canSeePeople,
+          refresh: refreshNext.current,
+        },
       });
       setPeopleBreakdown(people);
+      setFetchedAt(fetchedAt);
       setFilteredTaxReturns(items);
       setTaxReturnKPIs(calculateTaxReturnKPIs(items));
       setTaxReturnExtremes(getTaxReturnTaskExtremes(items));
@@ -321,6 +353,7 @@ function DashboardPage() {
       setIsLoading(true);
       setError(null);
       setPeopleBreakdown(null);
+      setFetchedAt(null);
       try {
         switch (selectedProcess) {
           case "bank_application":
@@ -344,12 +377,14 @@ function DashboardPage() {
         console.error("Error loading data:", err);
         setError("Error al cargar los datos");
       } finally {
+        refreshNext.current = false;
         setIsLoading(false);
       }
     };
     loadData();
   }, [
     meLoaded,
+    reloadKey,
     selectedProcess,
     fetchLLCData,
     fetchBankData,
@@ -544,7 +579,19 @@ function DashboardPage() {
           onBankChange={setSelectedBank}
         />
         <main className="py-6 px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">{renderProcessView()}</div>
+          <div className="space-y-6">
+            {!isLoading && !error && fetchedAt !== null && (
+              <DataFreshness
+                fetchedAt={fetchedAt}
+                refreshing={isLoading}
+                onRefresh={() => {
+                  refreshNext.current = true;
+                  setReloadKey((k) => k + 1);
+                }}
+              />
+            )}
+            {renderProcessView()}
+          </div>
         </main>
       </div>
     </div>

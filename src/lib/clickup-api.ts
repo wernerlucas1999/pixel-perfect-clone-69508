@@ -1191,7 +1191,13 @@ let _llcCache: { data: WithPeople<Task>[]; ts: number } | null = null;
 let _bankCacheV4: { data: WithPeople<BankTask>[]; ts: number } | null = null;
 // Vista "Métricas 2.0" de ClickUp — fuente de verdad para Aplicación Bancaria
 const BANK_VIEW_ID = "8c901jk-6274";
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+// 20 minutos, igual en las 5 pantallas. La pantalla muestra siempre de cuándo
+// son los datos ("datos de hace X min") y tiene un botón para actualizarlos
+// desde ClickUp: el dato puede tener hasta 20 min, pero nunca en silencio.
+export const CACHE_TTL_MS = 20 * 60 * 1000;
+// "Actualizar" no vuelve a pedir a ClickUp si los datos tienen menos de esto:
+// un botón que invita a clickear no puede convertirse en una ráfaga.
+export const MIN_REFRESH_AGE_MS = 30 * 1000;
 
 const loadLLCTasks = singleFlight(async () => {
   const raw = await fetchAllTasks(LIST_IDS.llc_formation);
@@ -2257,11 +2263,38 @@ export async function peopleBreakdownFor(
 
 export interface ScreenRequest {
   withPeople?: boolean;
+  // Botón "Actualizar": descarta el caché de esa pantalla y carga desde ClickUp.
+  refresh?: boolean;
 }
 
 export interface ScreenData<T> {
   tasks: T[];
   people: PeopleBreakdown | null;
+  // Cuándo se cargaron estos datos desde ClickUp (ms), para mostrar su antigüedad.
+  fetchedAt: number | null;
+}
+
+// Hora de carga del caché de cada pantalla, y cómo descartarlo.
+export function screenCacheLoadedAt(process: DashboardProcess): number | null {
+  const cache = {
+    llc_formation: _llcCache,
+    bank_application: _bankCacheV4,
+    annual_reports: annualReportsCache,
+    agentes_registrados: registeredAgentsCache,
+    tax_return: _taxReturnCache,
+  }[process];
+  return cache?.ts ?? null;
+}
+
+export function dropScreenCache(process: DashboardProcess, now = Date.now()): boolean {
+  const loadedAt = screenCacheLoadedAt(process);
+  if (loadedAt !== null && now - loadedAt < MIN_REFRESH_AGE_MS) return false;
+  if (process === "llc_formation") _llcCache = null;
+  else if (process === "bank_application") _bankCacheV4 = null;
+  else if (process === "annual_reports") annualReportsCache = null;
+  else if (process === "agentes_registrados") registeredAgentsCache = null;
+  else _taxReturnCache = null;
+  return true;
 }
 
 // La decisión, separada del handler para poder testearla.
@@ -2277,6 +2310,7 @@ export async function screenDataFor<T, I extends { dateRange?: DateRangeInput }>
   if (withPeople && (!email || !canSee(email, process))) {
     throw new ForbiddenPeopleError("Sin permiso para ver datos por persona de este proceso");
   }
+  if (input?.refresh === true) dropScreenCache(process);
   const tasks = await list(input);
   const people = withPeople
     ? await buildPeopleBreakdown(
@@ -2284,7 +2318,7 @@ export async function screenDataFor<T, I extends { dateRange?: DateRangeInput }>
         load,
       )
     : null;
-  return { tasks, people };
+  return { tasks, people, fetchedAt: screenCacheLoadedAt(process) };
 }
 
 async function serveScreen<T, I extends { dateRange?: DateRangeInput }>(

@@ -27,3 +27,23 @@ describe("indicador de carga", () => {
     );
   });
 });
+
+import { DataFreshness } from "../src/components/dashboard/data-freshness";
+import { dataAgeLabel } from "../src/lib/data-age";
+
+describe("antigüedad de los datos", () => {
+  test.each([
+    [10_000, "hace menos de 1 min"],
+    [61_000, "hace 1 min"],
+    [14 * 60_000 + 5_000, "hace 14 min"],
+  ])("%d ms → %s", (ms, label) => {
+    expect(dataAgeLabel(0, ms)).toBe(label);
+  });
+  test("se ve siempre, con la hora y el botón Actualizar", () => {
+    const html = renderToString(
+      <DataFreshness fetchedAt={Date.now() - 30_000} refreshing={false} onRefresh={() => {}} />,
+    ).replace(/<!-- -->/g, "");
+    expect(html).toContain("Datos de ClickUp de hace menos de 1 min");
+    expect(html).toContain("Actualizar");
+  });
+});

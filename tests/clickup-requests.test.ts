@@ -144,7 +144,7 @@ describe("pedido compartido", () => {
   });
 });
 
-describe("las 5 pantallas vencen el caché a los 5 minutos, igual", () => {
+describe("las 5 pantallas vencen el caché a los 20 minutos, igual", () => {
   const LOADERS: [string, () => Promise<{ id: string }[]>][] = [
     ["Formación LLC", () => C.fetchLLCTasks()],
     ["Aplicación Bancaria", () => C.fetchBankTasks()],
@@ -172,13 +172,13 @@ describe("las 5 pantallas vencen el caché a los 5 minutos, igual", () => {
         return new Response(JSON.stringify({ tasks, last_page: true }), { status: 200 });
       }) as any;
       expect((await load()).map((t) => t.id)).toEqual(["v1-0"]);
-      // A los 4 minutos: sale del caché, sin pedidos a ClickUp.
+      // A los 19 minutos: sale del caché, sin pedidos a ClickUp.
       version = 2;
-      advance(4 * 60_000);
+      advance(19 * 60_000);
       requests = 0;
       expect((await load()).map((t) => t.id)).toEqual(["v1-0"]);
       expect(requests).toBe(0);
-      // A los 6 minutos: vence y trae lo que hay ahora en ClickUp.
+      // A los 21 minutos: vence y trae lo que hay ahora en ClickUp.
       advance(2 * 60_000);
       expect((await load()).map((t) => t.id)).toEqual(["v2-0", "v2-1"]);
       expect(requests).toBeGreaterThan(0);

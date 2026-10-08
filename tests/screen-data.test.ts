@@ -135,3 +135,78 @@ describe("screenDataFor: lista y gráfico de la misma carga", () => {
     expect(JSON.stringify(r)).not.toContain("Colaboradora Alfa");
   });
 });
+
+describe("antigüedad declarada y botón Actualizar", () => {
+  test("la respuesta trae cuándo se cargaron los datos desde ClickUp", async () => {
+    freshClock();
+    fakeAnnualReports();
+    const before = Date.now();
+    const r = await C.screenDataFor(
+      "otra@firmaway.us",
+      "annual_reports",
+      {},
+      (i) => C.listAnnualReports(i),
+      canSee,
+    );
+    expect(r.fetchedAt).not.toBeNull();
+    expect(r.fetchedAt!).toBeGreaterThanOrEqual(before);
+  });
+
+  test("Actualizar descarta el caché y carga desde ClickUp; sin el botón, sale del caché", async () => {
+    freshClock();
+    const first = fakeAnnualReports();
+    const a = await C.screenDataFor(
+      "otra@firmaway.us",
+      "annual_reports",
+      {},
+      (i) => C.listAnnualReports(i),
+      canSee,
+    );
+    expect(first()).toBeGreaterThan(0);
+    // 5 minutos después, sin botón: mismos datos, ningún pedido.
+    const t = Date.now;
+    Date.now = () => t() + 5 * 60_000;
+    const quiet = fakeAnnualReports();
+    const b = await C.screenDataFor(
+      "otra@firmaway.us",
+      "annual_reports",
+      {},
+      (i) => C.listAnnualReports(i),
+      canSee,
+    );
+    expect(quiet()).toBe(0);
+    expect(b.fetchedAt).toBe(a.fetchedAt);
+    // Con el botón: vuelve a pedir y la antigüedad se renueva.
+    const forced = fakeAnnualReports();
+    const c = await C.screenDataFor(
+      "otra@firmaway.us",
+      "annual_reports",
+      { refresh: true },
+      (i) => C.listAnnualReports(i),
+      canSee,
+    );
+    expect(forced()).toBeGreaterThan(0);
+    expect(c.fetchedAt!).toBeGreaterThan(a.fetchedAt!);
+  });
+
+  test("Actualizar con datos de menos de 30 s no vuelve a pedir a ClickUp", async () => {
+    freshClock();
+    fakeAnnualReports();
+    await C.screenDataFor(
+      "otra@firmaway.us",
+      "annual_reports",
+      {},
+      (i) => C.listAnnualReports(i),
+      canSee,
+    );
+    const again = fakeAnnualReports();
+    await C.screenDataFor(
+      "otra@firmaway.us",
+      "annual_reports",
+      { refresh: true },
+      (i) => C.listAnnualReports(i),
+      canSee,
+    );
+    expect(again()).toBe(0);
+  });
+});
