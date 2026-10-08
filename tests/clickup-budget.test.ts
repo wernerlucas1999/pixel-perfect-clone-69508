@@ -48,8 +48,8 @@ const rawTask = (id: string) => ({
 });
 
 describe("tope de espera por saturación de ClickUp", () => {
-  test("el tope es de 40 s, bien por debajo de los 60 s de Vercel", () => {
-    expect(C.CLICKUP_LOAD_BUDGET_MS).toBe(40_000);
+  test("el tope es de 20 s, bien por debajo de los 60 s de Vercel", () => {
+    expect(C.CLICKUP_LOAD_BUDGET_MS).toBe(20_000);
   });
 
   test("429 que pide esperar 60 s → corta en el momento con 'saturado'", async () => {
@@ -113,5 +113,75 @@ describe("mensaje en pantalla", () => {
     ],
   ])("%s", (err, expected) => {
     expect(E.loadErrorMessage(err, "Annual Reports")).toBe(expected);
+  });
+});
+
+describe("autolímite: el dashboard se frena antes de chocar con ClickUp", () => {
+  // Relojes muy adelantados: cada test en su propio minuto, lejos de los pedidos
+  // que contaron otros tests.
+  const onePage = (headers: Record<string, string> = {}) =>
+    (async () =>
+      new Response(JSON.stringify({ tasks: [{ id: "x" }] }), { status: 200, headers })) as any;
+  const paginate = () =>
+    C.fetchPagesConcurrently(
+      (page) => `https://api.clickup.com/api/v2/list/autolimite/task?page=${page}`,
+      (_d, batch) => batch.length < 100,
+      "test",
+      0, // una sola página
+    );
+
+  test("ClickUp avisa que no queda cupo: espera al reinicio (2 s) antes de mandar", async () => {
+    shiftClock(2 * 3600_000);
+    const reset = Math.ceil((Date.now() + 2_000) / 1000);
+    globalThis.fetch = onePage({
+      "x-ratelimit-remaining": "0",
+      "x-ratelimit-reset": String(reset),
+    });
+    await paginate(); // deja anotado: no queda cupo, se reinicia en ~2 s
+    let sent = 0;
+    globalThis.fetch = (async (...a: any[]) => {
+      sent++;
+      return onePage()(...a);
+    }) as any;
+    const t0 = realNow();
+    await paginate();
+    expect(sent).toBe(1);
+    expect(realNow() - t0).toBeGreaterThanOrEqual(900);
+  });
+
+  test("el cupo se libera después del tope → corta en el momento sin mandar el pedido", async () => {
+    shiftClock(3 * 3600_000);
+    const reset = Math.ceil((Date.now() + 60_000) / 1000);
+    globalThis.fetch = onePage({
+      "x-ratelimit-remaining": "0",
+      "x-ratelimit-reset": String(reset),
+    });
+    await paginate();
+    let sent = 0;
+    globalThis.fetch = (async () => {
+      sent++;
+      return new Response("{}", { status: 200 });
+    }) as any;
+    const t0 = realNow();
+    const err = await paginate().catch((e) => e);
+    expect(err).toBeInstanceOf(C.ClickUpUnavailableError);
+    expect(err.reason).toBe("saturado");
+    expect(sent).toBe(0);
+    expect(realNow() - t0).toBeLessThan(1_000);
+  });
+
+  test("no manda más pedidos por minuto que el límite del token (100)", async () => {
+    shiftClock(4 * 3600_000);
+    let sent = 0;
+    globalThis.fetch = (async (...a: any[]) => {
+      sent++;
+      return onePage()(...a);
+    }) as any;
+    for (let i = 0; i < 100; i++) await paginate();
+    expect(sent).toBe(100);
+    expect(C.clickUpRequestsLastMinute()).toBe(100);
+    const err = await paginate().catch((e) => e);
+    expect(err).toBeInstanceOf(C.ClickUpUnavailableError);
+    expect(sent).toBe(100); // el 101 no salió
   });
 });

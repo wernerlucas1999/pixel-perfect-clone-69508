@@ -451,14 +451,90 @@ const CLICKUP_MAX_CONCURRENCY = 6;
 const CLICKUP_MAX_RETRIES_429 = 5;
 
 // ─── TOPE DE ESPERA ────────────────────────────────────────
-// Cada carga de una pantalla tiene 40 s en total desde que empieza: una carga
-// normal tarda 2-12 s y quedan 20 s de margen bajo el límite de 60 s de la
-// función en Vercel (maxDuration). Un 429 solo se reintenta si la espera que
+// Cada carga de una pantalla tiene 20 s en total desde que empieza: la carga
+// normal más lenta medida tarda 12 s, y 20 s queda muy por debajo del límite
+// de 60 s de la función en Vercel (maxDuration). Un 429 solo se reintenta si la espera que
 // pide ClickUp entra en lo que queda; si no, se corta en el momento con
 // ClickUpUnavailableError y la pantalla muestra "ClickUp está saturado" en vez
 // de colgarse un minuto y morir con un error genérico. Una carga cortada no
 // deja nada en caché: nunca hay datos parciales.
-export const CLICKUP_LOAD_BUDGET_MS = 40_000;
+export const CLICKUP_LOAD_BUDGET_MS = 20_000;
+
+// ─── AUTOLÍMITE ────────────────────────────────────────────
+// ClickUp permite 100 pedidos por minuto por token (plan actual). En vez de
+// mandar pedidos hasta chocar con un 429, el dashboard se frena solo:
+// - lleva la cuenta de los pedidos de esta instancia en el último minuto y no
+//   pasa del límite del token (X-RateLimit-Limit; 100 si todavía no se leyó);
+// - lee X-RateLimit-Remaining/Reset de cada respuesta (que cuentan TODO lo que
+//   usa el token, también otras instancias y otros sistemas) y, si no queda
+//   cupo, espera a que ClickUp lo libere.
+// Sin reserva a propósito: una recorrida completa usa 97 páginas reales y una
+// reserva haría cortar pedidos que sí entraban (medido con un ClickUp simulado).
+// La espera respeta el tope de la carga: si el cupo se libera después del tope,
+// corta en el momento como "saturado", sin mandar el pedido.
+const CLICKUP_DEFAULT_LIMIT_PER_MIN = 100;
+let clickUpRateLimit: number | null = null;
+const recentClickUpRequests: number[] = []; // instantes (ms) de los pedidos del último minuto
+let clickUpRateRemaining: number | null = null;
+let clickUpRateResetAt = 0;
+
+export function clickUpRequestsLastMinute(now = Date.now()): number {
+  // Solo el último minuto; si el reloj saltó hacia atrás, los "del futuro" no cuentan.
+  const kept = recentClickUpRequests.filter((t) => t > now - 60_000 && t <= now);
+  recentClickUpRequests.splice(0, recentClickUpRequests.length, ...kept);
+  return recentClickUpRequests.length;
+}
+
+export function clickUpRateState() {
+  return {
+    limit: clickUpRateLimit,
+    remaining: clickUpRateRemaining,
+    resetAt: clickUpRateResetAt || null,
+  };
+}
+
+function noteRateHeaders(res: Response): void {
+  const limit = Number(res.headers.get("x-ratelimit-limit"));
+  if (limit > 0) clickUpRateLimit = limit;
+  const remaining = Number(res.headers.get("x-ratelimit-remaining"));
+  const reset = Number(res.headers.get("x-ratelimit-reset"));
+  if (res.headers.has("x-ratelimit-remaining") && isFinite(remaining)) {
+    clickUpRateRemaining = remaining;
+  }
+  if (reset > 0) clickUpRateResetAt = reset * 1000;
+}
+
+async function waitForRateSlot(deadline: number): Promise<void> {
+  for (;;) {
+    const now = Date.now();
+    let until = 0;
+    if (clickUpRequestsLastMinute(now) >= (clickUpRateLimit ?? CLICKUP_DEFAULT_LIMIT_PER_MIN)) {
+      until = Math.min(...recentClickUpRequests) + 60_000;
+    }
+    if (
+      clickUpRateRemaining !== null &&
+      clickUpRateRemaining <= 0 &&
+      now < clickUpRateResetAt &&
+      // ClickUp reinicia el cupo cada minuto: un reinicio más lejano es un
+      // dato viejo o un salto de reloj, y no se espera por él.
+      clickUpRateResetAt - now <= 65_000
+    ) {
+      until = Math.max(until, clickUpRateResetAt);
+    }
+    if (until <= now) {
+      recentClickUpRequests.push(now);
+      if (clickUpRateRemaining !== null) clickUpRateRemaining--;
+      return;
+    }
+    if (until >= deadline) {
+      throw new ClickUpUnavailableError(
+        "saturado",
+        `autolímite: el cupo se libera en ${Math.round((until - now) / 1000)}s`,
+      );
+    }
+    await sleep(until - now);
+  }
+}
 
 export class ClickUpUnavailableError extends Error {
   constructor(
@@ -505,6 +581,7 @@ function rateLimitWaitMs(res: Response, attempt: number): number {
 // este pedido. Ninguna espera ni pedido puede pasarse de ahí.
 async function clickUpFetch(url: string, deadline: number): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
+    await waitForRateSlot(deadline);
     await acquireClickUpSlot();
     let res: Response;
     try {
@@ -529,6 +606,7 @@ async function clickUpFetch(url: string, deadline: number): Promise<Response> {
     } finally {
       releaseClickUpSlot();
     }
+    noteRateHeaders(res);
     if (res.status !== 429) return res;
     await res.body?.cancel();
     if (attempt >= CLICKUP_MAX_RETRIES_429) {

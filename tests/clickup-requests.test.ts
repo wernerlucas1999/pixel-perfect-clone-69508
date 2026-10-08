@@ -83,6 +83,7 @@ describe("memoria de páginas por lista", () => {
   test("da exactamente lo mismo que paginar sin memoria", async () => {
     advance(1_000);
     for (const total of [0, 1, 99, 100, 101, 599, 600, 601, 1234]) {
+      advance(61_000); // cada caso en su propio minuto: el autolímite cuenta pedidos por minuto
       const f = fakeList(() => total);
       globalThis.fetch = f.fetchFn;
       const sinMemoria = await C.fetchPagesConcurrently(
