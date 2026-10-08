@@ -537,9 +537,11 @@ async function waitForRateSlot(deadline: number): Promise<void> {
 }
 
 export class ClickUpUnavailableError extends Error {
+  // Pedidos que llevaba la carga cuando se cortó (lo completa el paginador).
+  requestsInLoad?: number;
   constructor(
     readonly reason: "saturado" | "sin_respuesta",
-    detail: string,
+    readonly detail: string,
   ) {
     super(`ClickUp ${reason === "saturado" ? "saturado" : "sin respuesta"}: ${detail}`);
   }
@@ -579,13 +581,19 @@ function rateLimitWaitMs(res: Response, attempt: number): number {
 
 // deadline: instante (ms) en que vence el tope de la carga a la que pertenece
 // este pedido. Ninguna espera ni pedido puede pasarse de ahí.
-async function clickUpFetch(url: string, deadline: number): Promise<Response> {
+async function clickUpFetch(
+  url: string,
+  deadline: number,
+  load?: { requests: number },
+): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
     await waitForRateSlot(deadline);
     await acquireClickUpSlot();
     let res: Response;
     try {
-      const pause = clickUpPausedUntil - Date.now();
+      // ClickUp reinicia el cupo cada minuto: una pausa más larga que 65 s es un
+      // dato viejo o un salto de reloj, y no se espera por ella.
+      const pause = clickUpPausedUntil - Date.now() > 65_000 ? 0 : clickUpPausedUntil - Date.now();
       if (Date.now() + Math.max(pause, 0) >= deadline) {
         throw new ClickUpUnavailableError("saturado", "la espera por 429 no entra en el tope");
       }
@@ -595,6 +603,7 @@ async function clickUpFetch(url: string, deadline: number): Promise<Response> {
         throw new ClickUpUnavailableError("sin_respuesta", "se agotó el tope de la carga");
       }
       try {
+        if (load) load.requests++;
         res = await fetch(url, {
           headers: { Authorization: getClickUpToken() },
           signal: AbortSignal.timeout(left),
@@ -662,7 +671,36 @@ export async function fetchPagesConcurrently(
   deadline = Date.now() + CLICKUP_LOAD_BUDGET_MS,
   pageCountKey?: string,
 ): Promise<any[]> {
-  const tasks: any[] = [];
+  // Cuenta los pedidos de esta carga para el registro de cortes.
+  const load = { requests: 0 };
+  try {
+    return await fetchPagesCounted(
+      load,
+      pageUrl,
+      isLastPage,
+      errorLabel,
+      maxPage,
+      deadline,
+      pageCountKey,
+    );
+  } catch (error) {
+    if (error instanceof ClickUpUnavailableError) error.requestsInLoad ??= load.requests;
+    throw error;
+  }
+}
+
+type PageArgs = Parameters<typeof fetchPagesConcurrently>;
+
+async function fetchPagesCounted(
+  load: { requests: number },
+  pageUrl: PageArgs[0],
+  isLastPage: PageArgs[1],
+  errorLabel: string,
+  maxPage: number,
+  deadline: number,
+  pageCountKey?: string,
+): ReturnType<typeof fetchPagesConcurrently> {
+  const tasks: Awaited<ReturnType<typeof fetchPagesConcurrently>> = [];
   const planned = pageCountKey ? knownPageCount.get(pageCountKey) : undefined;
   // Última página a pedir mientras dure el plan (las páginas van de 0 a planned-1).
   let limit = planned !== undefined ? Math.min(planned - 1, maxPage) : maxPage;
@@ -677,7 +715,7 @@ export async function fetchPagesConcurrently(
     }
     const results = await Promise.allSettled(
       pages.map(async (p) => {
-        const res = await clickUpFetch(pageUrl(p), deadline);
+        const res = await clickUpFetch(pageUrl(p), deadline, load);
         if (!res.ok) throw new Error(`${errorLabel} ${res.status}: ${await res.text()}`);
         return res.json();
       }),
@@ -1111,12 +1149,48 @@ export async function fetchBankTasks(): Promise<WithPeople<BankTask>[]> {
 // ─── ERRORES DE CARGA → PANTALLA ───────────────────────────
 // Si ClickUp no responde dentro del tope, la server function responde 503 con
 // un código (load-errors.ts) para que la pantalla muestre un mensaje claro.
-async function clickUpGuard<T>(run: () => Promise<T>): Promise<T> {
+//
+// Cada corte deja una línea "[clickup-corte] {json}" en los logs, para saber
+// con datos con qué frecuencia pasa: qué pantalla, a qué hora, cuántos pedidos
+// llevaba esa carga, cuántos hizo esta instancia en el último minuto y qué
+// cupo informaba ClickUp. No incluye datos de personas.
+const INSTANCE = { id: Math.random().toString(36).slice(2, 10), since: new Date().toISOString() };
+const AR_TIME = new Intl.DateTimeFormat("es-AR", {
+  timeZone: "America/Argentina/Buenos_Aires",
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+export function clickUpCutEvent(screen: string, error: ClickUpUnavailableError, now = new Date()) {
+  const rate = clickUpRateState();
+  return {
+    evento: "clickup_corte",
+    pantalla: screen,
+    motivo: error.reason,
+    detalle: error.detail,
+    hora_utc: now.toISOString(),
+    hora_ar: AR_TIME.format(now),
+    pedidos_en_esta_carga: error.requestsInLoad ?? null,
+    pedidos_ultimo_minuto_instancia: clickUpRequestsLastMinute(now.getTime()),
+    clickup_limite: rate.limit,
+    clickup_restantes: rate.remaining,
+    clickup_reinicio: rate.resetAt ? new Date(rate.resetAt).toISOString() : null,
+    instancia: INSTANCE.id,
+    instancia_desde: INSTANCE.since,
+  };
+}
+
+async function clickUpGuard<T>(screen: string, run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } catch (error) {
     if (!(error instanceof ClickUpUnavailableError)) throw error;
-    console.error(error.message);
+    console.error(`[clickup-corte] ${JSON.stringify(clickUpCutEvent(screen, error))}`);
     const { setResponseStatus } = await import("@tanstack/react-start/server");
     setResponseStatus(503);
     throw new Error(error.reason === "saturado" ? CLICKUP_SATURADO : CLICKUP_NO_RESPONDE);
@@ -1166,7 +1240,7 @@ export async function listLLCTasks(
 export const getFilteredTasks = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: LLCTasksInput) => data)
-  .handler(({ data }) => clickUpGuard(() => listLLCTasks(data)));
+  .handler(({ data }) => clickUpGuard("Formación LLC", () => listLLCTasks(data)));
 
 export interface BankTasksInput {
   dateRange?: DateRangeInput;
@@ -1178,7 +1252,7 @@ export interface BankTasksInput {
 export const getFilteredBankTasks = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: BankTasksInput) => data)
-  .handler(({ data }) => clickUpGuard(() => listBankTasks(data)));
+  .handler(({ data }) => clickUpGuard("Aplicación Bancaria", () => listBankTasks(data)));
 
 function filterBankTasks<T extends BankTask>(
   tasks: T[],
@@ -1263,7 +1337,7 @@ export async function listAnnualReports(
 export const getFilteredAnnualReports = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: AnnualReportsInput) => data)
-  .handler(({ data }) => clickUpGuard(() => listAnnualReports(data)));
+  .handler(({ data }) => clickUpGuard("Annual Reports", () => listAnnualReports(data)));
 
 // ─── AGENTES REGISTRADOS (ClickUp list real) ───────────────
 const REGISTERED_AGENTS_LIST_ID = "901406624813";
@@ -1336,7 +1410,7 @@ export async function listAgentesRegistrados(
 export const getFilteredAgentesRegistrados = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: AgentesRegistradosInput) => data)
-  .handler(({ data }) => clickUpGuard(() => listAgentesRegistrados(data)));
+  .handler(({ data }) => clickUpGuard("Agentes Registrados", () => listAgentesRegistrados(data)));
 
 function filterByClosedDateRange<T extends { date_closed_ms: number | null }>(
   items: T[],
@@ -1856,7 +1930,7 @@ export async function listTaxReturns(
 export const getFilteredTaxReturns = createServerFn({ method: "GET" })
   .middleware([requireSession])
   .inputValidator((data: TaxReturnsInput) => data)
-  .handler(({ data }) => clickUpGuard(() => listTaxReturns(data)));
+  .handler(({ data }) => clickUpGuard("Tax Return", () => listTaxReturns(data)));
 
 export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
   const closed = tasks.filter((t) => t.isClosed);
@@ -2095,7 +2169,9 @@ export const getPeopleBreakdown = createServerFn({ method: "GET" })
     // TanStack mezcla en `context` lo que manda el cliente.
     const session = await assertValidSession(getRequest());
     try {
-      return await clickUpGuard(() => peopleBreakdownFor(session.user.email, data, canSeePeople));
+      return await clickUpGuard(`Rendimiento por colaborador (${data?.process})`, () =>
+        peopleBreakdownFor(session.user.email, data, canSeePeople),
+      );
     } catch (error) {
       if (error instanceof ForbiddenPeopleError) setResponseStatus(403);
       else if (error instanceof InvalidPeopleProcessError) setResponseStatus(400);

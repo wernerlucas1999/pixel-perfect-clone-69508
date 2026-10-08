@@ -185,3 +185,38 @@ describe("autolímite: el dashboard se frena antes de chocar con ClickUp", () =>
     expect(sent).toBe(100); // el 101 no salió
   });
 });
+
+describe("registro de cortes en los logs", () => {
+  test("el evento trae pantalla, motivo, horas y pedidos de esa carga, sin datos de personas", async () => {
+    shiftClock(5 * 3600_000);
+    let sent = 0;
+    globalThis.fetch = (async () => {
+      sent++;
+      return new Response("", {
+        status: 429,
+        headers: { "retry-after": "60", "x-ratelimit-limit": "100", "x-ratelimit-remaining": "0" },
+      });
+    }) as any;
+    const err = await C.fetchPagesConcurrently(
+      (page) => `https://api.clickup.com/api/v2/list/registro/task?page=${page}`,
+      (_d, batch) => batch.length < 100,
+      "test",
+      0,
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(C.ClickUpUnavailableError);
+    expect(err.requestsInLoad).toBe(sent);
+
+    const ev = C.clickUpCutEvent("Agentes Registrados", err, new Date(Date.UTC(2026, 9, 8, 0, 30)));
+    expect(ev).toMatchObject({
+      evento: "clickup_corte",
+      pantalla: "Agentes Registrados",
+      motivo: "saturado",
+      hora_utc: "2026-10-08T00:30:00.000Z",
+      pedidos_en_esta_carga: 1,
+      clickup_limite: 100,
+    });
+    expect(ev.hora_ar).toBe("07/10/2026, 21:30:00"); // hora argentina
+    expect(typeof ev.instancia).toBe("string");
+    expect(JSON.stringify(ev)).not.toContain("@firmaway.us");
+  });
+});
