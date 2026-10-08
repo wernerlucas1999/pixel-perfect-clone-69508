@@ -29,7 +29,6 @@ import {
   calculateAgentesKPIs,
   getAgentesStatusChartData,
   calculateTaxReturnKPIs,
-  getPeopleBreakdown,
   getTaxReturnTaskExtremes,
   type ProcessType,
   type StateType,
@@ -42,7 +41,6 @@ import {
   type AgenteRegistradoTask,
   type TaxReturnTask,
   type PeopleBreakdown,
-  type PeopleBreakdownInput,
 } from "@/lib/clickup-api";
 import { getMe, type Me } from "@/lib/session-api";
 import { isDashboardProcess } from "@/lib/processes";
@@ -182,29 +180,34 @@ function DashboardPage() {
 
   // Solo para mostrar u ocultar; el servidor igual responde 403 sin permiso.
   const [me, setMe] = useState<Me | null>(null);
+  // Las pantallas esperan a getMe (no toca ClickUp) para pedir lista y gráfico
+  // juntos en un solo pedido, en vez de uno sin gráfico y otro con.
+  const [meLoaded, setMeLoaded] = useState(false);
   useEffect(() => {
     getMe()
       .then(setMe)
       .catch((err) => {
         console.error("Error fetching getMe:", err);
         setMe(null);
-      });
+      })
+      .finally(() => setMeLoaded(true));
   }, []);
   const canSeePeople =
     isDashboardProcess(selectedProcess) && (me?.peopleProcesses.includes(selectedProcess) ?? false);
   const [peopleBreakdown, setPeopleBreakdown] = useState<PeopleBreakdown | null>(null);
-  const [peopleError, setPeopleError] = useState<string | null>(null);
 
   const fetchLLCData = useCallback(async () => {
     try {
-      const tasks = await getFilteredTasks({
+      const { tasks, people } = await getFilteredTasks({
         data: {
           processType: selectedProcess,
           dateRange: dayRange,
           state: selectedState,
           pkg: selectedPackage,
+          withPeople: canSeePeople,
         },
       });
+      setPeopleBreakdown(people);
       setFilteredTasks(tasks);
       setKpis(calculateCycleTimeKPIs(tasks));
       setFunnelData(getFunnelData(tasks));
@@ -213,18 +216,20 @@ function DashboardPage() {
       console.error("Error fetching LLC tasks:", err);
       setError(loadErrorMessage(err, "Formación de LLC"));
     }
-  }, [selectedProcess, dayRange, selectedState, selectedPackage]);
+  }, [selectedProcess, dayRange, selectedState, selectedPackage, canSeePeople]);
 
   const fetchBankData = useCallback(async () => {
     try {
-      const tasks = await getFilteredBankTasks({
+      const { tasks, people } = await getFilteredBankTasks({
         data: {
           dateRange: dayRange,
           state: selectedState,
           pkg: selectedPackage,
           bank: selectedBank,
+          withPeople: canSeePeople,
         },
       });
+      setPeopleBreakdown(people);
       setFilteredBankTasks(tasks);
       setBankKpis(calculateBankKPIs(tasks));
       setBottleneckData(calculateBottleneckAnalysis(tasks));
@@ -234,13 +239,19 @@ function DashboardPage() {
       console.error("Error fetching Bank tasks:", err);
       setError(loadErrorMessage(err, "Aplicación Bancaria"));
     }
-  }, [dayRange, selectedState, selectedPackage, selectedBank]);
+  }, [dayRange, selectedState, selectedPackage, selectedBank, canSeePeople]);
 
   const fetchAnnualReportsData = useCallback(async () => {
     try {
-      const reports = await getFilteredAnnualReports({
-        data: { state: selectedState, pkg: selectedPackage, dateRange: dayRange },
+      const { tasks: reports, people } = await getFilteredAnnualReports({
+        data: {
+          state: selectedState,
+          pkg: selectedPackage,
+          dateRange: dayRange,
+          withPeople: canSeePeople,
+        },
       });
+      setPeopleBreakdown(people);
       setFilteredAnnualReports(reports);
       setAnnualReportsKPIs(calculateAnnualReportsKPIs(reports));
       setAnnualReportsPieData(getAnnualReportsPieData(reports));
@@ -249,13 +260,19 @@ function DashboardPage() {
       // Antes se tragaba el error y quedaban en pantalla los datos anteriores.
       setError(loadErrorMessage(err, "Annual Reports"));
     }
-  }, [selectedState, selectedPackage, dayRange]);
+  }, [selectedState, selectedPackage, dayRange, canSeePeople]);
 
   const fetchAgentesData = useCallback(async () => {
     try {
-      const agentes = await getFilteredAgentesRegistrados({
-        data: { state: selectedState, pkg: selectedPackage, dateRange: dayRange },
+      const { tasks: agentes, people } = await getFilteredAgentesRegistrados({
+        data: {
+          state: selectedState,
+          pkg: selectedPackage,
+          dateRange: dayRange,
+          withPeople: canSeePeople,
+        },
       });
+      setPeopleBreakdown(people);
       setFilteredAgentes(agentes);
       setAgentesKPIs(calculateAgentesKPIs(agentes));
       setAgentesStatusChartData(getAgentesStatusChartData(agentes));
@@ -264,13 +281,14 @@ function DashboardPage() {
       // Antes se tragaba el error y quedaban en pantalla los datos anteriores.
       setError(loadErrorMessage(err, "Agentes Registrados"));
     }
-  }, [selectedState, selectedPackage, dayRange]);
+  }, [selectedState, selectedPackage, dayRange, canSeePeople]);
 
   const fetchTaxReturnData = useCallback(async () => {
     try {
-      const items = await getFilteredTaxReturns({
-        data: { dateRange: dayRange, tipoLLC: selectedTipoLLC },
+      const { tasks: items, people } = await getFilteredTaxReturns({
+        data: { dateRange: dayRange, tipoLLC: selectedTipoLLC, withPeople: canSeePeople },
       });
+      setPeopleBreakdown(people);
       setFilteredTaxReturns(items);
       setTaxReturnKPIs(calculateTaxReturnKPIs(items));
       setTaxReturnExtremes(getTaxReturnTaskExtremes(items));
@@ -282,47 +300,11 @@ function DashboardPage() {
       setTaxReturnExtremes({ fastest: null, slowest: null });
       setError(loadErrorMessage(err, "Tax Return"));
     }
-  }, [dayRange, selectedTipoLLC]);
+  }, [dayRange, selectedTipoLLC, canSeePeople]);
 
-  // Rendimiento por colaborador: sale de getPeopleBreakdown, el único camino
-  // con datos de personas. Sin permiso ni se pide. Le pasa los mismos filtros
-  // que usa la lista de cada pantalla.
-  useEffect(() => {
-    setPeopleBreakdown(null);
-    setPeopleError(null);
-    if (!canSeePeople || !isDashboardProcess(selectedProcess)) return;
-    const filters: PeopleBreakdownInput["filters"] = {
-      llc_formation: { processType: selectedProcess, state: selectedState, pkg: selectedPackage },
-      bank_application: { state: selectedState, pkg: selectedPackage, bank: selectedBank },
-      annual_reports: {},
-      agentes_registrados: { state: selectedState, pkg: selectedPackage },
-      tax_return: { tipoLLC: selectedTipoLLC },
-    }[selectedProcess];
-    let cancelled = false;
-    getPeopleBreakdown({ data: { process: selectedProcess, dateRange: dayRange, filters } })
-      .then((breakdown) => {
-        if (!cancelled) setPeopleBreakdown(breakdown);
-      })
-      .catch((err) => {
-        console.error("Error fetching rendimiento por colaborador:", err);
-        if (!cancelled) setPeopleError(loadErrorMessage(err, "rendimiento por colaborador"));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    selectedProcess,
-    canSeePeople,
-    dayRange,
-    selectedState,
-    selectedPackage,
-    selectedBank,
-    selectedTipoLLC,
-  ]);
   const peopleCard = (
     <PeopleBreakdownCard
       breakdown={peopleBreakdown}
-      error={peopleError}
       periodWarning={
         selectedProcess === "annual_reports"
           ? "Este gráfico cuenta por fecha de cierre. El resto de esta pantalla filtra por fecha de creación, así que sus números no son comparables con este."
@@ -332,9 +314,11 @@ function DashboardPage() {
   );
 
   useEffect(() => {
+    if (!meLoaded) return;
     const loadData = async () => {
       setIsLoading(true);
       setError(null);
+      setPeopleBreakdown(null);
       try {
         switch (selectedProcess) {
           case "bank_application":
@@ -363,6 +347,7 @@ function DashboardPage() {
     };
     loadData();
   }, [
+    meLoaded,
     selectedProcess,
     fetchLLCData,
     fetchBankData,

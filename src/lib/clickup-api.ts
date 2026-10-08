@@ -1239,8 +1239,8 @@ export async function listLLCTasks(
 
 export const getFilteredTasks = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator((data: LLCTasksInput) => data)
-  .handler(({ data }) => clickUpGuard("Formación LLC", () => listLLCTasks(data)));
+  .inputValidator((data: LLCTasksInput & ScreenRequest) => data)
+  .handler(({ data }) => serveScreen("Formación LLC", "llc_formation", data, listLLCTasks));
 
 export interface BankTasksInput {
   dateRange?: DateRangeInput;
@@ -1251,8 +1251,10 @@ export interface BankTasksInput {
 
 export const getFilteredBankTasks = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator((data: BankTasksInput) => data)
-  .handler(({ data }) => clickUpGuard("Aplicación Bancaria", () => listBankTasks(data)));
+  .inputValidator((data: BankTasksInput & ScreenRequest) => data)
+  .handler(({ data }) =>
+    serveScreen("Aplicación Bancaria", "bank_application", data, listBankTasks),
+  );
 
 function filterBankTasks<T extends BankTask>(
   tasks: T[],
@@ -1342,8 +1344,8 @@ export async function listAnnualReports(
 
 export const getFilteredAnnualReports = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator((data: AnnualReportsInput) => data)
-  .handler(({ data }) => clickUpGuard("Annual Reports", () => listAnnualReports(data)));
+  .inputValidator((data: AnnualReportsInput & ScreenRequest) => data)
+  .handler(({ data }) => serveScreen("Annual Reports", "annual_reports", data, listAnnualReports));
 
 // ─── AGENTES REGISTRADOS (ClickUp list real) ───────────────
 const REGISTERED_AGENTS_LIST_ID = "901406624813";
@@ -1419,8 +1421,10 @@ export async function listAgentesRegistrados(
 
 export const getFilteredAgentesRegistrados = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator((data: AgentesRegistradosInput) => data)
-  .handler(({ data }) => clickUpGuard("Agentes Registrados", () => listAgentesRegistrados(data)));
+  .inputValidator((data: AgentesRegistradosInput & ScreenRequest) => data)
+  .handler(({ data }) =>
+    serveScreen("Agentes Registrados", "agentes_registrados", data, listAgentesRegistrados),
+  );
 
 function filterByClosedDateRange<T extends { date_closed_ms: number | null }>(
   items: T[],
@@ -1939,8 +1943,8 @@ export async function listTaxReturns(
 
 export const getFilteredTaxReturns = createServerFn({ method: "GET" })
   .middleware([requireSession])
-  .inputValidator((data: TaxReturnsInput) => data)
-  .handler(({ data }) => clickUpGuard("Tax Return", () => listTaxReturns(data)));
+  .inputValidator((data: TaxReturnsInput & ScreenRequest) => data)
+  .handler(({ data }) => serveScreen("Tax Return", "tax_return", data, listTaxReturns));
 
 export function calculateTaxReturnKPIs(tasks: TaxReturnTask[]) {
   const closed = tasks.filter((t) => t.isClosed);
@@ -2165,29 +2169,73 @@ export async function peopleBreakdownFor(
   return buildPeopleBreakdown(input, load);
 }
 
-export const getPeopleBreakdown = createServerFn({ method: "GET" })
-  .middleware([requireSession])
-  .inputValidator((data: PeopleBreakdownInput) => data)
-  .handler(async ({ data }): Promise<PeopleBreakdown> => {
-    const [{ getRequest, setResponseStatus }, { assertValidSession }, { canSeePeople }] =
-      await Promise.all([
-        import("@tanstack/react-start/server"),
-        import("./auth.server"),
-        import("./permissions.server"),
-      ]);
-    // El email sale de la cookie de este request y no de `context`, porque
-    // TanStack mezcla en `context` lo que manda el cliente.
-    const session = await assertValidSession(getRequest());
-    try {
-      return await clickUpGuard(`Rendimiento por colaborador (${data?.process})`, () =>
-        peopleBreakdownFor(session.user.email, data, canSeePeople),
-      );
-    } catch (error) {
-      if (error instanceof ForbiddenPeopleError) setResponseStatus(403);
-      else if (error instanceof InvalidPeopleProcessError) setResponseStatus(400);
-      throw error;
-    }
-  });
+// ─── PANTALLA COMPLETA EN UN SOLO PEDIDO ───────────────────
+// Cada pantalla pide lista y gráfico por colaborador en el MISMO pedido al
+// servidor: el gráfico se calcula con las mismas tareas que la lista, así que
+// salen de una sola carga de ClickUp. Antes eran dos pedidos simultáneos que
+// Vercel podía atender en instancias distintas, y cada una cargaba todo de
+// ClickUp (y el gráfico se pedía aunque nadie abriera esa pestaña).
+// Con withPeople y sin permiso para ese proceso: 403, sin tocar ClickUp. Las
+// tareas de la lista siguen sin datos de personas (redactPeople); los nombres
+// viajan solo en `people`.
+
+export interface ScreenRequest {
+  withPeople?: boolean;
+}
+
+export interface ScreenData<T> {
+  tasks: T[];
+  people: PeopleBreakdown | null;
+}
+
+// La decisión, separada del handler para poder testearla.
+export async function screenDataFor<T, I extends { dateRange?: DateRangeInput }>(
+  email: string | null,
+  process: DashboardProcess,
+  input: I & ScreenRequest,
+  list: (input: I) => Promise<T[]>,
+  canSee: (email: string, process: DashboardProcess) => boolean,
+  load?: PeopleLoaders,
+): Promise<ScreenData<T>> {
+  const withPeople = input?.withPeople === true;
+  if (withPeople && (!email || !canSee(email, process))) {
+    throw new ForbiddenPeopleError("Sin permiso para ver datos por persona de este proceso");
+  }
+  const tasks = await list(input);
+  const people = withPeople
+    ? await buildPeopleBreakdown(
+        { process, dateRange: input.dateRange, filters: input as PeopleFilters },
+        load,
+      )
+    : null;
+  return { tasks, people };
+}
+
+async function serveScreen<T, I extends { dateRange?: DateRangeInput }>(
+  screen: string,
+  process: DashboardProcess,
+  data: I & ScreenRequest,
+  list: (input: I) => Promise<T[]>,
+): Promise<ScreenData<T>> {
+  const [{ getRequest, setResponseStatus }, { assertValidSession }, { canSeePeople }] =
+    await Promise.all([
+      import("@tanstack/react-start/server"),
+      import("./auth.server"),
+      import("./permissions.server"),
+    ]);
+  // El email sale de la cookie de este request y no de `context`, porque
+  // TanStack mezcla en `context` lo que manda el cliente.
+  const email =
+    data?.withPeople === true ? (await assertValidSession(getRequest())).user.email : null;
+  try {
+    return await clickUpGuard(screen, () =>
+      screenDataFor(email, process, data, list, canSeePeople),
+    );
+  } catch (error) {
+    if (error instanceof ForbiddenPeopleError) setResponseStatus(403);
+    throw error;
+  }
+}
 
 // Tarea más rápida / más lenta según el mismo criterio que "Lead Time desde
 // Compra" (diasLeadTime: businessDays sobre fecha de creación ajustada por
