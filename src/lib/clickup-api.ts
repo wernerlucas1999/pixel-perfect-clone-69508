@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSession } from "./auth-middleware";
-import { isDashboardProcess, type DashboardProcess } from "./processes";
+import { DASHBOARD_PROCESS_IDS, isDashboardProcess, type DashboardProcess } from "./processes";
 import { inPeriod, periodBoundsMs, type DayRange } from "./periods";
 import { CLICKUP_NO_RESPONDE, CLICKUP_SATURADO } from "./load-errors";
 
@@ -1551,11 +1551,20 @@ return LLC_STATUS_FLOW
     .map((s) => ({ status: s, count: counts[s], fill: STATUS_COLORS[s] }));
 }
 
+// Lead time de Formación LLC y Aplicación Bancaria: días hábiles desde la
+// creación hasta el cierre. Es la cuenta del KPI "Lead Time Promedio" de esas
+// dos pantallas y la de cada tarea en el desglose por persona, así que una
+// fila y el promedio no pueden divergir. null si falta una de las fechas (el
+// promedio la cuenta como 0, igual que siempre).
+export function leadTimeDays(t: { created_at: string; closed_at: string | null }): number | null {
+  return businessDays(t.created_at, t.closed_at);
+}
+
 export function calculateLeadTime(tasks: Task[]) {
   const done = tasks.filter((t) => t.closed_at);
   if (!done.length) return 0;
   const suma = done.reduce((s, t) => {
-    const d = businessDays(t.created_at, t.closed_at!);
+    const d = leadTimeDays(t);
     return s + (d === null ? 0 : d);
   }, 0);
   return Math.round((suma / done.length) * 10) / 10;
@@ -1647,7 +1656,7 @@ export function calculateBankKPIs(tasks: BankTask[]) {
     closedTasks.length > 0
       ? Math.round(
           (closedTasks.reduce((sum, t) => {
-            const d = businessDays(t.created_at, t.closed_at!);
+            const d = leadTimeDays(t);
             return sum + (d === null ? 0 : d);
           }, 0) /
             closedTasks.length) *
@@ -2110,8 +2119,47 @@ export interface PeopleBreakdownInput {
   };
 }
 
-// Pensado para crecer: más métricas dentro de `metrics` y, para la vista de
-// resumen, las tareas de cada persona en el período.
+// Una tarea cerrada del desglose, tal como se lista al desplegar una persona.
+export interface PeopleTask {
+  id: string;
+  name: string;
+  // Instante de cierre (ms), el mismo que decide si entra en el período.
+  closedAtMs: number | null;
+  // Días según la medida de tiempo de SU proceso (LEAD_TIME_DEFINITIONS). null
+  // si el proceso no mide tiempo de ciclo o a la tarea le falta una fecha.
+  days: number | null;
+  // Asignados actuales (sin repetir); vacío = "Sin asignar".
+  assignees: string[];
+}
+
+// Cómo mide el tiempo cada proceso: la misma cuenta que su KPI, sin una
+// definición nueva. Annual Reports y Agentes Registrados no miden tiempo de
+// ciclo: sus tareas van sin días ("—"). Las medidas de procesos distintos no
+// son comparables entre sí, por eso la interfaz nunca las pone en una misma
+// columna.
+export const LEAD_TIME_DEFINITIONS: Record<
+  DashboardProcess,
+  { label: string; definition: string } | null
+> = {
+  llc_formation: {
+    label: "Lead Time (días hábiles)",
+    definition:
+      "Días hábiles desde la creación hasta el cierre. Es la misma cuenta que el KPI «Lead Time Promedio» de Formación LLC.",
+  },
+  bank_application: {
+    label: "Lead Time (días hábiles)",
+    definition:
+      "Días hábiles desde la creación hasta el cierre. Es la misma cuenta que el KPI «Lead Time Promedio» de Aplicación Bancaria.",
+  },
+  annual_reports: null,
+  agentes_registrados: null,
+  tax_return: {
+    label: "Lead Time desde Compra (días hábiles, regla 18 h)",
+    definition:
+      "Días hábiles desde la compra hasta el cierre; si la tarea se creó a las 18 h o después (hora argentina), cuenta desde el siguiente día hábil. Es la misma cuenta que el KPI «Lead Time desde Compra» de Tax Return.",
+  },
+};
+
 export interface PeopleBreakdown {
   process: DashboardProcess;
   // Días de calendario "YYYY-MM-DD", cortados en hora argentina.
@@ -2120,9 +2168,16 @@ export interface PeopleBreakdown {
   closedTotal: number;
   // De esas, las que no tienen ningún asignado.
   unassignedCount: number;
+  // Las closedTotal tareas, cada una una vez, de la más reciente a la más vieja.
+  tasks: PeopleTask[];
+  // Índices en `tasks` de las sin asignar (unassignedCount === su largo).
+  unassignedTasks: number[];
   people: {
     name: string;
     metrics: { closedCount: number; ownCount: number; sharedCount: number };
+    // Índices en `tasks` de las tareas de esta persona. Sale del mismo recorrido
+    // que el conteo: closedCount === tasks.length siempre.
+    tasks: number[];
   }[];
 }
 
@@ -2134,6 +2189,8 @@ interface PeopleSource<T> {
   filter: (items: WithPeople<T>[], filters: PeopleFilters) => WithPeople<T>[];
   isClosed: (t: T) => boolean;
   closedAtMs: (t: T) => number | null;
+  // La medida de tiempo de LEAD_TIME_DEFINITIONS; null si el proceso no tiene.
+  days: ((t: T) => number | null) | null;
 }
 
 const msOrNull = (v: number | null) => (typeof v === "number" && isFinite(v) ? v : null);
@@ -2157,24 +2214,28 @@ const PEOPLE_SOURCES: { [P in DashboardProcess]: PeopleSource<ProcessRecord[P]> 
     filter: (items, f) => filterLLCTasks(items, f),
     isClosed: (t) => t.closed_at_ms !== null,
     closedAtMs: (t) => t.closed_at_ms,
+    days: leadTimeDays,
   },
   bank_application: {
     load: fetchBankTasks,
     filter: (items, f) => filterBankTasks(items, f),
     isClosed: (t) => t.closed_at_ms !== null,
     closedAtMs: (t) => t.closed_at_ms,
+    days: leadTimeDays,
   },
   annual_reports: {
     load: fetchAnnualReportsTasks,
     filter: (items) => items,
     isClosed: (t) => arClosedMs(t) !== null,
     closedAtMs: arClosedMs,
+    days: null,
   },
   agentes_registrados: {
     load: fetchRegisteredAgentsTasks,
     filter: (items, f) => filterAgentesRegistrados(items, f),
     isClosed: (t) => msOrNull(t.date_closed_ms) !== null,
     closedAtMs: (t) => msOrNull(t.date_closed_ms),
+    days: null,
   },
   tax_return: {
     load: fetchTaxReturnTasks,
@@ -2182,6 +2243,8 @@ const PEOPLE_SOURCES: { [P in DashboardProcess]: PeopleSource<ProcessRecord[P]> 
     // Igual que antes: cerrada = estado de tipo "closed" en ClickUp.
     isClosed: (t) => t.isClosed,
     closedAtMs: (t) => msOrNull(t.closed_at_ms),
+    // El mismo campo que promedia "Lead Time desde Compra".
+    days: (t) => t.diasLeadTime,
   },
 };
 
@@ -2203,19 +2266,45 @@ export async function buildPeopleBreakdown(
   const bounds = periodBoundsMs(dateRange);
   const closed = items.filter((t) => source.isClosed(t) && inPeriod(source.closedAtMs(t), bounds));
 
-  const people = new Map<string, { closedCount: number; ownCount: number; sharedCount: number }>();
-  let unassignedCount = 0;
-  for (const t of closed) {
-    const names = [...new Set(t.assignees.filter((a) => a && a !== "Sin asignar"))];
-    if (names.length === 0) unassignedCount++;
-    for (const name of names) {
-      const m = people.get(name) ?? { closedCount: 0, ownCount: 0, sharedCount: 0 };
-      m.closedCount++;
-      if (names.length > 1) m.sharedCount++;
-      else m.ownCount++;
-      people.set(name, m);
+  const rows: PeopleTask[] = closed.map((t) => {
+    const raw = t as WithPeople<{ id: string; name: string }>;
+    return {
+      id: raw.id,
+      name: raw.name,
+      closedAtMs: source.closedAtMs(t),
+      days: source.days ? source.days(t) : null,
+      assignees: [...new Set(t.assignees.filter((a) => a && a !== "Sin asignar"))],
+    };
+  });
+  // Las tareas del período, de la más reciente a la más vieja (sin fecha, al final).
+  const tasks = [...rows].sort((a, b) => (b.closedAtMs ?? -Infinity) - (a.closedAtMs ?? -Infinity));
+
+  // Personas en el orden en que aparecen en la lista de ClickUp, como antes:
+  // así las empatadas quedan en el mismo orden en el gráfico.
+  const people = new Map<
+    string,
+    { metrics: { closedCount: number; ownCount: number; sharedCount: number }; tasks: number[] }
+  >();
+  for (const t of rows) {
+    for (const name of t.assignees) {
+      if (!people.has(name)) {
+        people.set(name, { metrics: { closedCount: 0, ownCount: 0, sharedCount: 0 }, tasks: [] });
+      }
     }
   }
+  // Conteo y lista salen del mismo recorrido: cada tarea que suma 1 a una
+  // persona es una fila de esa persona.
+  const unassignedTasks: number[] = [];
+  tasks.forEach((t, i) => {
+    if (t.assignees.length === 0) unassignedTasks.push(i);
+    for (const name of t.assignees) {
+      const p = people.get(name)!;
+      p.tasks.push(i);
+      p.metrics.closedCount = p.tasks.length;
+      if (t.assignees.length > 1) p.metrics.sharedCount++;
+      else p.metrics.ownCount++;
+    }
+  });
 
   return {
     process,
@@ -2224,10 +2313,12 @@ export async function buildPeopleBreakdown(
       to: dateRange?.to ?? null,
       basis: "closed_at",
     },
-    closedTotal: closed.length,
-    unassignedCount,
+    closedTotal: tasks.length,
+    unassignedCount: unassignedTasks.length,
+    tasks,
+    unassignedTasks,
     people: Array.from(people.entries())
-      .map(([name, metrics]) => ({ name, metrics }))
+      .map(([name, p]) => ({ name, metrics: p.metrics, tasks: p.tasks }))
       .sort((a, b) => b.metrics.closedCount - a.metrics.closedCount),
   };
 }
@@ -2263,8 +2354,16 @@ export async function peopleBreakdownFor(
 
 export interface ScreenRequest {
   withPeople?: boolean;
+  // Vista "Todos los procesos": solo el desglose por persona, sin la lista de
+  // la pantalla (que ahí no se usa y pesa). Implica withPeople, con el mismo
+  // permiso y el mismo 403.
+  peopleOnly?: boolean;
   // Botón "Actualizar": descarta el caché de esa pantalla y carga desde ClickUp.
   refresh?: boolean;
+}
+
+function wantsPeople(input: ScreenRequest | undefined): boolean {
+  return input?.withPeople === true || input?.peopleOnly === true;
 }
 
 export interface ScreenData<T> {
@@ -2300,6 +2399,23 @@ export function dropScreenCache(process: DashboardProcess, now = Date.now()): bo
   return true;
 }
 
+// Hora de carga de cada caché vigente (null = vencido o vacío). No toca
+// ClickUp ni devuelve datos de personas. "Todos los procesos" lo usa para
+// pedir primero lo que ya está en caché. Es una pista, no una garantía: el
+// pedido siguiente puede caer en otra instancia de Vercel con otro caché.
+export function cacheAges(now = Date.now()): Record<DashboardProcess, number | null> {
+  return Object.fromEntries(
+    DASHBOARD_PROCESS_IDS.map((p) => {
+      const at = screenCacheLoadedAt(p);
+      return [p, at !== null && now - at < CACHE_TTL_MS ? at : null];
+    }),
+  ) as Record<DashboardProcess, number | null>;
+}
+
+export const getCacheAges = createServerFn({ method: "GET" })
+  .middleware([requireSession])
+  .handler(() => cacheAges());
+
 // La decisión, separada del handler para poder testearla.
 export async function screenDataFor<T, I extends { dateRange?: DateRangeInput }>(
   email: string | null,
@@ -2309,12 +2425,12 @@ export async function screenDataFor<T, I extends { dateRange?: DateRangeInput }>
   canSee: (email: string, process: DashboardProcess) => boolean,
   load?: PeopleLoaders,
 ): Promise<ScreenData<T>> {
-  const withPeople = input?.withPeople === true;
+  const withPeople = wantsPeople(input);
   if (withPeople && (!email || !canSee(email, process))) {
     throw new ForbiddenPeopleError("Sin permiso para ver datos por persona de este proceso");
   }
   const refreshSkipped = input?.refresh === true && !dropScreenCache(process);
-  const tasks = await list(input);
+  const tasks = input?.peopleOnly === true ? [] : await list(input);
   const people = withPeople
     ? await buildPeopleBreakdown(
         { process, dateRange: input.dateRange, filters: input as PeopleFilters },
@@ -2338,8 +2454,7 @@ async function serveScreen<T, I extends { dateRange?: DateRangeInput }>(
     ]);
   // El email sale de la cookie de este request y no de `context`, porque
   // TanStack mezcla en `context` lo que manda el cliente.
-  const email =
-    data?.withPeople === true ? (await assertValidSession(getRequest())).user.email : null;
+  const email = wantsPeople(data) ? (await assertValidSession(getRequest())).user.email : null;
   try {
     return await clickUpGuard(screen, () =>
       screenDataFor(email, process, data, list, canSeePeople),
