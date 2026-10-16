@@ -49,6 +49,7 @@ import { loadErrorMessage } from "@/lib/load-errors";
 import { PeopleBreakdownCard, PeopleTabs } from "@/components/dashboard/people-breakdown-card";
 import { LoadingProgress } from "@/components/dashboard/loading-progress";
 import { DataFreshness } from "@/components/dashboard/data-freshness";
+import { AllProcessesView } from "@/components/dashboard/all-processes-view";
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
@@ -57,6 +58,15 @@ export const Route = createFileRoute("/")({
 interface DateRange {
   from: Date | null;
   to: Date | null;
+}
+
+// "Todos los procesos" arranca en el mes en curso (las pantallas de cada
+// proceso siguen arrancando sin filtro de fechas).
+function currentMonth(now = new Date()): DateRange {
+  return {
+    from: new Date(now.getFullYear(), now.getMonth(), 1),
+    to: new Date(now.getFullYear(), now.getMonth() + 1, 0),
+  };
 }
 
 const defaultLLCKPIs = {
@@ -109,6 +119,15 @@ function DashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   // Al servidor va el día de calendario elegido ("YYYY-MM-DD"); él corta en hora argentina.
   const dayRange = useMemo(() => toDayRange(dateRange), [dateRange]);
+  // "Todos los procesos": modo aparte, con su propio período, para no tocar el
+  // de las pantallas de cada proceso.
+  const [allProcesses, setAllProcesses] = useState(false);
+  const [allRange, setAllRange] = useState<DateRange>(() => currentMonth());
+  const allDayRange = useMemo(() => toDayRange(allRange), [allRange]);
+  const selectProcess = useCallback((process: ProcessType) => {
+    setAllProcesses(false);
+    setSelectedProcess(process);
+  }, []);
   const [selectedState, setSelectedState] = useState<StateType | "all">("all");
   const [selectedPackage, setSelectedPackage] = useState<PackageType | "all">("all");
   const [selectedBank, setSelectedBank] = useState<BankType | "all">("all");
@@ -364,7 +383,7 @@ function DashboardPage() {
   );
 
   useEffect(() => {
-    if (!meLoaded) return;
+    if (!meLoaded || allProcesses) return;
     const loadData = async () => {
       setLoadStartedAt(Date.now());
       setIsLoading(true);
@@ -401,6 +420,7 @@ function DashboardPage() {
     loadData();
   }, [
     meLoaded,
+    allProcesses,
     reloadKey,
     selectedProcess,
     fetchLLCData,
@@ -581,35 +601,45 @@ function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background dark">
-      <Sidebar selectedProcess={selectedProcess} onProcessChange={setSelectedProcess} />
+      <Sidebar
+        selectedProcess={allProcesses ? null : selectedProcess}
+        onProcessChange={selectProcess}
+      />
       <div className="lg:pl-64">
         <Header
           selectedProcess={selectedProcess}
-          onProcessChange={setSelectedProcess}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
+          onProcessChange={selectProcess}
+          dateRange={allProcesses ? allRange : dateRange}
+          onDateRangeChange={allProcesses ? setAllRange : setDateRange}
           selectedState={selectedState}
           onStateChange={setSelectedState}
           selectedPackage={selectedPackage}
           onPackageChange={setSelectedPackage}
           selectedBank={selectedBank}
           onBankChange={setSelectedBank}
+          showAllProcesses={(me?.peopleProcesses.length ?? 0) > 0}
+          allProcesses={allProcesses}
+          onAllProcesses={() => setAllProcesses(true)}
         />
         <main className="py-6 px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            {!isLoading && !error && fetchedAt !== null && (
-              <DataFreshness
-                fetchedAt={fetchedAt}
-                refreshing={isLoading}
-                upToDate={upToDateNotice}
-                onRefresh={() => {
-                  refreshNext.current = true;
-                  setReloadKey((k) => k + 1);
-                }}
-              />
-            )}
-            {renderProcessView()}
-          </div>
+          {allProcesses && me && me.peopleProcesses.length > 0 ? (
+            <AllProcessesView processes={me.peopleProcesses} dateRange={allDayRange} />
+          ) : (
+            <div className="space-y-6">
+              {!isLoading && !error && fetchedAt !== null && (
+                <DataFreshness
+                  fetchedAt={fetchedAt}
+                  refreshing={isLoading}
+                  upToDate={upToDateNotice}
+                  onRefresh={() => {
+                    refreshNext.current = true;
+                    setReloadKey((k) => k + 1);
+                  }}
+                />
+              )}
+              {renderProcessView()}
+            </div>
+          )}
         </main>
       </div>
     </div>

@@ -27,7 +27,7 @@ function formatDay(day: string) {
   return `${d}/${m}/${y}`;
 }
 
-function periodText(period: PeopleBreakdown["period"]) {
+export function periodText(period: PeopleBreakdown["period"]) {
   if (period.from && period.to) return `del ${formatDay(period.from)} al ${formatDay(period.to)}`;
   if (period.from) return `desde el ${formatDay(period.from)}`;
   if (period.to) return `hasta el ${formatDay(period.to)}`;

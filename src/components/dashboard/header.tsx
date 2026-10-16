@@ -40,7 +40,15 @@ interface HeaderProps {
   onPackageChange: (pkg: PackageType | "all") => void;
   selectedBank: BankType | "all";
   onBankChange: (bank: BankType | "all") => void;
+  // Opción "Todos los procesos": solo con permiso de ver datos por persona en
+  // al menos un proceso.
+  showAllProcesses: boolean;
+  allProcesses: boolean;
+  onAllProcesses: () => void;
 }
+
+// Valor del selector para "Todos los procesos" (no es un proceso).
+const ALL_PROCESSES = "todos";
 
 export function Header({
   selectedProcess,
@@ -53,10 +61,14 @@ export function Header({
   onPackageChange,
   selectedBank,
   onBankChange,
+  showAllProcesses,
+  allProcesses,
+  onAllProcesses,
 }: HeaderProps) {
-  const isBankApplication = selectedProcess === "bank_application";
+  const isBankApplication = !allProcesses && selectedProcess === "bank_application";
   const isTaxReturn = selectedProcess === "tax_return";
-  const hideStatePackage = isTaxReturn;
+  // "Todos los procesos" no aplica los filtros de cada pantalla: no se muestran.
+  const hideStatePackage = isTaxReturn || allProcesses;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
@@ -78,8 +90,10 @@ export function Header({
             <div className="flex items-center gap-2">
               <span className="hidden sm:inline text-sm text-muted-foreground">Proceso:</span>
               <Select
-                value={selectedProcess}
-                onValueChange={(value) => onProcessChange(value as ProcessType)}
+                value={allProcesses ? ALL_PROCESSES : selectedProcess}
+                onValueChange={(value) =>
+                  value === ALL_PROCESSES ? onAllProcesses() : onProcessChange(value as ProcessType)
+                }
               >
                 <SelectTrigger className="w-[180px] bg-input border-border text-foreground">
                   <SelectValue placeholder="Seleccionar proceso" />
@@ -100,6 +114,14 @@ export function Header({
                       </div>
                     </SelectItem>
                   ))}
+                  {showAllProcesses && (
+                    <SelectItem
+                      value={ALL_PROCESSES}
+                      className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                    >
+                      Todos los procesos
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

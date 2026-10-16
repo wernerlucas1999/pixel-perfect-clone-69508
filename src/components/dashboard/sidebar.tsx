@@ -3,7 +3,8 @@ import { Timer } from "lucide-react";
 import { PROCESSES, type ProcessType } from "@/lib/clickup-api";
 
 interface SidebarProps {
-  selectedProcess: ProcessType;
+  // null = "Todos los procesos" (ningún proceso marcado).
+  selectedProcess: ProcessType | null;
   onProcessChange: (process: ProcessType) => void;
 }
 
