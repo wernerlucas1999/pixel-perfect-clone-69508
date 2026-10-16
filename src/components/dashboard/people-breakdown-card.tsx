@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
   BarChart,
   Bar,
@@ -13,6 +13,7 @@ import { AlertTriangle, Info, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { PeopleBreakdown } from "@/lib/clickup-api";
+import { PeopleTaskList } from "./people-task-list";
 
 // Rendimiento por colaborador, igual en los 5 procesos. Los datos vienen de
 // getPeopleBreakdown, que solo responde con permiso para el proceso.
@@ -42,6 +43,7 @@ interface PeopleBreakdownCardProps {
 }
 
 export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleBreakdownCardProps) {
+  const sections = useMemo(() => (breakdown ? [breakdown] : []), [breakdown]);
   const data = (breakdown?.people ?? []).map((p) => ({
     name: p.name,
     own: p.metrics.ownCount,
@@ -190,17 +192,8 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
               </>
             )}
 
-            {/* Hueco de datos, no una persona: fuera del gráfico y con otro estilo. */}
-            <div className="flex items-center justify-between rounded-md border border-dashed border-muted-foreground/50 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold italic text-muted-foreground">Sin asignar</p>
-                <p className="text-xs text-muted-foreground">
-                  Tareas cerradas en el período sin ningún asignado en ClickUp (falta el dato, no es
-                  una persona).
-                </p>
-              </div>
-              <p className="text-xl font-bold text-muted-foreground">{breakdown.unassignedCount}</p>
-            </div>
+            {/* Personas desplegables y "Sin asignar" (fuera del gráfico: no es una persona). */}
+            <PeopleTaskList sections={sections} />
           </>
         )}
       </CardContent>
