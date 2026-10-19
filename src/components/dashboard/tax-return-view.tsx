@@ -221,7 +221,8 @@ export function TaxReturnView({
               {formatDays(kpis.avgDemoraInterna)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              promedio sobre {kpis.countDemoraInterna} taxes cerrados con dato
+              promedio sobre {kpis.countDemoraInterna} taxes cerrados; los tramos sin fecha cuentan
+              como 0
             </p>
           </CardContent>
         </Card>
