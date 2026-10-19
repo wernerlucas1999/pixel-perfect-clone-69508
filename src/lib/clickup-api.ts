@@ -121,6 +121,9 @@ export interface CustomFields {
   fecha_recepcion_ein: string | null;
   demora_cliente: number | null;
   tiempo_interno: number | null;
+  // false si a algún tramo de tiempo_interno le falta una fecha (ese tramo
+  // suma 0 en el KPI; por tarea se muestra "falta fecha").
+  tiempo_interno_completo: boolean;
 }
 
 export interface BankCustomFields {
@@ -134,6 +137,8 @@ export interface BankCustomFields {
   fecha_aprob_rech: string | null; // Fecha aprob/rech (cierre del banco)
   demora_cliente: number | null; // z_Demora cliente
   tiempo_interno: number | null; // z_Tiempo interno
+  // false si a algún tramo de tiempo_interno le falta una fecha (ver CustomFields).
+  tiempo_interno_completo: boolean;
   demora_banco: number | null; // z_Demora banco
   demora_irs: number | null; // z_Demora IRS
   tiempo_servicio: number | null; // z_Tiempo de servicio
@@ -903,6 +908,10 @@ export function mapToTask(raw: any): WithPeople<Task> | null {
   const tramo3 = _t3 === null ? 0 : Math.max(0, _t3);
 
   const tiempoInterno = tramo1 + tramo2 + tramo3;
+  // Completo: están las fechas de los tramos que aplican. El tramo 2 solo
+  // aplica si hubo pedido al cliente. "Fecha solicitud EIN" se exige siempre:
+  // está cargada en todas las cerradas desde el 2.º semestre de 2025.
+  const tiempoInternoCompleto = _t1 !== null && (!_fSolCli || _t2 !== null) && _t3 !== null;
 
   const einStatusRaw =
     getCustomFieldValue(cf, "ein_status") ?? getCustomFieldValue(cf, "ein status") ?? "n/a";
@@ -941,6 +950,7 @@ export function mapToTask(raw: any): WithPeople<Task> | null {
       fecha_recepcion_ein: fechaRecepcionEin,
       demora_cliente: isNaN(demoraCliente) ? null : demoraCliente,
       tiempo_interno: isNaN(tiempoInterno) ? null : tiempoInterno,
+      tiempo_interno_completo: tiempoInternoCompleto,
     },
     time_in_status,
     ein_status: einStatus,
@@ -1114,11 +1124,16 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
   // Tramo 2: espera resuelta → aplicación (desde corrección/EIN el más tardío, hasta aplicación).
   const _inicioInterno = ajustarInicio18h(raw.date_created);
 
+  // Completo: están las fechas de los tramos que aplican (ver más abajo).
+  let tiempoInternoCompleto = true;
+
   // TRAMO 1
   let _tramoInt1: number;
   if (solicitudInfo) {
     const _t1 = businessDays(_inicioInterno, solicitudInfo);
     _tramoInt1 = _t1 === null ? 0 : Math.max(0, _t1);
+    // Hubo pedido de info: hacen falta este tramo y la fecha de corrección.
+    if (_t1 === null || !fechaCorreccion) tiempoInternoCompleto = false;
   } else {
     _tramoInt1 = 0;
   }
@@ -1127,6 +1142,7 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
   let _tramoInt2: number;
   if (!fechaAplicacion) {
     _tramoInt2 = 0;
+    tiempoInternoCompleto = false;
   } else {
     // El EIN cuenta solo si llegó antes o el mismo día que la aplicación.
     const _einAplica = fechaEin && fechaEin <= fechaAplicacion ? fechaEin : null;
@@ -1142,6 +1158,7 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
     if (_inicioT2) {
       const _t2 = businessDays(_inicioT2, fechaAplicacion);
       _tramoInt2 = _t2 === null ? 0 : Math.max(0, _t2);
+      if (_t2 === null) tiempoInternoCompleto = false;
     } else {
       _tramoInt2 = 0;
     }
@@ -1171,6 +1188,7 @@ const fechaEin = getCustomFieldValue(cf, "fecha ein");
       fecha_aprob_rech: fechaAprobRech,
       demora_cliente: isNaN(demoraClienteN) ? null : demoraClienteN,
       tiempo_interno: isNaN(tiempoInternoN) ? null : tiempoInternoN,
+      tiempo_interno_completo: tiempoInternoCompleto,
       demora_banco: isNaN(demoraBancoN) ? null : demoraBancoN,
       demora_irs: isNaN(demoraIrsN) ? null : demoraIrsN,
       tiempo_servicio: isNaN(tiempoServicioN) ? null : tiempoServicioN,
@@ -2128,6 +2146,9 @@ export interface PeopleTask {
   // Días según la medida de tiempo de SU proceso (LEAD_TIME_DEFINITIONS). null
   // si el proceso no mide tiempo de ciclo o a la tarea le falta una fecha.
   days: number | null;
+  // Demora interna según su proceso (INTERNAL_DELAY_DEFINITIONS). null si el
+  // proceso no la mide o si falta alguna fecha: nunca 0 por un dato faltante.
+  internalDays: number | null;
   // Asignados actuales (sin repetir); vacío = "Sin asignar".
   assignees: string[];
 }
@@ -2160,6 +2181,47 @@ export const LEAD_TIME_DEFINITIONS: Record<
   },
 };
 
+// Demora interna de cada proceso: la misma cuenta que su KPI, tarea por tarea,
+// salvo que una tarea con alguna fecha faltante va sin valor ("falta fecha")
+// en vez de sumar 0 como en el KPI. Tampoco es comparable entre procesos.
+export const INTERNAL_DELAY_DEFINITIONS: Record<
+  DashboardProcess,
+  { definition: string; kpiNote: string } | null
+> = {
+  llc_formation: {
+    definition:
+      "días hábiles desde que entra la tarea (regla 18 h) hasta el pedido al cliente o, si no lo hubo, el envío del trámite; más desde la corrección del cliente hasta el envío; más desde la aprobación del trámite hasta la solicitud del EIN. «Falta fecha» si falta alguna de esas fechas.",
+    kpiNote:
+      "El KPI «Demora Interna de Filings» cuenta como 0 los tramos sin fecha e incluye tareas abiertas, por eso el promedio de esta columna no coincide con él.",
+  },
+  bank_application: {
+    definition:
+      "días hábiles desde que entra la tarea (regla 18 h) hasta el pedido de info al cliente, si lo hubo; más desde que llegó lo último que faltaba (corrección del cliente o EIN) hasta la aplicación en el banco. Si no hubo pedido al cliente ni EIN, la fórmula actual da 0 aunque haya pasado tiempo (pendiente de corregir). «Falta fecha» si falta la fecha de aplicación, o la de corrección cuando hubo pedido de info.",
+    kpiNote:
+      "El KPI «Demora Interna de Filings» cuenta como 0 los tramos sin fecha (y, sin filtro de fechas, incluye tareas abiertas), por eso el promedio de esta columna no coincide con él.",
+  },
+  annual_reports: null,
+  agentes_registrados: null,
+  tax_return: {
+    definition:
+      "días hábiles desde que recibimos la info del cliente hasta el envío a firmar, más desde que recibimos la firma hasta el cierre. «Falta fecha» si falta alguna de esas tres fechas.",
+    kpiNote:
+      "El KPI «Demora Interna» cuenta como 0 los tramos sin fecha, por eso el promedio de esta columna no coincide con él.",
+  },
+};
+
+// Demora interna de una tarea de Tax Return: los dos tramos del KPI, o null si
+// falta alguno (el KPI los suma como 0).
+export function taxInternalDays(t: TaxReturnTask): number | null {
+  if (t.diasInfoAEnvioFirma === null || t.diasFirmaACierre === null) return null;
+  return t.diasInfoAEnvioFirma + t.diasFirmaACierre;
+}
+
+const completeInternal = (cf: {
+  tiempo_interno: number | null;
+  tiempo_interno_completo: boolean;
+}) => (cf.tiempo_interno_completo ? cf.tiempo_interno : null);
+
 export interface PeopleBreakdown {
   process: DashboardProcess;
   // Días de calendario "YYYY-MM-DD", cortados en hora argentina.
@@ -2191,6 +2253,8 @@ interface PeopleSource<T> {
   closedAtMs: (t: T) => number | null;
   // La medida de tiempo de LEAD_TIME_DEFINITIONS; null si el proceso no tiene.
   days: ((t: T) => number | null) | null;
+  // La demora interna de INTERNAL_DELAY_DEFINITIONS; null si el proceso no tiene.
+  internal: ((t: T) => number | null) | null;
 }
 
 const msOrNull = (v: number | null) => (typeof v === "number" && isFinite(v) ? v : null);
@@ -2215,6 +2279,7 @@ const PEOPLE_SOURCES: { [P in DashboardProcess]: PeopleSource<ProcessRecord[P]> 
     isClosed: (t) => t.closed_at_ms !== null,
     closedAtMs: (t) => t.closed_at_ms,
     days: leadTimeDays,
+    internal: (t) => completeInternal(t.custom_fields),
   },
   bank_application: {
     load: fetchBankTasks,
@@ -2222,6 +2287,7 @@ const PEOPLE_SOURCES: { [P in DashboardProcess]: PeopleSource<ProcessRecord[P]> 
     isClosed: (t) => t.closed_at_ms !== null,
     closedAtMs: (t) => t.closed_at_ms,
     days: leadTimeDays,
+    internal: (t) => completeInternal(t.custom_fields),
   },
   annual_reports: {
     load: fetchAnnualReportsTasks,
@@ -2229,6 +2295,7 @@ const PEOPLE_SOURCES: { [P in DashboardProcess]: PeopleSource<ProcessRecord[P]> 
     isClosed: (t) => arClosedMs(t) !== null,
     closedAtMs: arClosedMs,
     days: null,
+    internal: null,
   },
   agentes_registrados: {
     load: fetchRegisteredAgentsTasks,
@@ -2236,6 +2303,7 @@ const PEOPLE_SOURCES: { [P in DashboardProcess]: PeopleSource<ProcessRecord[P]> 
     isClosed: (t) => msOrNull(t.date_closed_ms) !== null,
     closedAtMs: (t) => msOrNull(t.date_closed_ms),
     days: null,
+    internal: null,
   },
   tax_return: {
     load: fetchTaxReturnTasks,
@@ -2245,6 +2313,7 @@ const PEOPLE_SOURCES: { [P in DashboardProcess]: PeopleSource<ProcessRecord[P]> 
     closedAtMs: (t) => msOrNull(t.closed_at_ms),
     // El mismo campo que promedia "Lead Time desde Compra".
     days: (t) => t.diasLeadTime,
+    internal: taxInternalDays,
   },
 };
 
@@ -2273,6 +2342,7 @@ export async function buildPeopleBreakdown(
       name: raw.name,
       closedAtMs: source.closedAtMs(t),
       days: source.days ? source.days(t) : null,
+      internalDays: source.internal ? source.internal(t) : null,
       assignees: [...new Set(t.assignees.filter((a) => a && a !== "Sin asignar"))],
     };
   });

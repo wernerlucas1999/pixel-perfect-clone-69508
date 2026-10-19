@@ -187,6 +187,97 @@ describe("días de cada tarea: la medida de su proceso, sin una nueva", () => {
   });
 });
 
+// ─── Demora interna por tarea: nunca 0 por una fecha faltante ─
+const field = (name: string, d: number) => ({ name, value: String(day(d)) });
+const closedRaw = (process: string, custom_fields: any[], closed = 20) => ({
+  id: `i-${custom_fields.length}`,
+  name: "Cliente interna LLC",
+  status: { status: STATUSES[process].closed, type: "closed" },
+  date_created: String(day(5)),
+  date_closed: String(day(closed)),
+  assignees: [ALFA],
+  custom_fields,
+});
+const internalOf = async (process: string, raw: any) => {
+  const t = MAPPERS[process](raw);
+  const r = await C.buildPeopleBreakdown({ process: process as never }, {
+    [process]: async () => [t],
+  } as never);
+  return { t, row: r.tasks[0] };
+};
+
+describe("demora interna de cada tarea: la cuenta del KPI, o «falta fecha»", () => {
+  test("LLC: con las fechas, el mismo valor que suma el KPI", async () => {
+    const full = [
+      field("Envío del trámite", 9),
+      field("Aprobación del trámite", 14),
+      field("Fecha solicitud EIN", 16),
+    ];
+    const { t, row } = await internalOf("llc_formation", closedRaw("llc_formation", full));
+    expect(row.internalDays).toBe(t.custom_fields.tiempo_interno);
+    expect(row.internalDays).toBeGreaterThan(0);
+
+    // Sin "Fecha solicitud EIN": el KPI igual suma los otros tramos; la fila no.
+    const partial = await internalOf("llc_formation", closedRaw("llc_formation", full.slice(0, 2)));
+    expect(partial.t.custom_fields.tiempo_interno).toBeGreaterThan(0);
+    expect(partial.row.internalDays).toBeNull();
+  });
+
+  test("Bancaria: hubo pedido de info y falta la corrección → falta fecha", async () => {
+    const full = [
+      field("Solicitud info", 6),
+      field("Fecha correc.", 8),
+      field("Fecha aplicación", 12),
+    ];
+    const { t, row } = await internalOf("bank_application", closedRaw("bank_application", full));
+    expect(row.internalDays).toBe(t.custom_fields.tiempo_interno);
+    expect(row.internalDays).toBeGreaterThan(0);
+
+    const sinCorreccion = [full[0], full[2]];
+    const partial = await internalOf(
+      "bank_application",
+      closedRaw("bank_application", sinCorreccion),
+    );
+    expect(partial.row.internalDays).toBeNull();
+    const sinAplicacion = await internalOf("bank_application", closedRaw("bank_application", []));
+    expect(sinAplicacion.row.internalDays).toBeNull();
+  });
+
+  test("Tax Return: los dos tramos, o null si falta uno (el KPI lo cuenta como 0)", async () => {
+    const byId = (id: string, d: number) => ({ id, value: String(day(d)) });
+    const info = byId("dcfbc610-a620-4f20-817e-13dbd63aeffa", 5);
+    const envio = byId("6840720f-6c24-44c6-a583-ff267efced4b", 7);
+    const firma = byId("bad02203-2935-483d-9c1d-a8523cae7aa1", 12);
+    const { t, row } = await internalOf(
+      "tax_return",
+      closedRaw("tax_return", [info, envio, firma]),
+    );
+    expect(row.internalDays).toBe(t.diasInfoAEnvioFirma + t.diasFirmaACierre);
+    expect(row.internalDays).toBeGreaterThan(0);
+    expect(C.calculateTaxReturnKPIs([t]).avgDemoraInterna).toBe(row.internalDays);
+
+    const partial = await internalOf("tax_return", closedRaw("tax_return", [info, envio]));
+    expect(partial.row.internalDays).toBeNull();
+    // El KPI no cambia: sigue sumando el tramo que falta como 0.
+    expect(C.calculateTaxReturnKPIs([partial.t]).avgDemoraInterna).toBe(
+      partial.t.diasInfoAEnvioFirma,
+    );
+  });
+
+  test("sin fechas, ninguna fila dice 0; AR y Agentes no la miden", async () => {
+    for (const process of ALL) {
+      const r = await breakdown(process);
+      expect(r.tasks.every((t) => t.internalDays === null)).toBe(true);
+    }
+    for (const process of ["annual_reports", "agentes_registrados"] as const) {
+      expect(C.INTERNAL_DELAY_DEFINITIONS[process]).toBeNull();
+    }
+    for (const process of ["llc_formation", "bank_application", "tax_return"] as const) {
+      expect(C.INTERNAL_DELAY_DEFINITIONS[process]).not.toBeNull();
+    }
+  });
+});
+
 // ─── "Todos los procesos": solo el desglose, mismo permiso ─
 const TABLE = JSON.stringify({
   "lucas@firmaway.us": [

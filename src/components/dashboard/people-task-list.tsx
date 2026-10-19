@@ -9,7 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LEAD_TIME_DEFINITIONS, PROCESSES, type PeopleBreakdown } from "@/lib/clickup-api";
+import {
+  INTERNAL_DELAY_DEFINITIONS,
+  LEAD_TIME_DEFINITIONS,
+  PROCESSES,
+  type PeopleBreakdown,
+} from "@/lib/clickup-api";
 import { AR_TZ } from "@/lib/periods";
 
 // Tareas de cada persona, desplegables. Cada sección es el desglose de UN
@@ -53,8 +58,26 @@ export function ProcessBlock({
   const [shown, setShown] = useState(PAGE);
   const { name, color } = processInfo(breakdown.process);
   const lead = LEAD_TIME_DEFINITIONS[breakdown.process];
-  const rows = indexes.slice(0, shown).map((i) => breakdown.tasks[i]);
+  const internal = INTERNAL_DELAY_DEFINITIONS[breakdown.process];
+  // De entrada, la peor demora interna primero; las "falta fecha" al final.
+  // El orden se aplica a todas las tareas antes de paginar.
+  const [byInternal, setByInternal] = useState(true);
+  const ordered = useMemo(() => {
+    if (!internal || !byInternal) return indexes;
+    const value = (i: number) => breakdown.tasks[i].internalDays;
+    // Orden estable: los empates quedan de la más reciente a la más vieja.
+    return [...indexes].sort((a, b) => {
+      const va = value(a);
+      const vb = value(b);
+      if (va === null || vb === null) return (va === null ? 1 : 0) - (vb === null ? 1 : 0);
+      return vb - va;
+    });
+  }, [indexes, breakdown, internal, byInternal]);
+  const rows = ordered.slice(0, shown).map((i) => breakdown.tasks[i]);
   const shared = person ? indexes.filter((i) => breakdown.tasks[i].assignees.length > 1).length : 0;
+  const missingDates = internal
+    ? indexes.filter((i) => breakdown.tasks[i].internalDays === null).length
+    : 0;
 
   return (
     <div className="space-y-2 rounded-md border border-border/60 p-3">
@@ -66,25 +89,43 @@ export function ProcessBlock({
         <span className="font-semibold text-foreground">{name}</span>
         <span className="text-foreground">
           {indexes.length} {indexes.length === 1 ? "tarea" : "tareas"}
+          {internal && ` · ${missingDates} sin fecha completa`}
         </span>
         {person && (
           <span className="text-xs text-muted-foreground">
             ({indexes.length - shared} propias · {shared} compartidas)
           </span>
         )}
+        {internal && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto h-7 text-xs"
+            onClick={() => setByInternal((v) => !v)}
+          >
+            {byInternal ? "Ordenar por fecha de cierre" : "Ordenar por demora interna"}
+          </Button>
+        )}
       </div>
       <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         {lead
-          ? `${lead.label}: ${lead.definition}`
+          ? `Lead — ${lead.label}: ${lead.definition}`
           : "Este proceso no mide tiempo de ciclo: sus tareas van sin días."}
       </p>
+      {internal && (
+        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {`Interna — ${internal.definition} ${internal.kpiNote}`}
+        </p>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Tarea</TableHead>
             <TableHead className="whitespace-nowrap">Cierre</TableHead>
-            <TableHead className="text-right">{lead ? lead.label : "Días"}</TableHead>
+            <TableHead className="text-right">{lead ? "Lead" : "Días"}</TableHead>
+            {internal && <TableHead className="text-right">Interna</TableHead>}
             {person && <TableHead>Asignación</TableHead>}
           </TableRow>
         </TableHeader>
@@ -100,6 +141,15 @@ export function ProcessBlock({
                 <TableCell className="text-right tabular-nums text-foreground">
                   {t.days ?? "—"}
                 </TableCell>
+                {internal && (
+                  <TableCell className="whitespace-nowrap text-right tabular-nums text-foreground">
+                    {t.internalDays ?? (
+                      <>
+                        — <span className="text-xs text-warning">falta fecha</span>
+                      </>
+                    )}
+                  </TableCell>
+                )}
                 {person && (
                   <TableCell className="text-muted-foreground">
                     {others.length === 0 ? "Propia" : `Compartida con ${others.join(", ")}`}
