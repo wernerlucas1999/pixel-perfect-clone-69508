@@ -604,6 +604,7 @@ function DashboardPage() {
       <Sidebar
         selectedProcess={allProcesses ? null : selectedProcess}
         onProcessChange={selectProcess}
+        panelComercialUrl={me?.panelComercialUrl ?? null}
       />
       <div className="lg:pl-64">
         <Header

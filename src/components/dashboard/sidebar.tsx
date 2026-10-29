@@ -1,14 +1,16 @@
 import { cn } from "@/lib/utils";
-import { Timer } from "lucide-react";
+import { ExternalLink, Timer } from "lucide-react";
 import { PROCESSES, type ProcessType } from "@/lib/clickup-api";
 
 interface SidebarProps {
   // null = "Todos los procesos" (ningún proceso marcado).
   selectedProcess: ProcessType | null;
   onProcessChange: (process: ProcessType) => void;
+  // Panel comercial (dashboard aparte). null = no se muestra el ítem.
+  panelComercialUrl: string | null;
 }
 
-export function Sidebar({ selectedProcess, onProcessChange }: SidebarProps) {
+export function Sidebar({ selectedProcess, onProcessChange, panelComercialUrl }: SidebarProps) {
   return (
     <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
       <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-sidebar border-r border-sidebar-border px-6 pb-4">
@@ -51,6 +53,29 @@ export function Sidebar({ selectedProcess, onProcessChange }: SidebarProps) {
                 })}
               </ul>
             </li>
+            {/* Fuera de "Procesos": no es un proceso nuestro, abre afuera. */}
+            {panelComercialUrl && (
+              <li>
+                <div className="text-xs font-semibold leading-6 text-muted-foreground uppercase tracking-wider">
+                  Otros paneles
+                </div>
+                <ul role="list" className="-mx-2 mt-2 space-y-1">
+                  <li>
+                    <a
+                      href={panelComercialUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Abre en una pestaña nueva"
+                      className="group flex items-center gap-x-3 rounded-md p-2 text-sm leading-6 font-medium text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                    >
+                      Panel Comercial
+                      <ExternalLink className="ml-auto h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span className="sr-only">(abre en una pestaña nueva)</span>
+                    </a>
+                  </li>
+                </ul>
+              </li>
+            )}
           </ul>
         </nav>
       </div>

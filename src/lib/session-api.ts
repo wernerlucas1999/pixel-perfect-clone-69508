@@ -6,6 +6,22 @@ export interface Me {
   email: string;
   // Procesos en los que puede ver datos por persona.
   peopleProcesses: DashboardProcess[];
+  // Link al panel comercial (PANEL_COMERCIAL_URL en Vercel). null = sin
+  // cargar o inválido: el menú no muestra el ítem.
+  panelComercialUrl: string | null;
+}
+
+// Solo http(s): un valor mal cargado no puede volverse un link roto o un
+// "javascript:" en el menú.
+export function parsePanelComercialUrl(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
 // Comodidad visual: la interfaz la usa para ocultar lo que no corresponde. La
@@ -24,5 +40,8 @@ export const getMe = createServerFn({ method: "GET" })
     return {
       email: normalizeEmail(session.user.email),
       peopleProcesses: allowedPeopleProcesses(session.user.email),
+      // Se lee en el servidor (sin prefijo VITE_): el link no queda en el
+      // bundle público y solo lo recibe quien ya inició sesión.
+      panelComercialUrl: parsePanelComercialUrl(process.env.PANEL_COMERCIAL_URL),
     };
   });
