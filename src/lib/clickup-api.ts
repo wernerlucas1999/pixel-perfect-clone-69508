@@ -1847,7 +1847,7 @@ export function getAgentesStatusChartData(tasks: AgenteRegistradoTask[]) {
   const k = calculateAgentesKPIs(tasks);
   return [
     { status: "Pendiente", count: k.pendiente, fill: "#6366f1" },
-    { status: "En Progreso", count: k.esperandoInvoice, fill: "#f59e0b" },
+    { status: "Esperando Invoice", count: k.esperandoInvoice, fill: "#f59e0b" },
     { status: "Completado", count: k.completado, fill: "#22c55e" },
   ];
 }

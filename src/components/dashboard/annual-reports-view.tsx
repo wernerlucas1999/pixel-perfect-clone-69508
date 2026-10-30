@@ -93,7 +93,7 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
         {/* Health Check Card */}
         <Card className="border-border bg-card">
           <CardHeader>
-            <CardTitle className="text-foreground">Cumplimiento Anual (Health Check)</CardTitle>
+            <CardTitle className="text-foreground">Cumplimiento Anual</CardTitle>
             <CardDescription className="text-muted-foreground">
               Comparativa de reportes completados vs próximos a vencer
             </CardDescription>

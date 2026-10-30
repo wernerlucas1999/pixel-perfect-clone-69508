@@ -14,6 +14,12 @@ import { useEffect } from "react";
 import { installSessionExpiryRedirect } from "../lib/auth-client";
 import appCss from "../styles.css?url";
 
+// og:image tiene que ser una URL absoluta para que Slack y WhatsApp la
+// muestren. __SITE_URL__ lo arma vite.config.ts con el dominio de producción
+// que Vercel expone al compilar; en un build local queda la ruta relativa.
+declare const __SITE_URL__: string;
+const OG_IMAGE = `${__SITE_URL__}/og-firmaway.png`;
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -81,33 +87,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "description",
         content: "Indicadores de los procesos de Filings de Firmaway, con datos de ClickUp.",
       },
-      { name: "author", content: "Lovable" },
+      { name: "author", content: "Firmaway" },
       { property: "og:title", content: "Dashboard KPI · Firmaway" },
       {
         property: "og:description",
         content: "Indicadores de los procesos de Filings de Firmaway, con datos de ClickUp.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Dashboard KPI · Firmaway" },
       {
         name: "twitter:description",
         content: "Indicadores de los procesos de Filings de Firmaway, con datos de ClickUp.",
       },
-      {
-        property: "og:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5c6f846c-a413-47b0-90f9-8aaa66cea3ad/id-preview-08c18569--dc1424d0-3d4d-4a82-846f-ebf37e0179b0.lovable.app-1780932824066.png",
-      },
-      {
-        name: "twitter:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5c6f846c-a413-47b0-90f9-8aaa66cea3ad/id-preview-08c18569--dc1424d0-3d4d-4a82-846f-ebf37e0179b0.lovable.app-1780932824066.png",
-      },
+      // Vista previa al compartir el link (Slack, WhatsApp): public/og-firmaway.png.
+      { property: "og:image", content: OG_IMAGE },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { name: "twitter:image", content: OG_IMAGE },
     ],
     links: [
-      // Raleway desde Google Fonts, misma URL que firmaway-design-system/tokens/fonts.css.
+      // Raleway desde Google Fonts, misma URL que .claude/skills/firmaway-design/tokens/fonts.css.
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

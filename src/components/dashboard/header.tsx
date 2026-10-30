@@ -83,7 +83,7 @@ export function Header({
 
         <div className="flex flex-1 items-center justify-between">
           <div className="flex items-center gap-x-4">
-            <h1 className="text-xl font-extrabold tracking-titulo-h1 text-foreground">Cycle Time</h1>
+            <h1 className="text-xl font-extrabold tracking-titulo-h1 text-foreground">Dashboard KPI</h1>
             <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-border" />
 
             {/* Process Selector */}

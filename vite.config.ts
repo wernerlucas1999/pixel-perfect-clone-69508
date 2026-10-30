@@ -41,5 +41,14 @@ export default defineConfig({
   nitro: nitroOptions,
   vite: {
     plugins: [loadLocalServerEnv()],
+    // Dominio de producción para la URL absoluta de og:image (src/routes/__root.tsx).
+    // Vercel define VERCEL_PROJECT_PRODUCTION_URL al compilar (sin "https://").
+    define: {
+      __SITE_URL__: JSON.stringify(
+        process.env.VERCEL_PROJECT_PRODUCTION_URL
+          ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+          : "",
+      ),
+    },
   },
 });
