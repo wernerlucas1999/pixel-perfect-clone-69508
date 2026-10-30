@@ -201,8 +201,8 @@ export interface Process {
 // Coral y dorado no se distinguen con daltonismo: cada tramo lleva su número
 // escrito y 2 px de separación; el color nunca es la única pista.
 export const PROCESSES: Process[] = [
-  { id: "llc_formation", name: "Formacion de LLC", color: "#F15A2F" },
-  { id: "bank_application", name: "Aplicacion Bancaria", color: "#2FA3B8" },
+  { id: "llc_formation", name: "Formación de LLC", color: "#F15A2F" },
+  { id: "bank_application", name: "Aplicación Bancaria", color: "#2FA3B8" },
   { id: "annual_reports", name: "Annual Reports", color: "#9B7BE0" },
   { id: "agentes_registrados", name: "Agentes Registrados", color: "#B8891F" },
   { id: "tax_return", name: "Tax Return", color: "#56A45C" },
@@ -1827,9 +1827,10 @@ export function calculateAnnualReportsKPIs(tasks: AnnualReportTask[]) {
 export function getAnnualReportsPieData(tasks: AnnualReportTask[]) {
   const k = calculateAnnualReportsKPIs(tasks);
   return [
-    { name: "Completado", value: k.completado, fill: "#22c55e" },
-    { name: "Proximo a Hacer", value: k.proximoAHacer, fill: "#f59e0b" },
-    { name: "Pendiente", value: k.pendiente, fill: "#6366f1" },
+    // Colores de estado del tema (no de proceso): ok, atención y gris secundario.
+    { name: "Completado", value: k.completado, fill: "var(--success)" },
+    { name: "Próximo a Hacer", value: k.proximoAHacer, fill: "var(--warning)" },
+    { name: "Pendiente", value: k.pendiente, fill: "var(--muted-foreground)" },
   ];
 }
 export function calculateAgentesKPIs(tasks: AgenteRegistradoTask[]) {

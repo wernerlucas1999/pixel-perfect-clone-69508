@@ -1,5 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { type BankStatus, BANK_STATUS_COLORS } from "@/lib/clickup-api";
+import { PROCESSES, type BankStatus } from "@/lib/clickup-api";
+import { formatNumber } from "@/lib/format";
+
+// Cada estado ya tiene su nombre escrito: la franja va en el color del proceso
+// y el número en crema (énfasis con peso, no con color).
+const BANK_COLOR = PROCESSES.find((p) => p.id === "bank_application")!.color;
 
 interface StatusData {
   status: BankStatus;
@@ -25,7 +30,7 @@ export function BankStatusCards({ data }: BankStatusCardsProps) {
   return (
     <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-foreground">Distribucion por Estado</CardTitle>
+        <CardTitle>Distribución por Estado</CardTitle>
         <CardDescription className="text-muted-foreground">
           Conteo de tareas en cada etapa del proceso bancario
         </CardDescription>
@@ -40,16 +45,16 @@ export function BankStatusCards({ data }: BankStatusCardsProps) {
               {/* Color indicator bar */}
               <div
                 className="absolute top-0 left-0 w-full h-1"
-                style={{ backgroundColor: item.color }}
+                style={{ backgroundColor: BANK_COLOR }}
               />
 
               {/* Count */}
-              <div className="text-3xl font-bold" style={{ color: item.color }}>
-                {item.count}
+              <div className="text-3xl font-black tracking-titulo-h1 text-foreground">
+                {formatNumber(item.count)}
               </div>
 
               {/* Status name */}
-              <div className="text-xs text-muted-foreground mt-1 font-medium">
+              <div className="mt-1 text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
                 {STATUS_SHORT_NAMES[item.status] || item.status}
               </div>
             </div>

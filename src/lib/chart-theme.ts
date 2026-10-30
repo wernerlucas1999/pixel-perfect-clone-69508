@@ -16,6 +16,10 @@ export const CHART_LINE = "var(--border)";
 // Mismo color que la tarjeta: los 2 px entre tramos de una barra apilada se
 // ven como un corte, para que el color nunca sea la única pista.
 export const CHART_GAP = "var(--card)";
+// Texto ADENTRO de un tramo de color (proceso o categoría): navy-700 da
+// 4,62-5,22:1 sobre los 5 colores de proceso y 4,72:1 o más sobre los tonos
+// de categoría. Crema encima no llega a 4,5.
+export const TEXT_ON_FILL = "var(--fw-navy-700)";
 
 // Eje con números (cantidades, días).
 export const numberTick = { fill: CHART_TEXT_MUTED, fontSize: 12, fontFamily: MONO };

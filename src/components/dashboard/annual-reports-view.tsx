@@ -1,6 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+// DESVIACIÓN CONSCIENTE DEL MANUAL (único ícono de marca: el asterisco): los
+// íconos se quedan porque ayudan a leer rápido. Decisión de Lucas, 2026-10-30.
 import { FileText, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { CHART_GAP, CHART_TEXT_MUTED, tooltipProps } from "@/lib/chart-theme";
+import { formatNumber } from "@/lib/format";
 
 interface PieData {
   name: string;
@@ -29,45 +33,57 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Reports
+            <CardTitle className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+              Total de Reportes
             </CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{kpis.total}</div>
+            <div className="text-2xl font-black tracking-titulo-h1 text-foreground">
+              {formatNumber(kpis.total)}
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pendiente</CardTitle>
-            <Clock className="h-4 w-4 text-chart-1" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-chart-1">{kpis.pendiente}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Proximo a Hacer
+            <CardTitle className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+              Pendiente
             </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-warning" />
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">{kpis.proximoAHacer}</div>
+            <div className="text-2xl font-black tracking-titulo-h1 text-foreground">
+              {formatNumber(kpis.pendiente)}
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completado</CardTitle>
-            <CheckCircle className="h-4 w-4 text-success" />
+            <CardTitle className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+              Próximo a Hacer
+            </CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">{kpis.completado}</div>
+            <div className="text-2xl font-black tracking-titulo-h1 text-foreground">
+              {formatNumber(kpis.proximoAHacer)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+              Completado
+            </CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-black tracking-titulo-h1 text-foreground">
+              {formatNumber(kpis.completado)}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -79,14 +95,16 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
           <CardHeader>
             <CardTitle className="text-foreground">Cumplimiento Anual (Health Check)</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Comparativa de reportes completados vs proximos a vencer
+              Comparativa de reportes completados vs próximos a vencer
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
               {/* Health Score */}
               <div className="text-center">
-                <div className="text-5xl font-bold text-success">{healthPercentage}%</div>
+                <div className="text-5xl font-black tracking-titulo-display text-foreground">
+                  {formatNumber(healthPercentage)}%
+                </div>
                 <p className="text-sm text-muted-foreground mt-2">Tasa de Cumplimiento</p>
               </div>
 
@@ -95,8 +113,8 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Completados</span>
-                    <span className="text-success font-medium">
-                      {kpis.completado} ({healthPercentage}%)
+                    <span className="font-mono font-semibold text-foreground">
+                      {formatNumber(kpis.completado)} ({formatNumber(healthPercentage)}%)
                     </span>
                   </div>
                   <div className="h-3 rounded-full bg-muted overflow-hidden">
@@ -109,9 +127,9 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Proximo a Hacer</span>
-                    <span className="text-warning font-medium">
-                      {kpis.proximoAHacer} ({atRiskPercentage}%)
+                    <span className="text-muted-foreground">Próximo a Hacer</span>
+                    <span className="font-mono font-semibold text-foreground">
+                      {formatNumber(kpis.proximoAHacer)} ({formatNumber(atRiskPercentage)}%)
                     </span>
                   </div>
                   <div className="h-3 rounded-full bg-muted overflow-hidden">
@@ -134,12 +152,12 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
                   ) : healthPercentage >= 50 ? (
                     <>
                       <AlertTriangle className="h-5 w-5 text-warning" />
-                      <span className="text-warning font-medium">Requiere Atencion</span>
+                      <span className="text-warning font-medium">Requiere Atención</span>
                     </>
                   ) : (
                     <>
                       <AlertTriangle className="h-5 w-5 text-destructive" />
-                      <span className="text-destructive font-medium">Estado Critico</span>
+                      <span className="text-destructive font-medium">Estado Crítico</span>
                     </>
                   )}
                 </div>
@@ -151,7 +169,7 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
         {/* Pie Chart */}
         <Card className="border-border bg-card">
           <CardHeader>
-            <CardTitle className="text-foreground">Distribucion por Estado</CardTitle>
+            <CardTitle>Distribución por Estado</CardTitle>
             <CardDescription className="text-muted-foreground">
               Estado de todos los Annual Reports
             </CardDescription>
@@ -167,6 +185,8 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
                     innerRadius={70}
                     outerRadius={100}
                     paddingAngle={2}
+                    stroke={CHART_GAP}
+                    strokeWidth={2}
                     dataKey="value"
                   >
                     {pieData.map((entry, index) => (
@@ -174,18 +194,11 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "6px",
-                    }}
-                    labelStyle={{ color: "hsl(var(--foreground))" }}
-                    formatter={(value: number) => [`${value} reportes`, "Cantidad"]}
+                    {...tooltipProps}
+                    formatter={(value: number) => [`${formatNumber(value)} reportes`, "Cantidad"]}
                   />
                   <Legend
-                    formatter={(value) => (
-                      <span style={{ color: "hsl(var(--muted-foreground))" }}>{value}</span>
-                    )}
+                    formatter={(value) => <span style={{ color: CHART_TEXT_MUTED }}>{value}</span>}
                   />
                 </PieChart>
               </ResponsiveContainer>

@@ -16,6 +16,7 @@ import {
   type PeopleBreakdown,
 } from "@/lib/clickup-api";
 import { AR_TZ } from "@/lib/periods";
+import { formatNumber } from "@/lib/format";
 
 // Cifras y fechas en mono (font-mono): el Raleway de Google Fonts no trae
 // cifras de ancho fijo, y el componente DataTable del manual pide "right-aligned
@@ -92,12 +93,12 @@ export function ProcessBlock({
         />
         <span className="font-semibold text-foreground">{name}</span>
         <span className="text-foreground">
-          {indexes.length} {indexes.length === 1 ? "tarea" : "tareas"}
-          {internal && ` · ${missingDates} sin fecha completa`}
+          {formatNumber(indexes.length)} {indexes.length === 1 ? "tarea" : "tareas"}
+          {internal && ` · ${formatNumber(missingDates)} sin fecha completa`}
         </span>
         {person && (
           <span className="text-xs text-muted-foreground">
-            ({indexes.length - shared} propias · {shared} compartidas)
+            ({formatNumber(indexes.length - shared)} propias · {formatNumber(shared)} compartidas)
           </span>
         )}
         {internal && (
@@ -143,11 +144,13 @@ export function ProcessBlock({
                   {closedDay(t.closedAtMs)}
                 </TableCell>
                 <TableCell className="text-right font-mono font-semibold text-foreground">
-                  {t.days ?? "—"}
+                  {t.days === null ? "—" : formatNumber(t.days)}
                 </TableCell>
                 {internal && (
                   <TableCell className="whitespace-nowrap text-right font-mono font-semibold text-foreground">
-                    {t.internalDays ?? (
+                    {t.internalDays !== null ? (
+                      formatNumber(t.internalDays)
+                    ) : (
                       <>
                         —{" "}
                         <span className="font-sans text-xs font-normal text-warning">
@@ -170,11 +173,11 @@ export function ProcessBlock({
       {indexes.length > PAGE && (
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span>
-            Mostrando {rows.length} de {indexes.length}
+            Mostrando {formatNumber(rows.length)} de {formatNumber(indexes.length)}
           </span>
           {shown < indexes.length && (
             <Button size="sm" variant="outline" onClick={() => setShown((s) => s + PAGE)}>
-              Ver {Math.min(PAGE, indexes.length - shown)} más
+              Ver {formatNumber(Math.min(PAGE, indexes.length - shown))} más
             </Button>
           )}
         </div>
@@ -229,7 +232,7 @@ export function PeopleTaskList({
         {label}
       </span>
       <span className="ml-auto text-right text-sm">
-        <span className="font-bold text-foreground">{total}</span>{" "}
+        <span className="font-bold text-foreground">{formatNumber(total)}</span>{" "}
         <span className="text-muted-foreground">
           {total === 1 ? "tarea" : "tareas"}
           {pending}

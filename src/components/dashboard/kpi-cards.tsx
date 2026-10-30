@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatNumber } from "@/lib/format";
 // DESVIACIÓN CONSCIENTE DEL MANUAL: la marca Firmaway tiene un solo ícono (el
 // asterisco), pero en un panel de datos los íconos ayudan a leer rápido.
 // Decisión de Lucas (2026-10-30). No "corregirla" sacando los íconos.
@@ -26,35 +27,35 @@ export function KPICards({
   const kpis = [
     {
       title: "Total Tareas",
-      value: totalTasks,
+      value: formatNumber(totalTasks),
       icon: ListTodo,
       description: "En el proceso",
       warning: false,
     },
     {
       title: "Completadas",
-      value: completedTasks,
+      value: formatNumber(completedTasks),
       icon: CheckCircle2,
       description: "Entrega Completada",
       warning: false,
     },
     {
       title: "En Progreso",
-      value: inProgressTasks,
+      value: formatNumber(inProgressTasks),
       icon: Activity,
       description: "Tareas activas",
       warning: false,
     },
     {
       title: "Lead Time Promedio",
-      value: `${avgLeadTime} dias`,
+      value: `${formatNumber(avgLeadTime)} días`,
       icon: Timer,
-      description: "Creacion a cierre",
+      description: "Creación a cierre",
       warning: false,
     },
     {
       title: "Espera EIN Promedio",
-      value: `${avgEINWait} dias`,
+      value: `${formatNumber(avgEINWait)} días`,
       icon: Clock,
       description: "Tiempo en espera",
       warning: avgEINWait > 15,
@@ -63,7 +64,6 @@ export function KPICards({
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-
       {kpis.map((kpi) => (
         <Card
           key={kpi.title}

@@ -43,6 +43,7 @@ import {
   type PeopleBreakdown,
 } from "@/lib/clickup-api";
 import { getMe, type Me } from "@/lib/session-api";
+import { formatNumber } from "@/lib/format";
 import { isDashboardProcess } from "@/lib/processes";
 import { toDayRange } from "@/lib/periods";
 import { loadErrorMessage } from "@/lib/load-errors";
@@ -461,29 +462,43 @@ function DashboardPage() {
               <>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                   <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-sm font-medium text-muted-foreground">Total Aplicaciones</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{bankKpis.totalTasks}</p>
-                  </div>
-                  <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-sm font-medium text-muted-foreground">Pendientes</p>
-                    <p className="text-2xl font-bold text-chart-1 mt-1">{bankKpis.pendingTasks}</p>
-                  </div>
-                  <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-sm font-medium text-muted-foreground">En Progreso</p>
-                    <p className="text-2xl font-bold text-warning mt-1">
-                      {bankKpis.inProgressTasks}
+                    <p className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+                      Total Aplicaciones
+                    </p>
+                    <p className="text-2xl font-black tracking-titulo-h1 text-foreground mt-1">
+                      {formatNumber(bankKpis.totalTasks)}
                     </p>
                   </div>
                   <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-sm font-medium text-muted-foreground">Completadas</p>
-                    <p className="text-2xl font-bold text-success mt-1">
-                      {bankKpis.completedTasks}
+                    <p className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+                      Pendientes
+                    </p>
+                    <p className="text-2xl font-black tracking-titulo-h1 text-foreground mt-1">
+                      {formatNumber(bankKpis.pendingTasks)}
                     </p>
                   </div>
                   <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-sm font-medium text-muted-foreground">Lead Time Promedio</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">
-                      {bankKpis.avgLeadTime} dias
+                    <p className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+                      En Progreso
+                    </p>
+                    <p className="text-2xl font-black tracking-titulo-h1 text-foreground mt-1">
+                      {formatNumber(bankKpis.inProgressTasks)}
+                    </p>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+                      Completadas
+                    </p>
+                    <p className="text-2xl font-black tracking-titulo-h1 text-foreground mt-1">
+                      {formatNumber(bankKpis.completedTasks)}
+                    </p>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+                      Lead Time Promedio
+                    </p>
+                    <p className="text-2xl font-black tracking-titulo-h1 text-foreground mt-1">
+                      {formatNumber(bankKpis.avgLeadTime)} días
                     </p>
                   </div>
                 </div>
@@ -574,7 +589,7 @@ function DashboardPage() {
                       Demora del Cliente
                     </p>
                     <p className="text-3xl font-black tracking-titulo-h1 text-foreground mt-2">
-                      {kpis.avgDemoraCliente.toFixed(2)} d
+                      {formatNumber(kpis.avgDemoraCliente, 2)} d
                     </p>
                   </div>
                   <div className="rounded-lg border border-border bg-card p-5">
@@ -582,7 +597,7 @@ function DashboardPage() {
                       Demora Interna de Filings
                     </p>
                     <p className="text-3xl font-black tracking-titulo-h1 text-foreground mt-2">
-                      {kpis.avgTiempoInterno.toFixed(2)} d
+                      {formatNumber(kpis.avgTiempoInterno, 2)} d
                     </p>
                   </div>
                 </div>

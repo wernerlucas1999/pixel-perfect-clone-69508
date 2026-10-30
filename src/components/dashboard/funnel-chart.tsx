@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { PROCESSES } from "@/lib/clickup-api";
 import { axisLine, labelTick, numberTick, tooltipProps, valueLabel } from "@/lib/chart-theme";
+import { formatNumber, formatTick } from "@/lib/format";
 
 // Todas las etapas en el color del proceso: cada barra ya tiene su nombre en
 // el eje y su número escrito, así que el color no distingue nada. Un color
@@ -49,16 +50,22 @@ export function FunnelChart({ data }: FunnelChartProps) {
   return (
     <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle>Embudo de Conversion</CardTitle>
+        <CardTitle>Embudo de Conversión</CardTitle>
         <CardDescription className="text-muted-foreground">
-          Tareas por etapa del proceso de Formacion LLC
+          Tareas por etapa del proceso de Formación de LLC
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 40 }}>
-              <XAxis type="number" tick={numberTick} axisLine={axisLine} tickLine={axisLine} />
+              <XAxis
+                type="number"
+                tick={numberTick}
+                tickFormatter={formatTick}
+                axisLine={axisLine}
+                tickLine={axisLine}
+              />
               <YAxis
                 dataKey="shortStatus"
                 type="category"
@@ -69,7 +76,7 @@ export function FunnelChart({ data }: FunnelChartProps) {
               />
               <Tooltip
                 {...tooltipProps}
-                formatter={(value: number) => [`${value} tareas`, "Cantidad"]}
+                formatter={(value: number) => [`${formatNumber(value)} tareas`, "Cantidad"]}
                 labelFormatter={(label) => {
                   const item = chartData.find((d) => d.shortStatus === label);
                   return item?.status || label;
@@ -79,7 +86,12 @@ export function FunnelChart({ data }: FunnelChartProps) {
                 {chartData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={LLC_COLOR} />
                 ))}
-                <LabelList dataKey="count" position="right" {...valueLabel} />
+                <LabelList
+                  dataKey="count"
+                  position="right"
+                  formatter={formatTick}
+                  {...valueLabel}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

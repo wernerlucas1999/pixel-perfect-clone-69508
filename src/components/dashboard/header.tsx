@@ -95,7 +95,7 @@ export function Header({
                   value === ALL_PROCESSES ? onAllProcesses() : onProcessChange(value as ProcessType)
                 }
               >
-                <SelectTrigger className="w-[180px] bg-input border-border text-foreground">
+                <SelectTrigger className="w-[210px] bg-input border-border text-foreground">
                   <SelectValue placeholder="Seleccionar proceso" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
@@ -194,13 +194,13 @@ export function Header({
       <div className="flex h-12 items-center gap-x-3 px-4 sm:px-6 lg:px-8 border-t border-border/50 bg-muted/30">
         {/* State Filter */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground hidden sm:inline">State:</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">Estado:</span>
           <Select
             value={selectedState}
             onValueChange={(value) => onStateChange(value as StateType | "all")}
           >
             <SelectTrigger className="w-[120px] h-8 text-xs bg-input border-border text-foreground">
-              <SelectValue placeholder="State" />
+              <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border">
               {STATES.map((state) => (

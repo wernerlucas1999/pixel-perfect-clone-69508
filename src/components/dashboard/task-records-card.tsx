@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatNumber } from "@/lib/format";
 // DESVIACIÓN CONSCIENTE DEL MANUAL (único ícono de marca: el asterisco): los
 // íconos se quedan porque ayudan a leer rápido. Decisión de Lucas, 2026-10-30.
 import { Zap, TurtleIcon } from "lucide-react";
@@ -40,7 +41,7 @@ export function TaskRecordsCard({
                   {fastest.name}
                 </p>
                 <p className="text-3xl font-black tracking-titulo-h1 text-success mt-2">
-                  {fastest.days} {fastest.days === 1 ? "día" : "días"}
+                  {formatNumber(fastest.days)} {fastest.days === 1 ? "día" : "días"}
                 </p>
               </>
             ) : (
@@ -59,7 +60,7 @@ export function TaskRecordsCard({
                   {slowest.name}
                 </p>
                 <p className="text-3xl font-black tracking-titulo-h1 text-destructive mt-2">
-                  {slowest.days} {slowest.days === 1 ? "día" : "días"}
+                  {formatNumber(slowest.days)} {slowest.days === 1 ? "día" : "días"}
                 </p>
               </>
             ) : (

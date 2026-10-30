@@ -23,6 +23,7 @@ import {
   numberTick,
   tooltipProps,
 } from "@/lib/chart-theme";
+import { formatNumber, formatTick } from "@/lib/format";
 import { PeopleTaskList } from "./people-task-list";
 
 // Rendimiento por colaborador, igual en los 5 procesos. Los datos vienen de
@@ -103,8 +104,8 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
               )}
               <p className="text-foreground">
                 <span className="font-semibold">Tareas cerradas en el período:</span>{" "}
-                {breakdown.closedTotal}. Una tarea compartida suma 1 a cada participante, por eso la
-                suma de las personas puede superar este total.
+                {formatNumber(breakdown.closedTotal)}. Una tarea compartida suma 1 a cada
+                participante, por eso la suma de las personas puede superar este total.
               </p>
               <p className="flex items-start gap-2 text-muted-foreground">
                 <Info className="mt-0.5 h-4 w-4 shrink-0" />
@@ -147,6 +148,7 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
                         type="number"
                         allowDecimals={false}
                         tick={numberTick}
+                        tickFormatter={formatTick}
                         axisLine={axisLine}
                         tickLine={axisLine}
                       />
@@ -162,7 +164,7 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
                       <Tooltip
                         {...tooltipProps}
                         formatter={(value: number, key: string) => [
-                          value,
+                          formatNumber(value),
                           key === "own" ? "Propias" : "Compartidas",
                         ]}
                       />
@@ -202,10 +204,10 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
                                 fontSize={13}
                               >
                                 <tspan fontWeight={700} fontFamily="var(--fw-font-mono)">
-                                  {d.total}
+                                  {formatNumber(d.total)}
                                 </tspan>
                                 <tspan fill={CHART_TEXT_MUTED}>
-                                  {` (${d.own} propias · ${d.shared} compartidas)`}
+                                  {` (${formatNumber(d.own)} propias · ${formatNumber(d.shared)} compartidas)`}
                                 </tspan>
                               </text>
                             );

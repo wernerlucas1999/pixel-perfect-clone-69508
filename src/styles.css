@@ -87,6 +87,15 @@
   --derivado-oscuro-ok: #7dcb8a; /* 6,31 / 7,97 / 5,01 */
   --derivado-oscuro-atencion: #e8b95c; /* 6,74 / 8,53 / 5,35 */
   --derivado-oscuro-error: #ffa092; /* 6,26 / 7,91 / 4,97 */
+  /* Categorías que no son procesos (Cliente / Filings / IRS / Banco en
+     "Distribución de Responsabilidad"): 4 tonos de crema, sin inventar
+     colores. Contra navy dan 11,04 / 7,68 / 5,41 / 3,73:1 (>= 3:1 de una
+     forma gráfica); el texto adentro va en navy-700 (13,96 / 9,71 / 6,85 /
+     4,72:1). Siempre con nombre y número escritos, y 2 px entre tramos. */
+  --derivado-oscuro-categoria-1: #fef1e0; /* crema 100% */
+  --derivado-oscuro-categoria-2: #d5cbc0; /* crema 80% */
+  --derivado-oscuro-categoria-3: #b2aba4; /* crema 63% */
+  --derivado-oscuro-categoria-4: #918d8a; /* crema 47% */
 }
 
 /* ============================================================================
@@ -122,13 +131,6 @@
   /* Foco en coral: indicador no textual, 3,65:1 sobre navy y 4,62:1 sobre
      navy-700 (alcanza el 3:1 que pide un indicador). */
   --ring: var(--fw-coral);
-  /* Colores de gráficos genéricos: todavía los del tema anterior. Se usan
-     también como texto, así que se revisan pantalla por pantalla. */
-  --chart-1: oklch(0.65 0.18 260);
-  --chart-2: oklch(0.7 0.18 165);
-  --chart-3: oklch(0.75 0.15 85);
-  --chart-4: oklch(0.65 0.2 145);
-  --chart-5: oklch(0.6 0.2 25);
   --radius: var(--r-md);
   --sidebar: var(--fw-navy-700);
   --sidebar-foreground: var(--fw-cream);
@@ -164,13 +166,13 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-categoria-1: var(--derivado-oscuro-categoria-1);
+  --color-categoria-2: var(--derivado-oscuro-categoria-2);
+  --color-categoria-3: var(--derivado-oscuro-categoria-3);
+  --color-categoria-4: var(--derivado-oscuro-categoria-4);
+  --color-fw-navy-700: var(--fw-navy-700);
   /* Radios de la marca: 4 px chips, 8 px tarjetas (shadcn usa rounded-xl en
      las tarjetas, por eso xl también es 8). 2xl queda en 16 = --r-lg. */
   --radius-sm: var(--r-sm);

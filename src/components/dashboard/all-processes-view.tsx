@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList } from "recharts";
+import {
+  CHART_GAP,
+  CHART_TEXT,
+  CHART_TEXT_MUTED,
+  TEXT_ON_FILL,
+  axisLine,
+  numberTick,
+  tooltipProps,
+} from "@/lib/chart-theme";
+import { formatNumber, formatTick } from "@/lib/format";
 import { AlertTriangle, Check, Info, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,6 +77,35 @@ function errorText(error: unknown, name: string) {
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+// Número de un tramo, escrito adentro en navy-700 (4,62:1 o más sobre los 5
+// colores de proceso). Si el tramo es muy angosto para el número no se
+// escribe: queda en el tooltip y en la lista desplegable de la persona.
+function SegmentLabel(props: unknown) {
+  const { x, y, width, height, value } = props as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    value: number;
+  };
+  const text = formatNumber(value);
+  if (!value || width < text.length * 8 + 6) return null;
+  return (
+    <text
+      x={x + width / 2}
+      y={y + height / 2}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fill={TEXT_ON_FILL}
+      fontSize={12}
+      fontWeight={700}
+      fontFamily="var(--fw-font-mono)"
+    >
+      {text}
+    </text>
+  );
+}
 
 export function AllProcessesView({
   processes,
@@ -185,7 +224,7 @@ export function AllProcessesView({
           const s = slots[p] ?? { status: "espera" };
           return (
             <div key={p} className="rounded-lg border border-border bg-card p-3">
-              <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: color }}
@@ -194,8 +233,8 @@ export function AllProcessesView({
               </p>
               {s.status === "ok" ? (
                 <>
-                  <p className="mt-1 text-2xl font-bold text-foreground">
-                    {s.breakdown.closedTotal}{" "}
+                  <p className="mt-1 text-2xl font-black tracking-titulo-h1 text-foreground">
+                    {formatNumber(s.breakdown.closedTotal)}{" "}
                     <span className="text-sm font-normal text-muted-foreground">
                       {s.breakdown.closedTotal === 1 ? "cerrada" : "cerradas"}
                     </span>
@@ -301,29 +340,24 @@ export function AllProcessesView({
                         <XAxis
                           type="number"
                           allowDecimals={false}
-                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                          axisLine={{ stroke: "hsl(var(--border))" }}
-                          tickLine={{ stroke: "hsl(var(--border))" }}
+                          tick={numberTick}
+                          tickFormatter={formatTick}
+                          axisLine={axisLine}
+                          tickLine={axisLine}
                         />
                         <YAxis
                           type="category"
                           dataKey="name"
                           width={200}
                           interval={0}
-                          tick={{ fill: "#e5e7eb", fontSize: 13, fontWeight: 600 }}
-                          axisLine={{ stroke: "hsl(var(--border))" }}
+                          tick={{ fill: CHART_TEXT, fontSize: 13, fontWeight: 600 }}
+                          axisLine={axisLine}
                           tickLine={false}
                         />
                         <Tooltip
-                          cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "6px",
-                          }}
-                          labelStyle={{ color: "hsl(var(--foreground))" }}
+                          {...tooltipProps}
                           formatter={(value: number, key: string) => [
-                            value,
+                            formatNumber(value),
                             processLabel(key as DashboardProcess).name,
                           ]}
                         />
@@ -333,7 +367,13 @@ export function AllProcessesView({
                             dataKey={b.process}
                             stackId="persona"
                             fill={processLabel(b.process).color}
+                            stroke={CHART_GAP}
+                            strokeWidth={2}
                           >
+                            {/* Número de cada tramo escrito adentro: coral y dorado no
+                                se distinguen con daltonismo, el color no puede ser la
+                                única pista. */}
+                            <LabelList dataKey={b.process} content={SegmentLabel} />
                             {i === loaded.length - 1 && (
                               <LabelList
                                 dataKey="total"
@@ -354,11 +394,13 @@ export function AllProcessesView({
                                       x={x + width + 10}
                                       y={y + height / 2}
                                       dominantBaseline="central"
-                                      fill="#ffffff"
+                                      fill={CHART_TEXT}
                                       fontSize={13}
                                     >
-                                      <tspan fontWeight={700}>{row.total}</tspan>
-                                      <tspan fill="hsl(var(--muted-foreground))">{pending}</tspan>
+                                      <tspan fontWeight={700} fontFamily="var(--fw-font-mono)">
+                                        {formatNumber(row.total)}
+                                      </tspan>
+                                      <tspan fill={CHART_TEXT_MUTED}>{pending}</tspan>
                                     </text>
                                   );
                                 }}
