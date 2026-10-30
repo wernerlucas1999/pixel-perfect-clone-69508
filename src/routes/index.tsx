@@ -567,18 +567,21 @@ function DashboardPage() {
                   avgLeadTime={kpis.avgLeadTime}
                   avgEINWait={kpis.avgEINWait}
                 />
+                {/* Números en crema y negrita: el manual pide énfasis con peso, no con color. */}
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-lg border border-chart-3/40 bg-chart-3/5 p-5">
-                    <p className="text-sm font-medium text-muted-foreground">Demora del Cliente</p>
-                    <p className="text-3xl font-bold text-chart-3 mt-2">
+                  <div className="rounded-lg border border-border bg-card p-5">
+                    <p className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+                      Demora del Cliente
+                    </p>
+                    <p className="text-3xl font-black tracking-titulo-h1 text-foreground mt-2">
                       {kpis.avgDemoraCliente.toFixed(2)} d
                     </p>
                   </div>
-                  <div className="rounded-lg border border-chart-1/40 bg-chart-1/5 p-5">
-                    <p className="text-sm font-medium text-muted-foreground">
+                  <div className="rounded-lg border border-border bg-card p-5">
+                    <p className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
                       Demora Interna de Filings
                     </p>
-                    <p className="text-3xl font-bold text-chart-1 mt-2">
+                    <p className="text-3xl font-black tracking-titulo-h1 text-foreground mt-2">
                       {kpis.avgTiempoInterno.toFixed(2)} d
                     </p>
                   </div>

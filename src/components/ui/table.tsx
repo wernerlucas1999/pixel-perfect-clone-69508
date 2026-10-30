@@ -60,7 +60,8 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+      // Encabezado de columna: mayúsculas con +2% de tracking (manual Firmaway).
+      "h-10 px-2 text-left align-middle text-xs font-extrabold uppercase tracking-etiqueta text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
       className,
     )}
     {...props}

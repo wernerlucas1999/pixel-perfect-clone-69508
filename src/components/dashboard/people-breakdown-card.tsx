@@ -9,16 +9,33 @@ import {
   Tooltip,
   LabelList,
 } from "recharts";
+// DESVIACIÓN CONSCIENTE DEL MANUAL (único ícono de marca: el asterisco): los
+// íconos se quedan porque ayudan a leer rápido. Decisión de Lucas, 2026-10-30.
 import { AlertTriangle, Info, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import type { PeopleBreakdown } from "@/lib/clickup-api";
+import { PROCESSES, type PeopleBreakdown } from "@/lib/clickup-api";
+import {
+  CHART_GAP,
+  CHART_TEXT,
+  CHART_TEXT_MUTED,
+  axisLine,
+  numberTick,
+  tooltipProps,
+} from "@/lib/chart-theme";
 import { PeopleTaskList } from "./people-task-list";
 
 // Rendimiento por colaborador, igual en los 5 procesos. Los datos vienen de
 // getPeopleBreakdown, que solo responde con permiso para el proceso.
 
-const PALETTE = ["#14b8a6", "#22c55e", "#3b82f6", "#ec4899", "#f97316", "#a855f7", "#eab308"];
+// Todas las personas en el color del proceso: cada barra ya tiene el nombre al
+// lado, así que un color por persona no agregaba información (y competía con
+// los colores de los procesos). Propias en el color pleno, compartidas al 40%,
+// con 2 px de corte entre tramos y los números escritos: el color nunca es la
+// única pista.
+function processColor(process: PeopleBreakdown["process"]) {
+  return PROCESSES.find((p) => p.id === process)?.color ?? CHART_TEXT_MUTED;
+}
 
 // "YYYY-MM-DD" (día de calendario) → "DD/MM/YYYY", sin pasar por Date: un Date
 // lo leería como medianoche UTC y en Argentina mostraría el día anterior.
@@ -44,6 +61,7 @@ interface PeopleBreakdownCardProps {
 
 export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleBreakdownCardProps) {
   const sections = useMemo(() => (breakdown ? [breakdown] : []), [breakdown]);
+  const color = breakdown ? processColor(breakdown.process) : CHART_TEXT_MUTED;
   const data = (breakdown?.people ?? []).map((p) => ({
     name: p.name,
     own: p.metrics.ownCount,
@@ -103,11 +121,17 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
               <>
                 <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-3 w-3 rounded-sm bg-muted-foreground" />
+                    <span
+                      className="inline-block h-3 w-3 rounded-sm"
+                      style={{ backgroundColor: color }}
+                    />
                     Propias (única persona asignada)
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-3 w-3 rounded-sm bg-muted-foreground/40" />
+                    <span
+                      className="inline-block h-3 w-3 rounded-sm"
+                      style={{ backgroundColor: color, opacity: 0.4 }}
+                    />
                     Compartidas (más de una persona asignada)
                   </span>
                 </div>
@@ -122,40 +146,40 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
                       <XAxis
                         type="number"
                         allowDecimals={false}
-                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                        axisLine={{ stroke: "hsl(var(--border))" }}
-                        tickLine={{ stroke: "hsl(var(--border))" }}
+                        tick={numberTick}
+                        axisLine={axisLine}
+                        tickLine={axisLine}
                       />
                       <YAxis
                         type="category"
                         dataKey="name"
                         width={200}
                         interval={0}
-                        tick={{ fill: "#e5e7eb", fontSize: 13, fontWeight: 600 }}
-                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tick={{ fill: CHART_TEXT, fontSize: 13, fontWeight: 600 }}
+                        axisLine={axisLine}
                         tickLine={false}
                       />
                       <Tooltip
-                        cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "6px",
-                        }}
-                        labelStyle={{ color: "hsl(var(--foreground))" }}
+                        {...tooltipProps}
                         formatter={(value: number, key: string) => [
                           value,
                           key === "own" ? "Propias" : "Compartidas",
                         ]}
                       />
-                      <Bar dataKey="own" stackId="persona">
+                      <Bar dataKey="own" stackId="persona" stroke={CHART_GAP} strokeWidth={2}>
                         {data.map((_, i) => (
-                          <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                          <Cell key={i} fill={color} />
                         ))}
                       </Bar>
-                      <Bar dataKey="shared" stackId="persona" radius={[0, 6, 6, 0]}>
+                      <Bar
+                        dataKey="shared"
+                        stackId="persona"
+                        radius={[0, 4, 4, 0]}
+                        stroke={CHART_GAP}
+                        strokeWidth={2}
+                      >
                         {data.map((_, i) => (
-                          <Cell key={i} fill={PALETTE[i % PALETTE.length]} fillOpacity={0.4} />
+                          <Cell key={i} fill={color} fillOpacity={0.4} />
                         ))}
                         <LabelList
                           dataKey="total"
@@ -174,11 +198,13 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
                                 x={x + width + 10}
                                 y={y + height / 2}
                                 dominantBaseline="central"
-                                fill="#ffffff"
+                                fill={CHART_TEXT}
                                 fontSize={13}
                               >
-                                <tspan fontWeight={700}>{d.total}</tspan>
-                                <tspan fill="hsl(var(--muted-foreground))">
+                                <tspan fontWeight={700} fontFamily="var(--fw-font-mono)">
+                                  {d.total}
+                                </tspan>
+                                <tspan fill={CHART_TEXT_MUTED}>
                                   {` (${d.own} propias · ${d.shared} compartidas)`}
                                 </tspan>
                               </text>

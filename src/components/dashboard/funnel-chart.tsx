@@ -9,6 +9,13 @@ import {
   Tooltip,
   LabelList,
 } from "recharts";
+import { PROCESSES } from "@/lib/clickup-api";
+import { axisLine, labelTick, numberTick, tooltipProps, valueLabel } from "@/lib/chart-theme";
+
+// Todas las etapas en el color del proceso: cada barra ya tiene su nombre en
+// el eje y su número escrito, así que el color no distingue nada. Un color
+// por etapa competía con los colores de los procesos (verde = Tax, etc.).
+const LLC_COLOR = PROCESSES.find((p) => p.id === "llc_formation")!.color;
 
 interface FunnelData {
   status: string;
@@ -42,7 +49,7 @@ export function FunnelChart({ data }: FunnelChartProps) {
   return (
     <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-foreground">Embudo de Conversion</CardTitle>
+        <CardTitle>Embudo de Conversion</CardTitle>
         <CardDescription className="text-muted-foreground">
           Tareas por etapa del proceso de Formacion LLC
         </CardDescription>
@@ -51,23 +58,17 @@ export function FunnelChart({ data }: FunnelChartProps) {
         <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 40 }}>
-              <XAxis type="number" stroke="#525252" fontSize={12} />
+              <XAxis type="number" tick={numberTick} axisLine={axisLine} tickLine={axisLine} />
               <YAxis
                 dataKey="shortStatus"
                 type="category"
-                stroke="#525252"
-                fontSize={11}
+                tick={{ ...labelTick, fontSize: 11 }}
+                axisLine={axisLine}
                 width={90}
                 tickLine={false}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
-                  color: "hsl(var(--popover-foreground))",
-                }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
+                {...tooltipProps}
                 formatter={(value: number) => [`${value} tareas`, "Cantidad"]}
                 labelFormatter={(label) => {
                   const item = chartData.find((d) => d.shortStatus === label);
@@ -75,16 +76,10 @@ export function FunnelChart({ data }: FunnelChartProps) {
                 }}
               />
               <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                {chartData.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={LLC_COLOR} />
                 ))}
-                <LabelList
-                  dataKey="count"
-                  position="right"
-                  fill="hsl(var(--foreground))"
-                  fontSize={12}
-                  fontWeight={600}
-                />
+                <LabelList dataKey="count" position="right" {...valueLabel} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

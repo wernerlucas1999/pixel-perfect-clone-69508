@@ -1,4 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// DESVIACIÓN CONSCIENTE DEL MANUAL: la marca Firmaway tiene un solo ícono (el
+// asterisco), pero en un panel de datos los íconos ayudan a leer rápido.
+// Decisión de Lucas (2026-10-30). No "corregirla" sacando los íconos.
 import { ListTodo, CheckCircle2, Clock, Timer, Activity } from "lucide-react";
 
 interface KPICardsProps {
@@ -18,41 +21,43 @@ export function KPICards({
   avgLeadTime,
   avgEINWait,
 }: KPICardsProps) {
+  // warning = alerta de estado (no énfasis): el manual pide énfasis con
+  // negrita, nunca con color, así que solo la espera de EIN > 15 días se pinta.
   const kpis = [
     {
       title: "Total Tareas",
       value: totalTasks,
       icon: ListTodo,
       description: "En el proceso",
-      accent: false,
+      warning: false,
     },
     {
       title: "Completadas",
       value: completedTasks,
       icon: CheckCircle2,
       description: "Entrega Completada",
-      accent: false,
+      warning: false,
     },
     {
       title: "En Progreso",
       value: inProgressTasks,
       icon: Activity,
       description: "Tareas activas",
-      accent: false,
+      warning: false,
     },
     {
       title: "Lead Time Promedio",
       value: `${avgLeadTime} dias`,
       icon: Timer,
       description: "Creacion a cierre",
-      accent: true,
+      warning: false,
     },
     {
       title: "Espera EIN Promedio",
       value: `${avgEINWait} dias`,
       icon: Clock,
       description: "Tiempo en espera",
-      accent: avgEINWait > 15,
+      warning: avgEINWait > 15,
     },
   ];
 
@@ -62,17 +67,21 @@ export function KPICards({
       {kpis.map((kpi) => (
         <Card
           key={kpi.title}
-          className={`border-border bg-card ${kpi.accent ? "ring-1 ring-warning/50" : ""}`}
+          className={`border-border bg-card ${kpi.warning ? "ring-1 ring-warning/50" : ""}`}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.title}</CardTitle>
+            {/* Etiqueta: mayúsculas con +2% de tracking, como pide el manual. */}
+            <CardTitle className="text-xs font-bold uppercase tracking-etiqueta text-muted-foreground">
+              {kpi.title}
+            </CardTitle>
             <kpi.icon
-              className={`h-4 w-4 ${kpi.accent ? "text-warning" : "text-muted-foreground"}`}
+              className={`h-4 w-4 ${kpi.warning ? "text-warning" : "text-muted-foreground"}`}
             />
           </CardHeader>
           <CardContent>
+            {/* Número de KPI en Raleway (es donde se ve la marca), nunca en coral. */}
             <div
-              className={`text-2xl font-bold ${kpi.accent ? "text-warning" : "text-foreground"}`}
+              className={`text-2xl font-black tracking-titulo-h1 ${kpi.warning ? "text-warning" : "text-foreground"}`}
             >
               {kpi.value}
             </div>

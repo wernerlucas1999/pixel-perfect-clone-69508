@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
-import { ExternalLink, Timer } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { PROCESSES, type ProcessType } from "@/lib/clickup-api";
+// Versión clara del logo (artwork crema), la que corresponde sobre fondo oscuro.
+import logoLight from "@/assets/brand/firmaway-logo-light.png";
 
 interface SidebarProps {
   // null = "Todos los procesos" (ningún proceso marcado).
@@ -15,17 +17,17 @@ export function Sidebar({ selectedProcess, onProcessChange, panelComercialUrl }:
     <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
       <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-sidebar border-r border-sidebar-border px-6 pb-4">
         {/* Logo */}
-        <div className="flex h-16 shrink-0 items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center">
-            <Timer className="h-5 w-5 text-accent-foreground" />
-          </div>
-          <span className="text-lg font-semibold text-sidebar-foreground">Dashboard KPI</span>
+        <div className="flex h-16 shrink-0 items-center gap-3">
+          <img src={logoLight} alt="Firmaway" className="h-5 w-auto" />
+          <span className="whitespace-nowrap text-sm font-extrabold tracking-titulo-h2 text-muted-foreground">
+            Dashboard KPI
+          </span>
         </div>
 
         <nav className="flex flex-1 flex-col">
           <ul role="list" className="flex flex-1 flex-col gap-y-7">
             <li>
-              <div className="text-xs font-semibold leading-6 text-muted-foreground uppercase tracking-wider">
+              <div className="text-xs font-bold leading-6 text-muted-foreground uppercase tracking-etiqueta">
                 Procesos
               </div>
               <ul role="list" className="-mx-2 mt-2 space-y-1">
@@ -56,7 +58,7 @@ export function Sidebar({ selectedProcess, onProcessChange, panelComercialUrl }:
             {/* Fuera de "Procesos": no es un proceso nuestro, abre afuera. */}
             {panelComercialUrl && (
               <li>
-                <div className="text-xs font-semibold leading-6 text-muted-foreground uppercase tracking-wider">
+                <div className="text-xs font-bold leading-6 text-muted-foreground uppercase tracking-etiqueta">
                   Otros paneles
                 </div>
                 <ul role="list" className="-mx-2 mt-2 space-y-1">

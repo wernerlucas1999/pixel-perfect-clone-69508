@@ -17,6 +17,10 @@ import {
 } from "@/lib/clickup-api";
 import { AR_TZ } from "@/lib/periods";
 
+// Cifras y fechas en mono (font-mono): el Raleway de Google Fonts no trae
+// cifras de ancho fijo, y el componente DataTable del manual pide "right-aligned
+// mono numerics" para que las columnas alineen dígito con dígito.
+//
 // Tareas de cada persona, desplegables. Cada sección es el desglose de UN
 // proceso (una sola en la pantalla de un proceso, varias en "Todos los
 // procesos"). Las filas son exactamente las que cuenta la barra: vienen del
@@ -135,17 +139,20 @@ export function ProcessBlock({
             return (
               <TableRow key={t.id}>
                 <TableCell className="text-foreground">{t.name}</TableCell>
-                <TableCell className="whitespace-nowrap text-muted-foreground">
+                <TableCell className="whitespace-nowrap font-mono text-muted-foreground">
                   {closedDay(t.closedAtMs)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums text-foreground">
+                <TableCell className="text-right font-mono font-semibold text-foreground">
                   {t.days ?? "—"}
                 </TableCell>
                 {internal && (
-                  <TableCell className="whitespace-nowrap text-right tabular-nums text-foreground">
+                  <TableCell className="whitespace-nowrap text-right font-mono font-semibold text-foreground">
                     {t.internalDays ?? (
                       <>
-                        — <span className="text-xs text-warning">falta fecha</span>
+                        —{" "}
+                        <span className="font-sans text-xs font-normal text-warning">
+                          falta fecha
+                        </span>
                       </>
                     )}
                   </TableCell>
