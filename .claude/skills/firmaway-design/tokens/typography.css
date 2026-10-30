@@ -1,0 +1,38 @@
+/* Firmaway · Espresso — Typography tokens.
+   One family (Raleway). Weight + tracking do the work: heavy & tight for
+   titles, regular for reading, italic 600 for accent phrases & subheads. */
+:root {
+  --fw-font: "Raleway", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--fw-font);
+  --font-body:    var(--fw-font);
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Weights */
+  --fw-weight-regular:  400;
+  --fw-weight-medium:   500;
+  --fw-weight-semibold: 600;
+  --fw-weight-bold:     700;
+  --fw-weight-heavy:    800;
+  --fw-weight-black:    900;
+
+  /* Type scale (px @ slide/web scale) */
+  --fs-display: 64px;
+  --fs-h1:      44px;
+  --fs-h2:      28px;
+  --fs-subhead: 20px;
+  --fs-accent:  22px;
+  --fs-body:    17px;
+  --fs-caption: 13px;
+
+  /* Line height */
+  --lh-display: 1.0;  /* @kind other */
+  --lh-h1:      1.05; /* @kind other */
+  --lh-h2:      1.1;  /* @kind other */
+  --lh-body:    1.6;  /* @kind other */
+
+  /* Tracking */
+  --tracking-display: -0.03em;
+  --tracking-h1:      -0.02em;
+  --tracking-h2:      -0.01em;
+  --tracking-caption:  0.02em;
+}

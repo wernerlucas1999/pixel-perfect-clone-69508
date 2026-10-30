@@ -1,0 +1,11 @@
+<!-- @dsCard group="Spacing" viewport="700x220" name="Slide layout" subtitle="16:9 · 45/55 split · safe margin" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{margin:0;font-family:var(--fw-font);background:var(--bg);padding:16px 24px}
+.frame{position:relative;aspect-ratio:16/9;max-width:360px;background:var(--fw-cream);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden}
+.split{display:grid;grid-template-columns:45% 55%;height:100%}
+.illo{background:var(--fw-navy);display:flex;align-items:center;justify-content:center;color:var(--fw-cream);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.txt{display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.safe{position:absolute;inset:6% 5%;border:1.5px dashed var(--fw-coral);border-radius:3px}</style></head>
+<body>
+<div class="frame"><div class="split"><div class="illo">Illo · 45%</div><div class="txt">Text · 55%</div></div><div class="safe"></div></div>
+</body></html>

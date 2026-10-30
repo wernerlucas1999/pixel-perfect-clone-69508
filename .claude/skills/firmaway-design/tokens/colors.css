@@ -1,0 +1,39 @@
+/* Firmaway · Espresso — Color tokens.
+   Core values sampled from the Espresso deck (May 2026); derived values
+   added for UI states. The palette is mid-toned, so pairings matter. */
+:root {
+  /* ---- Core (sampled from the deck) ---- */
+  --fw-coral:        #F15A2F; /* Brand primary: header bars, accents, floor blocks */
+  --fw-navy:         #31353E; /* Charcoal-navy: dividers, body text, dark slides */
+  --fw-cream:        #FEF1E0; /* Dominant background */
+  --fw-white:        #FFFFFF; /* Illustration fills, text on dark/coral */
+  --fw-ink:          #111317; /* Line-art outlines, deepest text */
+
+  /* ---- Derived (UI states & surfaces, build-only) ---- */
+  --fw-coral-700:    #C8481F; /* Pressed / hover-dark */
+  --fw-coral-300:    #F79C7E; /* Hover tint, quiet fills */
+  --fw-coral-100:    #FBE0D4; /* Highlight wash */
+  --fw-navy-700:     #21242B; /* Max-contrast surface */
+  --fw-navy-muted:   #5B616D; /* Captions, meta text */
+  --fw-cream-200:    #F7E5D0; /* Cards, quiet panels */
+  --fw-border:       #E4D3BE; /* Hairlines on cream */
+
+  /* ---- Semantic aliases ---- */
+  --bg:            var(--fw-cream);
+  --surface:       var(--fw-white);
+  --surface-quiet: var(--fw-cream-200);
+  --surface-dark:  var(--fw-navy);
+  --text:          var(--fw-navy);
+  --text-invert:   var(--fw-cream);
+  --text-muted:    var(--fw-navy-muted);
+  --primary:       var(--fw-coral);
+  --primary-hover: var(--fw-coral-700);
+  --on-primary:    var(--fw-white);
+  --accent-text:   var(--fw-coral);
+  --border:        var(--fw-border);
+
+  /* ---- Status (uses only for product UI, not deck) ---- */
+  --status-ok:     #2F7D3F;
+  --status-pending:var(--fw-coral);
+  --status-idle:   var(--fw-navy-muted);
+}

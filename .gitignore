@@ -31,4 +31,6 @@ dist-ssr
 *.sw?
 
 # Claude Code (settings locales y worktrees)
-.claude/
+.claude/*
+# Salvo las skills del proyecto (sistema de diseño de Firmaway).
+!.claude/skills/
