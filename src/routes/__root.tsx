@@ -90,6 +90,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5c6f846c-a413-47b0-90f9-8aaa66cea3ad/id-preview-08c18569--dc1424d0-3d4d-4a82-846f-ebf37e0179b0.lovable.app-1780932824066.png" },
     ],
     links: [
+      // Raleway desde Google Fonts, misma URL que firmaway-design-system/tokens/fonts.css.
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,800&display=swap",
+      },
       {
         rel: "stylesheet",
         href: appCss,

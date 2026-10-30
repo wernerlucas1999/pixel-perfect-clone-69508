@@ -4,81 +4,141 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Dark theme inspired by Vercel Dashboard */
+/* ============================================================================
+   1. MARCA FIRMAWAY — valores OFICIALES del sistema de diseño.
+   Copiados tal cual de firmaway-design-system/tokens/ (colors, typography,
+   spacing, radii). No se tocan acá: si la marca cambia, se cambian allá y se
+   copian. Solo los prefijados (--fw-*, --r-*, --s-*); los alias semánticos del
+   manual (--primary, --border...) no se copian porque chocan con los de la app.
+   ========================================================================= */
 :root {
-  --background: oklch(0.1 0 0);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.14 0 0);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.14 0 0);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.95 0 0);
-  --primary-foreground: oklch(0.1 0 0);
-  --secondary: oklch(0.2 0 0);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.65 0.2 145);
-  --accent-foreground: oklch(0.1 0 0);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.25 0 0);
-  --input: oklch(0.18 0 0);
-  --ring: oklch(0.65 0.2 145);
-  --chart-1: oklch(0.65 0.18 260);
-  --chart-2: oklch(0.7 0.18 165);
-  --chart-3: oklch(0.75 0.15 85);
-  --chart-4: oklch(0.65 0.2 145);
-  --chart-5: oklch(0.6 0.2 25);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.08 0 0);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.65 0.2 145);
-  --sidebar-primary-foreground: oklch(0.1 0 0);
-  --sidebar-accent: oklch(0.18 0 0);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.2 0 0);
-  --sidebar-ring: oklch(0.65 0.2 145);
-  --success: oklch(0.65 0.2 145);
-  --warning: oklch(0.75 0.15 85);
+  /* Colores núcleo */
+  --fw-coral: #f15a2f;
+  --fw-navy: #31353e;
+  --fw-cream: #fef1e0;
+  --fw-white: #ffffff;
+  --fw-ink: #111317;
+  /* Derivados del manual (pensados para fondo crema) */
+  --fw-coral-700: #c8481f;
+  --fw-coral-300: #f79c7e;
+  --fw-coral-100: #fbe0d4;
+  --fw-navy-700: #21242b;
+  --fw-navy-muted: #5b616d; /* NO sirve sobre fondo oscuro (1,97:1): ver sección 2 */
+  --fw-cream-200: #f7e5d0;
+  --fw-border: #e4d3be;
+
+  /* Tipografía */
+  --fw-font: "Raleway", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fw-weight-regular: 400;
+  --fw-weight-bold: 700;
+  --fw-weight-heavy: 800;
+  --fw-weight-black: 900;
+  --tracking-display: -0.03em;
+  --tracking-h1: -0.02em;
+  --tracking-h2: -0.01em;
+  --tracking-caption: 0.02em;
+  --lh-body: 1.6;
+
+  /* Espaciado: ritmo de 8 (4 para ajuste fino). La escala de Tailwind ya es
+     múltiplo de 4 px, así que el layout no se remapea: estos quedan a mano. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+
+  /* Radios */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  /* Los colores de los 5 procesos viven en PROCESSES (src/lib/clickup-api.ts):
+     los gráficos los necesitan como valor, no como variable CSS. */
 }
 
+/* ============================================================================
+   2. DERIVADOS NUESTROS PARA FONDO OSCURO — NO SON DEL MANUAL.
+   El manual de Firmaway está pensado para fondo crema y no cubre superficies
+   oscuras: su texto secundario (--fw-navy-muted) y su verde de estado
+   (#2F7D3F) quedan ilegibles sobre navy. Esto lo completamos nosotros
+   (2026-10-30) hasta que el sistema de diseño lo cubra. Cuando existan los
+   oficiales, se reemplazan ACÁ y en ningún otro lado: toda la app los usa a
+   través de la sección 3.
+   Superficies y texto: mezcla de crema sobre --fw-navy (% = parte de crema).
+   Contraste verificado (WCAG) contra navy #31353E / navy-700 #21242B / la
+   superficie de hover #41444B, que es la más clara donde se apoya texto:
+   ========================================================================= */
+:root {
+  --derivado-oscuro-hover: #41444b; /* crema 8%: hover, selección, fondos suaves */
+  --derivado-oscuro-borde: #525358; /* crema 16%: líneas finas (decorativas) */
+  --derivado-oscuro-borde-input: #878482; /* crema 42%: borde de campos, 3,31:1 sobre navy */
+  --derivado-oscuro-texto-secundario: #c1b9af; /* crema 70%: 6,33 / 8,01 / 5,03 */
+  /* Estados (texto de "ok", "atención", "error"). No derivan del crema: el
+     manual solo define #2F7D3F (2,41:1 sobre navy). Siempre van con texto,
+     nunca el color solo. */
+  --derivado-oscuro-ok: #7dcb8a; /* 6,31 / 7,97 / 5,01 */
+  --derivado-oscuro-atencion: #e8b95c; /* 6,74 / 8,53 / 5,35 */
+  --derivado-oscuro-error: #ffa092; /* 6,26 / 7,91 / 4,97 */
+}
+
+/* ============================================================================
+   3. TEMA DE LA APP — variables de shadcn/Tailwind armadas con 1 y 2.
+   Fondo de página navy-700, tarjetas navy, texto crema (13,96 y 11,04:1).
+   Énfasis con negrita, nunca con color: el coral no se usa para texto chico
+   (3,65:1 sobre navy, solo texto grande y en negrita).
+   ========================================================================= */
+:root,
 .dark {
-  --background: oklch(0.1 0 0);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.14 0 0);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.14 0 0);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.95 0 0);
-  --primary-foreground: oklch(0.1 0 0);
-  --secondary: oklch(0.2 0 0);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.65 0.2 145);
-  --accent-foreground: oklch(0.1 0 0);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.25 0 0);
-  --input: oklch(0.18 0 0);
-  --ring: oklch(0.65 0.2 145);
+  --background: var(--fw-navy-700);
+  --foreground: var(--fw-cream);
+  --card: var(--fw-navy);
+  --card-foreground: var(--fw-cream);
+  --popover: var(--fw-navy);
+  --popover-foreground: var(--fw-cream);
+  /* Botón principal en crema con texto navy-700 (13,96:1). No va coral: el
+     texto de botón es chico y blanco sobre coral es solo para texto grande. */
+  --primary: var(--fw-cream);
+  --primary-foreground: var(--fw-navy-700);
+  --secondary: var(--derivado-oscuro-hover);
+  --secondary-foreground: var(--fw-cream);
+  --muted: var(--derivado-oscuro-hover);
+  --muted-foreground: var(--derivado-oscuro-texto-secundario);
+  --accent: var(--derivado-oscuro-hover);
+  --accent-foreground: var(--fw-cream);
+  --destructive: var(--derivado-oscuro-error);
+  --destructive-foreground: var(--fw-navy-700);
+  --border: var(--derivado-oscuro-borde);
+  --input: var(--derivado-oscuro-borde-input);
+  /* Foco en coral: indicador no textual, 3,65:1 sobre navy y 4,62:1 sobre
+     navy-700 (alcanza el 3:1 que pide un indicador). */
+  --ring: var(--fw-coral);
+  /* Colores de gráficos genéricos: todavía los del tema anterior. Se usan
+     también como texto, así que se revisan pantalla por pantalla. */
   --chart-1: oklch(0.65 0.18 260);
   --chart-2: oklch(0.7 0.18 165);
   --chart-3: oklch(0.75 0.15 85);
   --chart-4: oklch(0.65 0.2 145);
   --chart-5: oklch(0.6 0.2 25);
-  --sidebar: oklch(0.08 0 0);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.65 0.2 145);
-  --sidebar-primary-foreground: oklch(0.1 0 0);
-  --sidebar-accent: oklch(0.18 0 0);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.2 0 0);
-  --sidebar-ring: oklch(0.65 0.2 145);
+  --radius: var(--r-md);
+  --sidebar: var(--fw-navy-700);
+  --sidebar-foreground: var(--fw-cream);
+  --sidebar-primary: var(--fw-cream);
+  --sidebar-primary-foreground: var(--fw-navy-700);
+  --sidebar-accent: var(--derivado-oscuro-hover);
+  --sidebar-accent-foreground: var(--fw-cream);
+  --sidebar-border: var(--derivado-oscuro-borde);
+  --sidebar-ring: var(--fw-coral);
+  --success: var(--derivado-oscuro-ok);
+  --warning: var(--derivado-oscuro-atencion);
 }
 
 @theme inline {
+  --font-sans: var(--fw-font);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -105,10 +165,18 @@
   --color-chart-5: var(--chart-5);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Radios de la marca: 4 px chips, 8 px tarjetas (shadcn usa rounded-xl en
+     las tarjetas, por eso xl también es 8). 2xl queda en 16 = --r-lg. */
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-md);
+  --radius-xl: var(--r-md);
+  /* Tracking de la marca: tracking-etiqueta (+2%) para MAYÚSCULAS de
+     etiquetas y encabezados de columna; tracking-titulo-* para títulos 800-900. */
+  --tracking-etiqueta: var(--tracking-caption);
+  --tracking-titulo-h1: var(--tracking-h1);
+  --tracking-titulo-h2: var(--tracking-h2);
+  --tracking-titulo-display: var(--tracking-display);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -126,5 +194,13 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--fw-font);
+    font-weight: var(--fw-weight-regular);
+    line-height: var(--lh-body);
+    /* Raleway trae cifras "de estilo antiguo" (3, 4, 5, 9 bajan de la línea).
+       lining-nums las pone todas a la misma altura. tabular-nums pide ancho
+       fijo, pero el Raleway de Google Fonts no lo trae (medido: "1111" y
+       "0000" siguen midiendo distinto); se deja por si la fuente lo suma. */
+    font-variant-numeric: lining-nums tabular-nums;
   }
 }
