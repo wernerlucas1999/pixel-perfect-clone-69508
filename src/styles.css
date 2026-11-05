@@ -200,6 +200,23 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Píldora coral maciza (pestaña activa, chips de filtro y período con valor),
+   como en el panel comercial de Firmaway: texto BLANCO, GRANDE Y EN NEGRITA.
+   Blanco sobre coral da 3,36:1, que el manual (y WCAG AA) admite solo para
+   texto grande: >= 18,66 px en negrita. Por eso tamaño y peso van fijos acá
+   y no se pueden achicar. El resto del coral con texto chico (botones,
+   calendario, tooltips) lleva tinta: --primary-foreground, 5,53:1.
+   !important a propósito: las clases base de botones y selectores
+   (bg-transparent, bg-background, font-medium) le ganaban y dejaban texto
+   blanco sobre crema, invisible (medido en el navegador). */
+@utility pildora-coral {
+  background-color: var(--fw-coral) !important;
+  border-color: var(--fw-coral) !important;
+  color: var(--fw-white) !important;
+  font-size: 19px !important;
+  font-weight: 700 !important;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

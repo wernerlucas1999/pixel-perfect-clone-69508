@@ -140,10 +140,10 @@ export function Header({
               <Button
                 variant="outline"
                 className={cn(
-                  "w-[180px] sm:w-[240px] justify-start rounded-full text-left",
+                  "h-10 w-auto min-w-[240px] justify-start rounded-full text-left text-[19px]",
                   // Con un período elegido, chip coral (como en el panel comercial).
                   dateRange.from
-                    ? "border-primary bg-primary font-semibold text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                    ? "pildora-coral"
                     : "border-border font-normal text-muted-foreground",
                 )}
               >
@@ -211,10 +211,10 @@ export function Header({
           >
             <SelectTrigger
             className={cn(
-              "w-[120px] h-8 rounded-full text-xs",
+              "h-10 w-auto min-w-[120px] gap-2 rounded-full text-[19px]",
               selectedState !== "all"
-                ? "border-primary bg-primary font-semibold text-primary-foreground"
-                : "border-border bg-input text-foreground",
+                ? "pildora-coral"
+                : "border-border bg-input font-semibold text-foreground",
             )}
           >
               <SelectValue placeholder="Estado" />
@@ -245,10 +245,10 @@ export function Header({
           >
             <SelectTrigger
             className={cn(
-              "w-[110px] h-8 rounded-full text-xs",
+              "h-10 w-auto min-w-[110px] gap-2 rounded-full text-[19px]",
               selectedPackage !== "all"
-                ? "border-primary bg-primary font-semibold text-primary-foreground"
-                : "border-border bg-input text-foreground",
+                ? "pildora-coral"
+                : "border-border bg-input font-semibold text-foreground",
             )}
           >
               <SelectValue placeholder="Paquete" />
@@ -281,10 +281,10 @@ export function Header({
               >
                 <SelectTrigger
             className={cn(
-              "w-[100px] h-8 rounded-full text-xs",
+              "h-10 w-auto min-w-[100px] gap-2 rounded-full text-[19px]",
               selectedBank !== "all"
-                ? "border-primary bg-primary font-semibold text-primary-foreground"
-                : "border-border bg-input text-foreground",
+                ? "pildora-coral"
+                : "border-border bg-input font-semibold text-foreground",
             )}
           >
                   <SelectValue placeholder="Banco" />
