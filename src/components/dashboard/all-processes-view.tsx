@@ -4,7 +4,7 @@ import {
   CHART_GAP,
   CHART_TEXT,
   CHART_TEXT_MUTED,
-  TEXT_ON_FILL,
+  textOnProcess,
   axisLine,
   numberTick,
   tooltipProps,
@@ -78,11 +78,12 @@ function errorText(error: unknown, name: string) {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-// Número de un tramo, escrito adentro en navy-700 (4,62:1 o más sobre los 5
-// colores de proceso). Si el tramo es muy angosto para el número no se
+// Número de un tramo, escrito adentro en el color de texto de su proceso
+// (textOnProcess: 4,97:1 o más). Si el tramo es muy angosto para el número no se
 // escribe: queda en el tooltip y en la lista desplegable de la persona.
 function SegmentLabel(props: unknown) {
-  const { x, y, width, height, value } = props as {
+  const { x, y, width, height, value, process } = props as {
+    process: DashboardProcess;
     x: number;
     y: number;
     width: number;
@@ -97,7 +98,7 @@ function SegmentLabel(props: unknown) {
       y={y + height / 2}
       textAnchor="middle"
       dominantBaseline="central"
-      fill={TEXT_ON_FILL}
+      fill={textOnProcess(process)}
       fontSize={12}
       fontWeight={700}
       fontFamily="var(--fw-font-mono)"
@@ -373,7 +374,10 @@ export function AllProcessesView({
                             {/* Número de cada tramo escrito adentro: coral y dorado no
                                 se distinguen con daltonismo, el color no puede ser la
                                 única pista. */}
-                            <LabelList dataKey={b.process} content={SegmentLabel} />
+                            <LabelList
+                              dataKey={b.process}
+                              content={(p) => SegmentLabel({ ...p, process: b.process })}
+                            />
                             {i === loaded.length - 1 && (
                               <LabelList
                                 dataKey="total"

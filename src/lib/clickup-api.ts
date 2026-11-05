@@ -194,18 +194,20 @@ export interface Process {
   color: string;
 }
 
-// Colores de marca de los 5 procesos (Formación de LLC = coral Firmaway).
-// Validados contra el fondo navy #31353E (luminosidad, saturación, daltonismo,
-// contraste): NO "ajustarlos", cualquier cambio se revalida. Solo para barras,
-// tramos y puntos, NUNCA para texto (3,65-4,13:1 sobre navy, debajo de 4,5).
-// Coral y dorado no se distinguen con daltonismo: cada tramo lleva su número
-// escrito y 2 px de separación; el color nunca es la única pista.
+// Colores de marca de los 5 procesos sobre fondo crema (Formación de LLC = coral
+// Firmaway). Validados por Lucas (2026-11-05) contra crema y blanco: NO
+// "ajustarlos" ni reordenarlos, cualquier cambio se revalida. EL ORDEN IMPORTA:
+// así los dos más parecidos nunca quedan pegados en una barra apilada.
+// EL COLOR SIGNIFICA SIEMPRE PROCESO. Solo para barras, tramos y puntos, nunca
+// para texto. Cada tramo lleva su número escrito (color de texto en
+// chart-theme.ts, textOnProcess) y 2 px de separación: el color nunca es la
+// única pista.
 export const PROCESSES: Process[] = [
   { id: "llc_formation", name: "Formación de LLC", color: "#F15A2F" },
-  { id: "bank_application", name: "Aplicación Bancaria", color: "#2FA3B8" },
-  { id: "annual_reports", name: "Annual Reports", color: "#9B7BE0" },
-  { id: "agentes_registrados", name: "Agentes Registrados", color: "#B8891F" },
-  { id: "tax_return", name: "Tax Return", color: "#56A45C" },
+  { id: "bank_application", name: "Aplicación Bancaria", color: "#0D9488" },
+  { id: "annual_reports", name: "Annual Reports", color: "#BE185D" },
+  { id: "agentes_registrados", name: "Agentes Registrados", color: "#7C3AED" },
+  { id: "tax_return", name: "Tax Return", color: "#15803D" },
   { id: "other", name: "Otros", color: "#f59e0b" },
 ];
 

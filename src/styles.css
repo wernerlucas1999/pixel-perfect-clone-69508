@@ -24,7 +24,7 @@
   --fw-coral-300: #f79c7e;
   --fw-coral-100: #fbe0d4;
   --fw-navy-700: #21242b;
-  --fw-navy-muted: #5b616d; /* NO sirve sobre fondo oscuro (1,97:1): ver sección 2 */
+  --fw-navy-muted: #5b616d;
   --fw-cream-200: #f7e5d0;
   --fw-border: #e4d3be;
 
@@ -66,82 +66,85 @@
 }
 
 /* ============================================================================
-   2. DERIVADOS NUESTROS PARA FONDO OSCURO — NO SON DEL MANUAL.
-   El manual de Firmaway está pensado para fondo crema y no cubre superficies
-   oscuras: su texto secundario (--fw-navy-muted) y su verde de estado
-   (#2F7D3F) quedan ilegibles sobre navy. Esto lo completamos nosotros
-   (2026-10-30) hasta que el sistema de diseño lo cubra. Cuando existan los
-   oficiales, se reemplazan ACÁ y en ningún otro lado: toda la app los usa a
-   través de la sección 3.
-   Superficies y texto: mezcla de crema sobre --fw-navy (% = parte de crema).
-   Contraste verificado (WCAG) contra navy #31353E / navy-700 #21242B / la
-   superficie de hover #41444B, que es la más clara donde se apoya texto:
+   2. DERIVADOS NUESTROS — SOLO LO QUE EL MANUAL NO CUBRE SOBRE FONDO CLARO.
+   Desde 2026-11-05 el dashboard va sobre crema, como fue diseñado el manual:
+   texto navy, secundario navy-muted, líneas --fw-border y el verde de estado
+   funcionan tal cual (ver sección 3). Lo que sigue lo completamos nosotros
+   porque el manual no lo tiene, o porque choca con la regla "el color
+   significa siempre proceso". Cuando existan los oficiales, se reemplazan
+   ACÁ y en ningún otro lado. Contraste verificado contra blanco (tarjetas) /
+   crema (fondo):
    ========================================================================= */
 :root {
-  --derivado-oscuro-hover: #41444b; /* crema 8%: hover, selección, campos, fondos suaves */
-  --derivado-oscuro-borde: #525358; /* crema 16%: líneas finas (decorativas) */
-  --derivado-oscuro-texto-secundario: #c1b9af; /* crema 70%: 6,33 / 8,01 / 5,03 */
-  /* Estados (texto de "ok", "atención", "error"). No derivan del crema: el
-     manual solo define #2F7D3F (2,41:1 sobre navy). Siempre van con texto,
-     nunca el color solo. */
-  --derivado-oscuro-ok: #7dcb8a; /* 6,31 / 7,97 / 5,01 */
-  --derivado-oscuro-atencion: #e8b95c; /* 6,74 / 8,53 / 5,35 */
-  --derivado-oscuro-error: #ffa092; /* 6,26 / 7,91 / 4,97 */
+  /* Alerta (p. ej. "Espera EIN" > 15 días, "Requiere Atención"). El manual
+     usa el coral para "pendiente", pero el coral es Formación de LLC. Ámbar
+     oscuro: ningún proceso usa ese tono. 5,93 / 5,33:1. */
+  --derivado-alerta: #8a5a00;
+  /* Errores de carga ("No se pudieron cargar los datos"). El manual no tiene
+     rojo. Solo para mensajes de error, nunca para datos. 6,57 / 5,91:1. */
+  --derivado-error: #b42318;
   /* Categorías que no son procesos (Cliente / Filings / IRS / Banco en
-     "Distribución de Responsabilidad"): 4 tonos de crema, sin inventar
-     colores. Contra navy dan 11,04 / 7,68 / 5,41 / 3,73:1 (>= 3:1 de una
-     forma gráfica); el texto adentro va en navy-700 (13,96 / 9,71 / 6,85 /
-     4,72:1). Siempre con nombre y número escritos, y 2 px entre tramos. */
-  --derivado-oscuro-categoria-1: #fef1e0; /* crema 100% */
-  --derivado-oscuro-categoria-2: #d5cbc0; /* crema 80% */
-  --derivado-oscuro-categoria-3: #b2aba4; /* crema 63% */
-  --derivado-oscuro-categoria-4: #918d8a; /* crema 47% */
+     "Distribución de Responsabilidad"; estados en la torta de Annual
+     Reports): 4 tonos de navy sobre blanco, sin inventar colores. Contra el
+     blanco dan 12,29 / 6,59 / 3,86 / 3,19:1 (>= 3:1 de una forma gráfica).
+     Texto adentro: blanco en los dos primeros (12,29 / 6,59), tinta en los
+     dos últimos (4,82 / 5,82). Siempre con nombre y número escritos, y 2 px
+     entre tramos. */
+  --derivado-categoria-1: #31353e; /* navy 100% */
+  --derivado-categoria-2: #5a5d65; /* navy 80% sobre blanco */
+  --derivado-categoria-3: #7f8287; /* navy 62% sobre blanco */
+  --derivado-categoria-4: #8e9095; /* navy 55% sobre blanco */
 }
 
 /* ============================================================================
    3. TEMA DE LA APP — variables de shadcn/Tailwind armadas con 1 y 2.
-   Fondo de página navy-700, tarjetas navy, texto crema (13,96 y 11,04:1).
-   Énfasis con negrita, nunca con color: el coral no se usa para texto chico
-   (3,65:1 sobre navy, solo texto grande y en negrita).
+   Fondo crema, tarjetas blancas con la línea fina del manual, texto navy
+   (12,29:1 sobre blanco, 11,04:1 sobre crema), secundario navy-muted (6,22 /
+   5,59:1). Énfasis con negrita, nunca con color.
+   CORAL: estructura la pantalla (pestaña activa, chips y elementos activos),
+   pero NUNCA texto de cuerpo (3,36:1 sobre blanco). El texto encima del coral
+   va en tinta #111317 (5,53:1): blanco sobre coral da 3,36:1, que el manual
+   solo admite para texto grande y en negrita.
+   ESTADO: el verde del manual (#2F7D3F) es casi el verde de Tax Return
+   (#15803D), y "el color significa siempre proceso". Por eso "ok" va en navy:
+   el estado lo dicen el ícono y el texto, no el color.
    ========================================================================= */
 :root,
 .dark {
-  --background: var(--fw-navy-700);
-  --foreground: var(--fw-cream);
-  --card: var(--fw-navy);
-  --card-foreground: var(--fw-cream);
-  --popover: var(--fw-navy);
-  --popover-foreground: var(--fw-cream);
-  /* Botón principal en crema con texto navy-700 (13,96:1). No va coral: el
-     texto de botón es chico y blanco sobre coral es solo para texto grande. */
-  --primary: var(--fw-cream);
-  --primary-foreground: var(--fw-navy-700);
-  --secondary: var(--derivado-oscuro-hover);
-  --secondary-foreground: var(--fw-cream);
-  --muted: var(--derivado-oscuro-hover);
-  --muted-foreground: var(--derivado-oscuro-texto-secundario);
-  --accent: var(--derivado-oscuro-hover);
-  --accent-foreground: var(--fw-cream);
-  --destructive: var(--derivado-oscuro-error);
-  --destructive-foreground: var(--fw-navy-700);
-  --border: var(--derivado-oscuro-borde);
-  /* El dashboard usa bg-input como FONDO de los selectores (texto crema
-     encima, 8,76:1), no solo como borde. */
-  --input: var(--derivado-oscuro-hover);
-  /* Foco en coral: indicador no textual, 3,65:1 sobre navy y 4,62:1 sobre
-     navy-700 (alcanza el 3:1 que pide un indicador). */
+  --background: var(--fw-cream);
+  --foreground: var(--fw-navy);
+  --card: var(--fw-white);
+  --card-foreground: var(--fw-navy);
+  --popover: var(--fw-white);
+  --popover-foreground: var(--fw-navy);
+  --primary: var(--fw-coral);
+  --primary-foreground: var(--fw-ink);
+  --secondary: var(--fw-cream-200);
+  --secondary-foreground: var(--fw-navy);
+  --muted: var(--fw-cream-200);
+  --muted-foreground: var(--fw-navy-muted);
+  --accent: var(--fw-cream-200);
+  --accent-foreground: var(--fw-navy);
+  --destructive: var(--derivado-error);
+  --destructive-foreground: var(--fw-white);
+  --border: var(--fw-border);
+  /* El dashboard usa bg-input como FONDO de los selectores: blanco, con la
+     línea fina alrededor. */
+  --input: var(--fw-white);
+  /* Foco en coral: 3,36:1 sobre blanco y 3,02:1 sobre crema (alcanza el 3:1
+     de un indicador). */
   --ring: var(--fw-coral);
   --radius: var(--r-md);
-  --sidebar: var(--fw-navy-700);
-  --sidebar-foreground: var(--fw-cream);
-  --sidebar-primary: var(--fw-cream);
-  --sidebar-primary-foreground: var(--fw-navy-700);
-  --sidebar-accent: var(--derivado-oscuro-hover);
-  --sidebar-accent-foreground: var(--fw-cream);
-  --sidebar-border: var(--derivado-oscuro-borde);
+  --sidebar: var(--fw-white);
+  --sidebar-foreground: var(--fw-navy);
+  --sidebar-primary: var(--fw-coral);
+  --sidebar-primary-foreground: var(--fw-ink);
+  --sidebar-accent: var(--fw-cream-200);
+  --sidebar-accent-foreground: var(--fw-navy);
+  --sidebar-border: var(--fw-border);
   --sidebar-ring: var(--fw-coral);
-  --success: var(--derivado-oscuro-ok);
-  --warning: var(--derivado-oscuro-atencion);
+  --success: var(--fw-navy);
+  --warning: var(--derivado-alerta);
 }
 
 @theme inline {
@@ -168,11 +171,12 @@
   --color-ring: var(--ring);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --color-categoria-1: var(--derivado-oscuro-categoria-1);
-  --color-categoria-2: var(--derivado-oscuro-categoria-2);
-  --color-categoria-3: var(--derivado-oscuro-categoria-3);
-  --color-categoria-4: var(--derivado-oscuro-categoria-4);
+  --color-categoria-1: var(--derivado-categoria-1);
+  --color-categoria-2: var(--derivado-categoria-2);
+  --color-categoria-3: var(--derivado-categoria-3);
+  --color-categoria-4: var(--derivado-categoria-4);
   --color-fw-navy-700: var(--fw-navy-700);
+  --color-fw-ink: var(--fw-ink);
   /* Radios de la marca: 4 px chips, 8 px tarjetas (shadcn usa rounded-xl en
      las tarjetas, por eso xl también es 8). 2xl queda en 16 = --r-lg. */
   --radius-sm: var(--r-sm);
