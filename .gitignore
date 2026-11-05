@@ -34,3 +34,7 @@ dist-ssr
 .claude/*
 # Salvo las skills del proyecto (sistema de diseño de Firmaway).
 !.claude/skills/
+
+# Copia suelta del sistema de diseño (con borradores). La versionada está en
+# .claude/skills/firmaway-design/.
+firmaway-design-system/

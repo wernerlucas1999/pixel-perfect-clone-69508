@@ -324,11 +324,22 @@ function msToDate(ms: number | string | null): string | null {
   return new Date(n).toISOString().split("T")[0];
 }
 
+// Nombres de campo comparados sin tildes, mayúsculas ni espacios de los bordes:
+// "Fecha aplicación" y "fecha aplicacion" son el mismo campo. Medido el
+// 2026-10-30 contra los campos reales de ClickUp: no cambia ninguna búsqueda,
+// es prevención.
+function normalizeFieldName(s: unknown): string {
+  return String(s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function findField(fields: any[], names: string[]): any | null {
-  const norm = (s: any) => String(s ?? "").toLowerCase().trim();
   for (const name of names) {
-    const target = norm(name);
-    const f = fields.find((f: any) => norm(f.name) === target);
+    const target = normalizeFieldName(name);
+    const f = fields.find((f: any) => normalizeFieldName(f.name) === target);
     if (f) return f;
   }
   return null;
@@ -857,6 +868,12 @@ export function mapToTask(raw: any): WithPeople<Task> | null {
 
   // time_in_status: ClickUp v2 no lo expone directamente en la lista básica.
   // Usamos las fechas de custom fields para aproximarlo.
+  // RESUELTO (2026-11-05, verificado por Lucas en ClickUp): la fecha de inicio
+  // es la fecha de creación de la tarea (date_created). La tarea se crea el mismo
+  // día en que arranca el trámite, y ese primer tramo (de que llega la tarea a que
+  // se empieza a trabajar) es el primer tramo de la demora interna. La lista no
+  // tiene un campo propio de fecha de creación (medido 2026-10-30): si alguien lo
+  // crea en ClickUp, la app pasaría a usarlo y cambiaría el Lead Time.
   const fechaCreacion =
     getCustomFieldValue(cf, "fecha_creacion") ?? msToDate(parseInt(raw.date_created))!;
   const envioTramite =
@@ -985,10 +1002,14 @@ export function mapToBankTask(raw: any): WithPeople<BankTask> | null {
   ];
 
   // Extraccion de campos personalizados exactos de "Aplicaciones 2.0"
+  // RESUELTO (2026-11-05, verificado por Lucas en ClickUp): la fecha de inicio
+  // es la fecha de creación de la tarea (date_created). La tarea se crea el mismo
+  // día en que arranca el trámite, y ese primer tramo (de que llega la tarea a que
+  // se empieza a trabajar) es el primer tramo de la demora interna. La lista no
+  // tiene un campo propio de fecha de creación (medido 2026-10-30): si alguien lo
+  // crea en ClickUp, la app pasaría a usarlo y cambiaría el Lead Time.
   const fechaCreacion =
-    getCustomFieldValue(cf, "fecha de creaci��n") ??
-    getCustomFieldValue(cf, "fecha de creacion") ??
-    msToDate(parseInt(raw.date_created))!;
+    getCustomFieldValue(cf, "fecha de creación") ?? msToDate(parseInt(raw.date_created))!;
   const solicitudInfo = getCustomFieldValue(cf, "solicitud info");
   const fechaCorreccion =
     getCustomFieldValue(cf, "fecha correc.") ??
@@ -1941,8 +1962,8 @@ async function fetchAllTasksByList(listId: string): Promise<any[]> {
 
 function getCustomFieldDropdownLabel(fields: any[], name: string): string | null {
   if (!Array.isArray(fields)) return null;
-  const target = name.toLowerCase().trim();
-  const f = fields.find((f: any) => String(f?.name ?? "").toLowerCase().trim() === target);
+  const target = normalizeFieldName(name);
+  const f = fields.find((f: any) => normalizeFieldName(f?.name) === target);
   if (!f) return null;
   const v = f.value;
   if (v === null || v === undefined || v === "") return null;

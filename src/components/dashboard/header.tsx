@@ -67,8 +67,15 @@ export function Header({
 }: HeaderProps) {
   const isBankApplication = !allProcesses && selectedProcess === "bank_application";
   const isTaxReturn = selectedProcess === "tax_return";
+  const isAnnualReports = selectedProcess === "annual_reports";
+  const isAgentes = selectedProcess === "agentes_registrados";
   // "Todos los procesos" no aplica los filtros de cada pantalla: no se muestran.
-  const hideStatePackage = isTaxReturn || allProcesses;
+  // PENDIENTE: Annual Reports no tiene campos de Estado ni Paquete en ClickUp, y
+  // Agentes no tiene Paquete. Si algún día se agregan, los filtros vuelven.
+  // Un filtro que no filtra es peor que no tener filtro (el de Paquete de Agentes
+  // además deducía el paquete del nombre de la tarea).
+  const showState = !isTaxReturn && !allProcesses && !isAnnualReports;
+  const showPackage = showState && !isAgentes;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
@@ -190,7 +197,7 @@ export function Header({
       </div>
 
       {/* Bottom Row - State, Package, and Bank Filters */}
-      {!hideStatePackage && (
+      {showState && (
       <div className="flex h-12 items-center gap-x-3 px-4 sm:px-6 lg:px-8 border-t border-border/50 bg-muted/30">
         {/* State Filter */}
         <div className="flex items-center gap-2">
@@ -216,9 +223,10 @@ export function Header({
           </Select>
         </div>
 
-        <div className="h-4 w-px bg-border" />
-
         {/* Package Filter */}
+        {showPackage && (
+        <>
+        <div className="h-4 w-px bg-border" />
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground hidden sm:inline">Paquete:</span>
           <Select
@@ -241,6 +249,8 @@ export function Header({
             </SelectContent>
           </Select>
         </div>
+        </>
+        )}
 
         {/* Bank Filter - Only show for Bank Application */}
         {isBankApplication && (

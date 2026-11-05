@@ -292,8 +292,9 @@ function DashboardPage() {
         refreshSkipped,
       } = await getFilteredAnnualReports({
         data: {
-          state: selectedState,
-          pkg: selectedPackage,
+          // Annual Reports no tiene Estado ni Paquete en ClickUp: sin esos filtros.
+          state: "all",
+          pkg: "all",
           dateRange: dayRange,
           withPeople: canSeePeople,
           refresh: refreshNext.current,
@@ -310,7 +311,7 @@ function DashboardPage() {
       // Antes se tragaba el error y quedaban en pantalla los datos anteriores.
       setError(loadErrorMessage(err, "Annual Reports"));
     }
-  }, [selectedState, selectedPackage, dayRange, canSeePeople, showUpToDate]);
+  }, [dayRange, canSeePeople, showUpToDate]);
 
   const fetchAgentesData = useCallback(async () => {
     try {
@@ -322,7 +323,9 @@ function DashboardPage() {
       } = await getFilteredAgentesRegistrados({
         data: {
           state: selectedState,
-          pkg: selectedPackage,
+          // Agentes no tiene Paquete en ClickUp: nunca se filtra por un valor
+          // elegido en otra pantalla.
+          pkg: "all",
           dateRange: dayRange,
           withPeople: canSeePeople,
           refresh: refreshNext.current,
@@ -339,7 +342,7 @@ function DashboardPage() {
       // Antes se tragaba el error y quedaban en pantalla los datos anteriores.
       setError(loadErrorMessage(err, "Agentes Registrados"));
     }
-  }, [selectedState, selectedPackage, dayRange, canSeePeople, showUpToDate]);
+  }, [selectedState, dayRange, canSeePeople, showUpToDate]);
 
   const fetchTaxReturnData = useCallback(async () => {
     try {
