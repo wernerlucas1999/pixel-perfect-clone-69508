@@ -367,3 +367,25 @@ describe("cacheAges", () => {
     expect(requests()).toBe(0);
   });
 });
+
+// Decisión de Lucas (2026-11-05): en LLC y Bancaria la fecha de inicio es la de
+// creación de la tarea. Si alguien crea en ClickUp un campo "fecha de creación",
+// el Lead Time no puede cambiar solo: medir desde otro campo es un cambio
+// deliberado, no un efecto secundario.
+describe("fecha de inicio de LLC y Bancaria: siempre la de creación de la tarea", () => {
+  const casos: [string, string][] = [
+    ["llc_formation", "fecha_creacion"],
+    ["llc_formation", "Fecha de creación"],
+    ["bank_application", "Fecha de creación"],
+    ["bank_application", "fecha de creacion"],
+  ];
+  for (const [process, campo] of casos) {
+    test(`${process}: un campo "${campo}" en ClickUp no la cambia`, () => {
+      const sin = MAPPERS[process](closedRaw(process, []));
+      const con = MAPPERS[process](closedRaw(process, [field(campo, 1)]));
+      expect(sin.created_at).toBe("2026-01-05");
+      expect(con.created_at).toBe(sin.created_at);
+      expect(C.leadTimeDays(con)).toBe(C.leadTimeDays(sin));
+    });
+  }
+});

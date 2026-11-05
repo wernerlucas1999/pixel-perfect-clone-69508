@@ -868,14 +868,15 @@ export function mapToTask(raw: any): WithPeople<Task> | null {
 
   // time_in_status: ClickUp v2 no lo expone directamente en la lista básica.
   // Usamos las fechas de custom fields para aproximarlo.
-  // RESUELTO (2026-11-05, verificado por Lucas en ClickUp): la fecha de inicio
-  // es la fecha de creación de la tarea (date_created). La tarea se crea el mismo
-  // día en que arranca el trámite, y ese primer tramo (de que llega la tarea a que
-  // se empieza a trabajar) es el primer tramo de la demora interna. La lista no
-  // tiene un campo propio de fecha de creación (medido 2026-10-30): si alguien lo
-  // crea en ClickUp, la app pasaría a usarlo y cambiaría el Lead Time.
-  const fechaCreacion =
-    getCustomFieldValue(cf, "fecha_creacion") ?? msToDate(parseInt(raw.date_created))!;
+  // Fecha de inicio = fecha de creación de la tarea (date_created), a propósito.
+  // Verificado por Lucas en ClickUp (2026-11-05): la tarea se crea el mismo día
+  // en que arranca el trámite, y ese primer tramo es el primer tramo de la
+  // demora interna. NO se busca un campo personalizado: no existe en la lista, y
+  // buscarlo haría que el Lead Time cambie solo el día que alguien lo cree. Un
+  // número que cambia sin que nadie lo decida es peor que uno que no se puede
+  // configurar. Medir desde otro campo tiene que ser un cambio deliberado y
+  // verificado, no un efecto secundario.
+  const fechaCreacion = msToDate(parseInt(raw.date_created))!;
   const envioTramite =
     getCustomFieldValue(cf, "envio_tramite") ?? getCustomFieldValue(cf, "envío tramite");
   const fechaSolicitudEin =
@@ -1002,14 +1003,15 @@ export function mapToBankTask(raw: any): WithPeople<BankTask> | null {
   ];
 
   // Extraccion de campos personalizados exactos de "Aplicaciones 2.0"
-  // RESUELTO (2026-11-05, verificado por Lucas en ClickUp): la fecha de inicio
-  // es la fecha de creación de la tarea (date_created). La tarea se crea el mismo
-  // día en que arranca el trámite, y ese primer tramo (de que llega la tarea a que
-  // se empieza a trabajar) es el primer tramo de la demora interna. La lista no
-  // tiene un campo propio de fecha de creación (medido 2026-10-30): si alguien lo
-  // crea en ClickUp, la app pasaría a usarlo y cambiaría el Lead Time.
-  const fechaCreacion =
-    getCustomFieldValue(cf, "fecha de creación") ?? msToDate(parseInt(raw.date_created))!;
+  // Fecha de inicio = fecha de creación de la tarea (date_created), a propósito.
+  // Verificado por Lucas en ClickUp (2026-11-05): la tarea se crea el mismo día
+  // en que arranca el trámite, y ese primer tramo es el primer tramo de la
+  // demora interna. NO se busca un campo personalizado: no existe en la lista, y
+  // buscarlo haría que el Lead Time cambie solo el día que alguien lo cree. Un
+  // número que cambia sin que nadie lo decida es peor que uno que no se puede
+  // configurar. Medir desde otro campo tiene que ser un cambio deliberado y
+  // verificado, no un efecto secundario.
+  const fechaCreacion = msToDate(parseInt(raw.date_created))!;
   const solicitudInfo = getCustomFieldValue(cf, "solicitud info");
   const fechaCorreccion =
     getCustomFieldValue(cf, "fecha correc.") ??
