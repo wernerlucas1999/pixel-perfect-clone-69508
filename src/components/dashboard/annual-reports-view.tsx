@@ -156,8 +156,11 @@ export function AnnualReportsView({ pieData, kpis }: AnnualReportsViewProps) {
                     </>
                   ) : (
                     <>
-                      <AlertTriangle className="h-5 w-5 text-destructive" />
-                      <span className="text-destructive font-medium">Estado Crítico</span>
+                      {/* Crítico en ámbar, como "Requiere Atención": el rojo queda solo
+                          para errores de carga y competía con el magenta de Annual
+                          Reports. Los distinguen el texto y el peso. */}
+                      <AlertTriangle className="h-5 w-5 text-warning" />
+                      <span className="text-warning font-bold">Estado Crítico</span>
                     </>
                   )}
                 </div>

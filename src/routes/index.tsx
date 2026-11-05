@@ -646,7 +646,12 @@ function DashboardPage() {
         />
         <main className="py-6 px-4 sm:px-6 lg:px-8">
           {allProcesses && me && me.peopleProcesses.length > 0 ? (
-            <AllProcessesView processes={me.peopleProcesses} dateRange={allDayRange} />
+            <div className="space-y-6">
+              <h2 className="text-3xl font-black tracking-titulo-h1 text-foreground">
+                Todos los procesos
+              </h2>
+              <AllProcessesView processes={me.peopleProcesses} dateRange={allDayRange} />
+            </div>
           ) : (
             <div className="space-y-6">
               {/* Título de la pantalla: peso 900 y tracking cerrado, como pide la

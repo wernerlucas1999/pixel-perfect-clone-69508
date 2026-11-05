@@ -123,25 +123,25 @@ export function BottleneckAnalysis({
           <div className="space-y-4">
             <div className="flex h-8 gap-0.5 overflow-hidden rounded-lg">
               <div
-                className="bg-categoria-1 flex items-center justify-center font-mono text-xs font-semibold text-fw-navy-700 transition-all"
+                className="bg-categoria-1 flex items-center justify-center font-mono text-xs font-semibold text-white transition-all"
                 style={{ width: `${ratioCliente}%` }}
               >
                 {ratioCliente > 10 && `${formatNumber(ratioCliente)}%`}
               </div>
               <div
-                className="bg-categoria-2 flex items-center justify-center font-mono text-xs font-semibold text-fw-navy-700 transition-all"
+                className="bg-categoria-2 flex items-center justify-center font-mono text-xs font-semibold text-white transition-all"
                 style={{ width: `${ratioInterno}%` }}
               >
                 {ratioInterno > 10 && `${formatNumber(ratioInterno)}%`}
               </div>
               <div
-                className="bg-categoria-3 flex items-center justify-center font-mono text-xs font-semibold text-fw-navy-700 transition-all"
+                className="bg-categoria-3 flex items-center justify-center font-mono text-xs font-semibold text-white transition-all"
                 style={{ width: `${ratioIRS}%` }}
               >
                 {ratioIRS > 10 && `${formatNumber(ratioIRS)}%`}
               </div>
               <div
-                className="bg-categoria-4 flex items-center justify-center font-mono text-xs font-semibold text-fw-navy-700 transition-all"
+                className="bg-categoria-4 flex items-center justify-center font-mono text-xs font-semibold text-fw-ink transition-all"
                 style={{ width: `${ratioBanco}%` }}
               >
                 {ratioBanco > 10 && `${formatNumber(ratioBanco)}%`}

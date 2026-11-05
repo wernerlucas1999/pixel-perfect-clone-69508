@@ -247,13 +247,13 @@ export function TaxReturnView({
           <div className="space-y-4">
             <div className="flex h-8 gap-0.5 overflow-hidden rounded-lg">
               <div
-                className="bg-categoria-1 flex items-center justify-center font-mono text-xs font-semibold text-fw-navy-700 transition-all"
+                className="bg-categoria-1 flex items-center justify-center font-mono text-xs font-semibold text-white transition-all"
                 style={{ width: `${kpis.ratioCliente}%` }}
               >
                 {kpis.ratioCliente > 10 && `${formatNumber(kpis.ratioCliente)}%`}
               </div>
               <div
-                className="bg-categoria-2 flex items-center justify-center font-mono text-xs font-semibold text-fw-navy-700 transition-all"
+                className="bg-categoria-2 flex items-center justify-center font-mono text-xs font-semibold text-white transition-all"
                 style={{ width: `${kpis.ratioInterno}%` }}
               >
                 {kpis.ratioInterno > 10 && `${formatNumber(kpis.ratioInterno)}%`}
@@ -283,7 +283,7 @@ export function TaxReturnView({
         defaultValue={showByAssignee ? "analisis" : "pendientes"}
         className="w-full"
       >
-        <TabsList className="bg-muted/40">
+        <TabsList>
           {showByAssignee && <TabsTrigger value="analisis">Análisis Tax Cerrados</TabsTrigger>}
           <TabsTrigger value="pendientes">Pendientes en Proceso</TabsTrigger>
         </TabsList>

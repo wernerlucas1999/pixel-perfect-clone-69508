@@ -1852,10 +1852,11 @@ export function calculateAnnualReportsKPIs(tasks: AnnualReportTask[]) {
 export function getAnnualReportsPieData(tasks: AnnualReportTask[]) {
   const k = calculateAnnualReportsKPIs(tasks);
   return [
-    // Colores de estado del tema (no de proceso): ok, atención y gris secundario.
+    // Colores de estado (no de proceso): ok en navy, alerta en ámbar y pendiente en
+    // el tercer tono de categoría (2,52:1 contra el navy; navy-muted daba 1,98).
     { name: "Completado", value: k.completado, fill: "var(--success)" },
     { name: "Próximo a Hacer", value: k.proximoAHacer, fill: "var(--warning)" },
-    { name: "Pendiente", value: k.pendiente, fill: "var(--muted-foreground)" },
+    { name: "Pendiente", value: k.pendiente, fill: "var(--derivado-categoria-3)" },
   ];
 }
 export function calculateAgentesKPIs(tasks: AgenteRegistradoTask[]) {

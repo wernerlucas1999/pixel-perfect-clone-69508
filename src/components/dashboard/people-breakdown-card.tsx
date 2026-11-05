@@ -31,9 +31,20 @@ import { PeopleTaskList } from "./people-task-list";
 
 // Todas las personas en el color del proceso: cada barra ya tiene el nombre al
 // lado, así que un color por persona no agregaba información (y competía con
-// los colores de los procesos). Propias en el color pleno, compartidas al 40%,
-// con 2 px de corte entre tramos y los números escritos: el color nunca es la
-// única pista.
+// los colores de los procesos). Propias en el color pleno; compartidas con
+// RAYAS DIAGONALES del mismo color pleno, 2 px de corte entre tramos y los
+// números escritos: el color nunca es la única pista.
+// HALLAZGO (2026-11-05): hasta acá las compartidas iban al 40% de opacidad, que
+// daba 1,6-2,0:1 contra la tarjeta (una forma gráfica pide 3:1), también en el
+// tema oscuro, y estuvo así en producción. Las rayas en color pleno mantienen el
+// contraste del proceso (>= 3,36:1) y se distinguen sin color, incluso en
+// blanco y negro. Las rayas significan SIEMPRE "compartidas": no usarlas para
+// otra cosa.
+// Fondo rayado para la muestra de la leyenda (la barra usa el patrón SVG).
+function stripesCss(color: string) {
+  return `repeating-linear-gradient(45deg, ${color} 0 2px, var(--card) 2px 4px)`;
+}
+
 function processColor(process: PeopleBreakdown["process"]) {
   return PROCESSES.find((p) => p.id === process)?.color ?? CHART_TEXT_MUTED;
 }
@@ -63,6 +74,7 @@ interface PeopleBreakdownCardProps {
 export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleBreakdownCardProps) {
   const sections = useMemo(() => (breakdown ? [breakdown] : []), [breakdown]);
   const color = breakdown ? processColor(breakdown.process) : CHART_TEXT_MUTED;
+  const stripesId = `rayas-compartidas-${breakdown?.process ?? "x"}`;
   const data = (breakdown?.people ?? []).map((p) => ({
     name: p.name,
     own: p.metrics.ownCount,
@@ -131,7 +143,10 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
                   <span className="flex items-center gap-1.5">
                     <span
                       className="inline-block h-3 w-3 rounded-sm"
-                      style={{ backgroundColor: color, opacity: 0.4 }}
+                      style={{
+                        background: stripesCss(color),
+                        boxShadow: `inset 0 0 0 1px ${color}`,
+                      }}
                     />
                     Compartidas (más de una persona asignada)
                   </span>
@@ -144,6 +159,18 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
                       margin={{ top: 10, right: 230, left: 10, bottom: 5 }}
                       barCategoryGap="25%"
                     >
+                      <defs>
+                        <pattern
+                          id={stripesId}
+                          patternUnits="userSpaceOnUse"
+                          width={6}
+                          height={6}
+                          patternTransform="rotate(45)"
+                        >
+                          <rect width={6} height={6} fill={CHART_GAP} />
+                          <rect width={3} height={6} fill={color} />
+                        </pattern>
+                      </defs>
                       <XAxis
                         type="number"
                         allowDecimals={false}
@@ -181,7 +208,7 @@ export function PeopleBreakdownCard({ breakdown, periodWarning, error }: PeopleB
                         strokeWidth={2}
                       >
                         {data.map((_, i) => (
-                          <Cell key={i} fill={color} fillOpacity={0.4} />
+                          <Cell key={i} fill={`url(#${stripesId})`} />
                         ))}
                         <LabelList
                           dataKey="total"
