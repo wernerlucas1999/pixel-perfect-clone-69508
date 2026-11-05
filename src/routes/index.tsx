@@ -41,6 +41,7 @@ import {
   type AgenteRegistradoTask,
   type TaxReturnTask,
   type PeopleBreakdown,
+  PROCESSES,
 } from "@/lib/clickup-api";
 import { getMe, type Me } from "@/lib/session-api";
 import { formatNumber } from "@/lib/format";
@@ -648,17 +649,24 @@ function DashboardPage() {
             <AllProcessesView processes={me.peopleProcesses} dateRange={allDayRange} />
           ) : (
             <div className="space-y-6">
-              {!isLoading && !error && fetchedAt !== null && (
-                <DataFreshness
-                  fetchedAt={fetchedAt}
-                  refreshing={isLoading}
-                  upToDate={upToDateNotice}
-                  onRefresh={() => {
-                    refreshNext.current = true;
-                    setReloadKey((k) => k + 1);
-                  }}
-                />
-              )}
+              {/* Título de la pantalla: peso 900 y tracking cerrado, como pide la
+                  marca, pero a tamaño de herramienta (30 px), no de informe. */}
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <h2 className="text-3xl font-black tracking-titulo-h1 text-foreground">
+                  {PROCESSES.find((p) => p.id === selectedProcess)?.name}
+                </h2>
+                {!isLoading && !error && fetchedAt !== null && (
+                  <DataFreshness
+                    fetchedAt={fetchedAt}
+                    refreshing={isLoading}
+                    upToDate={upToDateNotice}
+                    onRefresh={() => {
+                      refreshNext.current = true;
+                      setReloadKey((k) => k + 1);
+                    }}
+                  />
+                )}
+              </div>
               {renderProcessView()}
             </div>
           )}

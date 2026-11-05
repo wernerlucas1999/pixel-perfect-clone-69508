@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
 import { PROCESSES, type ProcessType } from "@/lib/clickup-api";
-// Versión clara del logo (artwork crema), la que corresponde sobre fondo oscuro.
-import logoLight from "@/assets/brand/firmaway-logo-light.png";
+// Versión oscura del logo (artwork navy), la que corresponde sobre fondo claro.
+import logo from "@/assets/brand/firmaway-logo.png";
 
 interface SidebarProps {
   // null = "Todos los procesos" (ningún proceso marcado).
@@ -18,7 +18,7 @@ export function Sidebar({ selectedProcess, onProcessChange, panelComercialUrl }:
       <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-sidebar border-r border-sidebar-border px-6 pb-4">
         {/* Logo */}
         <div className="flex h-16 shrink-0 items-center gap-3">
-          <img src={logoLight} alt="Firmaway" className="h-5 w-auto" />
+          <img src={logo} alt="Firmaway" className="h-5 w-auto" />
           <span className="whitespace-nowrap text-sm font-extrabold tracking-titulo-h2 text-muted-foreground">
             Dashboard KPI
           </span>
@@ -39,13 +39,19 @@ export function Sidebar({ selectedProcess, onProcessChange, panelComercialUrl }:
                         onClick={() => onProcessChange(p.id)}
                         className={cn(
                           active
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent",
-                          "w-full group flex items-center gap-x-3 rounded-md p-2 text-sm leading-6 font-medium transition-colors text-left",
+                            ? // Proceso activo: píldora coral maciza, texto en tinta (5,53:1).
+                              "bg-sidebar-primary font-semibold text-sidebar-primary-foreground"
+                            : "font-medium text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent",
+                          "w-full group flex items-center gap-x-3 rounded-full px-3 py-2 text-sm leading-6 transition-colors text-left",
                         )}
                       >
+                        {/* Sobre la píldora coral, el punto lleva un borde blanco para
+                            no perderse (el de LLC es del mismo coral). */}
                         <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          className={cn(
+                            "h-2.5 w-2.5 shrink-0 rounded-full",
+                            active && "ring-2 ring-card",
+                          )}
                           style={{ backgroundColor: p.color }}
                         />
                         {p.name}

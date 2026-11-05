@@ -30,9 +30,11 @@ export function TaskRecordsCard({
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-lg border border-success/40 bg-success/5 p-5">
+          {/* Las dos neutras: rápida y lenta las distinguen el ícono y el título. El
+              verde y el rojo competían con los colores de proceso. */}
+          <div className="rounded-lg border border-border bg-muted/40 p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Zap className="h-5 w-5 text-success" />
+              <Zap className="h-5 w-5 text-foreground" />
               <span className="text-sm font-medium text-muted-foreground">Tarea más rápida</span>
             </div>
             {fastest ? (
@@ -40,7 +42,7 @@ export function TaskRecordsCard({
                 <p className="text-lg font-bold text-foreground line-clamp-2" title={fastest.name}>
                   {fastest.name}
                 </p>
-                <p className="text-3xl font-black tracking-titulo-h1 text-success mt-2">
+                <p className="text-3xl font-black tracking-titulo-h1 text-foreground mt-2">
                   {formatNumber(fastest.days)} {fastest.days === 1 ? "día" : "días"}
                 </p>
               </>
@@ -49,9 +51,9 @@ export function TaskRecordsCard({
             )}
           </div>
 
-          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-5">
+          <div className="rounded-lg border border-border bg-muted/40 p-5">
             <div className="flex items-center gap-2 mb-3">
-              <TurtleIcon className="h-5 w-5 text-destructive" />
+              <TurtleIcon className="h-5 w-5 text-foreground" />
               <span className="text-sm font-medium text-muted-foreground">Tarea más lenta</span>
             </div>
             {slowest ? (
@@ -59,7 +61,7 @@ export function TaskRecordsCard({
                 <p className="text-lg font-bold text-foreground line-clamp-2" title={slowest.name}>
                   {slowest.name}
                 </p>
-                <p className="text-3xl font-black tracking-titulo-h1 text-destructive mt-2">
+                <p className="text-3xl font-black tracking-titulo-h1 text-foreground mt-2">
                   {formatNumber(slowest.days)} {slowest.days === 1 ? "día" : "días"}
                 </p>
               </>

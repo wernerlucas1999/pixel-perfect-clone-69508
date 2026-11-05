@@ -243,7 +243,7 @@ export function PeopleTabs({
   if (!showPeople) return <>{summary}</>;
   return (
     <Tabs defaultValue="resumen" className="w-full">
-      <TabsList className="bg-muted/40">
+      <TabsList>
         <TabsTrigger value="resumen">Resumen</TabsTrigger>
         <TabsTrigger value="personas">Rendimiento por Colaborador</TabsTrigger>
       </TabsList>

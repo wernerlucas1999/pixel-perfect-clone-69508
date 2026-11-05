@@ -140,8 +140,11 @@ export function Header({
               <Button
                 variant="outline"
                 className={cn(
-                  "w-[180px] sm:w-[240px] justify-start text-left font-normal border-border",
-                  !dateRange.from && "text-muted-foreground",
+                  "w-[180px] sm:w-[240px] justify-start rounded-full text-left",
+                  // Con un período elegido, chip coral (como en el panel comercial).
+                  dateRange.from
+                    ? "border-primary bg-primary font-semibold text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                    : "border-border font-normal text-muted-foreground",
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -206,7 +209,14 @@ export function Header({
             value={selectedState}
             onValueChange={(value) => onStateChange(value as StateType | "all")}
           >
-            <SelectTrigger className="w-[120px] h-8 text-xs bg-input border-border text-foreground">
+            <SelectTrigger
+            className={cn(
+              "w-[120px] h-8 rounded-full text-xs",
+              selectedState !== "all"
+                ? "border-primary bg-primary font-semibold text-primary-foreground"
+                : "border-border bg-input text-foreground",
+            )}
+          >
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border">
@@ -233,7 +243,14 @@ export function Header({
             value={selectedPackage}
             onValueChange={(value) => onPackageChange(value as PackageType | "all")}
           >
-            <SelectTrigger className="w-[110px] h-8 text-xs bg-input border-border text-foreground">
+            <SelectTrigger
+            className={cn(
+              "w-[110px] h-8 rounded-full text-xs",
+              selectedPackage !== "all"
+                ? "border-primary bg-primary font-semibold text-primary-foreground"
+                : "border-border bg-input text-foreground",
+            )}
+          >
               <SelectValue placeholder="Paquete" />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border">
@@ -262,7 +279,14 @@ export function Header({
                 value={selectedBank}
                 onValueChange={(value) => onBankChange(value as BankType | "all")}
               >
-                <SelectTrigger className="w-[100px] h-8 text-xs bg-input border-border text-foreground">
+                <SelectTrigger
+            className={cn(
+              "w-[100px] h-8 rounded-full text-xs",
+              selectedBank !== "all"
+                ? "border-primary bg-primary font-semibold text-primary-foreground"
+                : "border-border bg-input text-foreground",
+            )}
+          >
                   <SelectValue placeholder="Banco" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
